@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Оценки фильмов ⭐</title>
+    <!-- Supabase JavaScript библиотека -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            background: linear-gradient(145deg, #1a1e2f 0%, #2a2f44 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #eaeef2;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        h1 {
+            font-size: 2.2rem;
+            background: linear-gradient(120deg, #a7c0e7, #d6b0f0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .nav-buttons {
+            display: flex;
+            gap: 15px;
+        }
+        .nav-btn {
+            background: #283153;
+            color: white;
+            text-decoration: none;
+            padding: 12px 30px;
+            border-radius: 40px;
+            font-weight: 600;
+            border-bottom: 4px solid #0e142b;
+            transition: 0.1s linear;
+        }
+        .nav-btn.active {
+            background: #5f4bb6;
+            border-bottom-color: #352b66;
+        }
+        .nav-btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        /* Статус пользователя */
+        .user-status {
+            display: inline-block;
+            background: #262d4a;
+            padding: 5px 15px;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            color: #a3b7f0;
+            margin-left: 15px;
+        }
+        .user-status.connected {
+            color: #a0ffa0;
+            border-left: 3px solid #4CAF50;
+        }
+        
+        /* Фильтры */
+        .filter-bar {
+            background: #1a1f33;
+            border-radius: 40px;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            border: 1px solid #3d435b;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 15px;
+        }
+        .filter-title {
+            color: #a3b7f0;
+            font-weight: 600;
+            margin-right: 10px;
+        }
+        .filter-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            flex: 1;
+        }
+        .filter-btn {
+            background: #262d4a;
+            border: 1px solid #48537e;
+            color: #cbd5ff;
+            padding: 8px 20px;
+            border-radius: 40px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .filter-btn:hover {
+            background: #323d62;
+            transform: translateY(-2px);
+        }
+        .filter-btn.active {
+            background: #5f4bb6;
+            color: white;
+            border-color: #a990ff;
+            box-shadow: 0 0 10px rgba(169, 144, 255, 0.5);
+        }
+        
+        /* Сетка карточек */
+        .projects-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 25px;
+            margin-top: 30px;
+        }
+        
+        /* Карточка фильма */
+        .card {
+            background: #191f33dd;
+            backdrop-filter: blur(8px);
+            border-radius: 30px;
+            overflow: hidden;
+            border: 1px solid #50587e;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            cursor: pointer;
+        }
+        .card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 30px rgba(0,0,0,0.5);
+            border-color: #7f8bc0;
+        }
+        
+        /* Стили для карточек, отмеченных галочкой (просмотренных) */
+        .card.watched {
+            border: 3px solid #4CAF50;
+            box-shadow: 0 0 20px rgba(76, 175, 80, 0.3);
+        }
+        
+        .poster {
+            height: 300px;
+            background-size: cover;
+            background-position: center;
+            position: relative;
+            background-color: #2a2f44;
+        }
+        .no-poster {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #2a2f44, #1a1e2f);
+            color: #6b729b;
+            font-size: 3rem;
+        }
+        .rating-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: #ffd966;
+            color: #1a1e2f;
+            font-weight: 700;
+            font-size: 1.2rem;
+            padding: 8px 15px;
+            border-radius: 30px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            border: 2px solid #ffb347;
+        }
+        
+        /* Индикатор просмотра */
+        .watched-badge {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: #4CAF50;
+            color: white;
+            font-size: 1.2rem;
+            padding: 8px 15px;
+            border-radius: 30px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            border: 2px solid #fff;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .card-content {
+            padding: 20px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .card-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #fff;
+            line-height: 1.3;
+        }
+        .card-type {
+            display: inline-block;
+            background: #303a60;
+            padding: 6px 15px;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            color: #cbd5ff;
+            margin-bottom: 10px;
+            align-self: flex-start;
+        }
+        .card-meta {
+            color: #a3b7f0;
+            font-size: 0.95rem;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        /* Блок с оценками (изначально скрыт) */
+        .ratings-panel {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-out, padding 0.3s ease;
+            background: #0f1322cc;
+            border-top: 1px solid #50587e;
+            padding: 0 20px;
+        }
+        
+        .card.expanded .ratings-panel {
+            max-height: 500px;
+            padding: 20px;
+        }
+        
+        .ratings-title {
+            font-size: 1.1rem;
+            color: #ffd966;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .ratings-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .rating-item {
+            background: #1a1f33;
+            border-radius: 20px;
+            padding: 12px;
+            border: 1px solid #3d435b;
+        }
+        
+        .rating-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            color: #a3b7f0;
+            font-size: 0.9rem;
+        }
+        
+        .rating-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            text-align: center;
+            padding: 8px;
+            border-radius: 15px;
+            transition: all 0.3s ease;
+        }
+        
+        /* Цвета для оценок */
+        .rating-value.rating-1 { background: #ff4444; color: white; }
+        .rating-value.rating-2 { background: #ff6666; color: white; }
+        .rating-value.rating-3 { background: #ff8888; color: white; }
+        .rating-value.rating-4 { background: #ffaa66; color: #1a1e2f; }
+        .rating-value.rating-5 { background: #ffcc66; color: #1a1e2f; }
+        .rating-value.rating-6 { background: #ffff66; color: #1a1e2f; }
+        .rating-value.rating-7 { background: #aaff66; color: #1a1e2f; }
+        .rating-value.rating-8 { background: #66ff66; color: #1a1e2f; }
+        .rating-value.rating-9 { background: #44dd44; color: white; }
+        .rating-value.rating-10 { background: #22bb22; color: white; }
+        .rating-value.rating-null { 
+            background: #4a4f6e; 
+            color: #cbd5ff; 
+            font-style: italic;
+        }
+        
+        .film-info {
+            background: #1a1f33;
+            border-radius: 20px;
+            padding: 15px;
+            border: 1px solid #3d435b;
+            margin-top: 10px;
+        }
+        
+        .film-info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            color: #a3b7f0;
+            font-size: 0.95rem;
+        }
+        
+        .film-info-value {
+            color: #ffd966;
+        }
+        
+        .empty-state {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 60px;
+            background: #1a1f33;
+            border-radius: 40px;
+            color: #a3b7f0;
+            font-size: 1.2rem;
+        }
+        .empty-state span {
+            font-size: 4rem;
+            display: block;
+            margin-bottom: 20px;
+        }
+        
+        .error-message {
+            color: #ff8a8a;
+            background: #3d1e2b;
+            padding: 15px 25px;
+            border-radius: 40px;
+            margin: 20px 0;
+            display: none;
+        }
+        
+        .success-message {
+            color: #a0ffa0;
+            background: #1e3a2a;
+            padding: 10px 20px;
+            border-radius: 40px;
+            display: none;
+            margin: 10px 0;
+        }
+        
+        .stats {
+            color: #a3b7f0;
+            font-size: 1rem;
+            padding: 15px 0 0 0;
+            text-align: right;
+        }
+        
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .nav-buttons {
+                justify-content: center;
+            }
+            .ratings-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⭐ НАШИ ОЦЕНКИ</h1>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <span class="user-status" id="userStatus">🔌 Подключение...</span>
+                <div class="nav-buttons">
+                    <a href="index.html" class="nav-btn">🎡 Колесо</a>
+                    <a href="catalog.html" class="nav-btn">📚 Каталог</a>
+                    <a href="ratings.html" class="nav-btn active">⭐ Оценки</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Панель фильтрации по типу -->
+        <div class="filter-bar">
+            <span class="filter-title">📌 Фильтр:</span>
+            <div class="filter-buttons" id="filterButtons">
+                <button class="filter-btn active" data-filter="all">Все</button>
+                <button class="filter-btn" data-filter="Фильм">🎬 Фильмы</button>
+                <button class="filter-btn" data-filter="Сериал">📺 Сериалы</button>
+                <button class="filter-btn" data-filter="Мультфильм">🖍️ Мультфильмы</button>
+                <button class="filter-btn" data-filter="Аниме">🇯🇵 Аниме</button>
+            </div>
+        </div>
+
+        <div class="success-message" id="successMessage"></div>
+        <div class="error-message" id="errorMessage"></div>
+
+        <div class="stats" id="stats"></div>
+
+        <div class="projects-grid" id="projectsGrid"></div>
+    </div>
+
+    <script>
+        (function(){
+            // ========== ПОДКЛЮЧЕНИЕ К SUPABASE ==========
+            const SUPABASE_URL = 'https://iiaqffifefwicfzztjcs.supabase.co';
+            const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlpYXFmZmlmZWZ3aWNmenp0amNzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA2Njk4NzcsImV4cCI6MjA1NjI0NTg3N30.9T-3J0J0J0J0J0J0J0J0J0J0J0J0J0J0J0J0J0J0';
+            
+            const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            
+            // ========== ХРАНИЛИЩЕ ==========
+            let myProjects = [];
+            let currentFilter = 'all';
+            let currentUser = null;
+            
+            // ========== DOM ЭЛЕМЕНТЫ ==========
+            const projectsGrid = document.getElementById('projectsGrid');
+            const statsDiv = document.getElementById('stats');
+            const errorMessageDiv = document.getElementById('errorMessage');
+            const successMessageDiv = document.getElementById('successMessage');
+            const filterButtons = document.querySelectorAll('.filter-btn');
+            const userStatusSpan = document.getElementById('userStatus');
+            
+            // ========== АВТОРИЗАЦИЯ ==========
+            async function initAuth() {
+                try {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    
+                    if (session?.user) {
+                        currentUser = session.user;
+                        userStatusSpan.textContent = `✅ Подключено!`;
+                        userStatusSpan.classList.add('connected');
+                    } else {
+                        const { data, error } = await supabase.auth.signInAnonymously();
+                        if (error) throw error;
+                        
+                        currentUser = data.user;
+                        userStatusSpan.textContent = `✅ Подключено!`;
+                        userStatusSpan.classList.add('connected');
+                    }
+                    
+                    await loadUserProjects();
+                    
+                    // Подписываемся на изменения
+                    supabase
+                        .channel('user_films_changes')
+                        .on('postgres_changes', { 
+                            event: '*', 
+                            schema: 'public', 
+                            table: 'user_films',
+                            filter: `user_id=eq.${currentUser.id}`
+                        }, () => {
+                            loadUserProjects();
+                        })
+                        .subscribe();
+                        
+                } catch (error) {
+                    showError('Ошибка авторизации: ' + error.message);
+                    userStatusSpan.textContent = '❌ Ошибка';
+                }
+            }
+            
+            // ========== ЗАГРУЗКА ПРОЕКТОВ ==========
+            async function loadUserProjects() {
+                if (!currentUser) return;
+                
+                try {
+                    const { data, error } = await supabase
+                        .from('user_films')
+                        .select(`
+                            *,
+                            films (*)
+                        `)
+                        .eq('user_id', currentUser.id);
+                    
+                    if (error) throw error;
+                    
+                    // Преобразуем в удобный формат и оставляем только просмотренные
+                    myProjects = data
+                        .map(uf => ({
+                            id: uf.film_id,
+                            title: uf.films.title,
+                            title_ru: uf.films.title_ru,
+                            year: uf.films.year,
+                            rating: uf.films.kinopoisk_rating,
+                            poster: uf.films.poster,
+                            type: uf.type,
+                            inProgress: uf.in_progress,
+                            ratings: {
+                                senya: uf.rating_senya,
+                                vanya: uf.rating_vanya,
+                                pasha: uf.rating_pasha,
+                                volodya: uf.rating_volodya
+                            },
+                            watched_date: uf.watched_date,
+                            notes: uf.notes
+                        }))
+                        .filter(project => {
+                            // Оставляем только те, у которых есть хотя бы одна оценка
+                            return project.ratings.senya || project.ratings.vanya || 
+                                   project.ratings.pasha || project.ratings.volodya;
+                        });
+                    
+                    renderProjects();
+                    updateStats();
+                    
+                } catch (error) {
+                    showError('Ошибка загрузки: ' + error.message);
+                }
+            }
+            
+            // ========== ФИЛЬТРАЦИЯ ==========
+            filterButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    filterButtons.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    currentFilter = btn.dataset.filter;
+                    renderProjects();
+                    updateStats();
+                });
+            });
+            
+            // ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
+            function showError(text) {
+                errorMessageDiv.style.display = 'block';
+                errorMessageDiv.textContent = '❌ ' + text;
+                setTimeout(() => {
+                    errorMessageDiv.style.display = 'none';
+                }, 3000);
+            }
+            
+            function showSuccess(text) {
+                successMessageDiv.style.display = 'block';
+                successMessageDiv.textContent = '✅ ' + text;
+                setTimeout(() => {
+                    successMessageDiv.style.display = 'none';
+                }, 2000);
+            }
+            
+            // ========== ФУНКЦИЯ ДЛЯ ПОЛУЧЕНИЯ ЦВЕТА ОЦЕНКИ ==========
+            function getRatingClass(rating) {
+                if (!rating) return 'rating-null';
+                return `rating-${rating}`;
+            }
+            
+            // ========== ФУНКЦИЯ ДЛЯ ФОРМАТИРОВАНИЯ ОЦЕНКИ ==========
+            function formatRating(rating) {
+                if (!rating) return 'Не смотрел';
+                return rating;
+            }
+            
+            // ========== СТАТИСТИКА ==========
+            function updateStats() {
+                const total = myProjects.length;
+                statsDiv.textContent = `📊 Всего оценённых фильмов: ${total}`;
+            }
+            
+            // ========== ПОЛУЧЕНИЕ ОТФИЛЬТРОВАННЫХ ПРОЕКТОВ ==========
+            function getFilteredProjects() {
+                if (currentFilter === 'all') return myProjects;
+                return myProjects.filter(p => p.type === currentFilter);
+            }
+            
+            // ========== ОТРИСОВКА КАРТОЧЕК ==========
+            function renderProjects() {
+                const filtered = getFilteredProjects();
+                
+                if (filtered.length === 0) {
+                    projectsGrid.innerHTML = `
+                        <div class="empty-state">
+                            <span>⭐</span>
+                            <p>Пока нет оценённых фильмов</p>
+                            <p style="font-size: 1rem; margin-top: 10px; color: #6b729b;">
+                                Отмечайте фильмы галочкой ✅ в каталоге и ставьте оценки
+                            </p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                let html = '';
+                filtered.forEach(project => {
+                    let posterEmoji = '🎬';
+                    if (project.type === 'Аниме') posterEmoji = '🇯🇵';
+                    else if (project.type === 'Сериал') posterEmoji = '📺';
+                    else if (project.type === 'Мультфильм') posterEmoji = '🖍️';
+                    
+                    const posterHtml = project.poster 
+                        ? `<div class="poster" style="background-image: url('${project.poster}');">
+                             <div class="rating-badge">${project.rating}</div>
+                           </div>`
+                        : `<div class="poster">
+                             <div class="no-poster">${posterEmoji}</div>
+                             <div class="rating-badge">${project.rating}</div>
+                           </div>`;
+                    
+                    html += `
+                        <div class="card" onclick="toggleCard(this)">
+                            ${posterHtml}
+                            <div class="card-content">
+                                <div class="card-title">${project.title_ru || project.title}</div>
+                                <span class="card-type">${project.type}</span>
+                                <div class="card-meta">
+                                    <span>📅 ${project.year}</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Блок с оценками (скрыт по умолчанию) -->
+                            <div class="ratings-panel">
+                                <div class="ratings-title">
+                                    ⭐ Оценки друзей
+                                </div>
+                                
+                                <div class="ratings-grid">
+                                    <div class="rating-item">
+                                        <div class="rating-label">
+                                            <span>Сеня</span>
+                                            <span>${project.ratings.senya ? project.ratings.senya + '/10' : 'не смотрел'}</span>
+                                        </div>
+                                        <div class="rating-value ${getRatingClass(project.ratings.senya)}">
+                                            ${formatRating(project.ratings.senya)}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="rating-item">
+                                        <div class="rating-label">
+                                            <span>Ваня</span>
+                                            <span>${project.ratings.vanya ? project.ratings.vanya + '/10' : 'не смотрел'}</span>
+                                        </div>
+                                        <div class="rating-value ${getRatingClass(project.ratings.vanya)}">
+                                            ${formatRating(project.ratings.vanya)}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="rating-item">
+                                        <div class="rating-label">
+                                            <span>Паша</span>
+                                            <span>${project.ratings.pasha ? project.ratings.pasha + '/10' : 'не смотрел'}</span>
+                                        </div>
+                                        <div class="rating-value ${getRatingClass(project.ratings.pasha)}">
+                                            ${formatRating(project.ratings.pasha)}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="rating-item">
+                                        <div class="rating-label">
+                                            <span>Володя</span>
+                                            <span>${project.ratings.volodya ? project.ratings.volodya + '/10' : 'не смотрел'}</span>
+                                        </div>
+                                        <div class="rating-value ${getRatingClass(project.ratings.volodya)}">
+                                            ${formatRating(project.ratings.volodya)}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="film-info">
+                                    <div class="film-info-row">
+                                        <span>Год выпуска:</span>
+                                        <span class="film-info-value">${project.year}</span>
+                                    </div>
+                                    <div class="film-info-row">
+                                        <span>Рейтинг Кинопоиска:</span>
+                                        <span class="film-info-value">${project.rating}</span>
+                                    </div>
+                                    ${project.watched_date ? `
+                                    <div class="film-info-row">
+                                        <span>Дата просмотра:</span>
+                                        <span class="film-info-value">${new Date(project.watched_date).toLocaleDateString()}</span>
+                                    </div>
+                                    ` : ''}
+                                    ${project.notes ? `
+                                    <div class="film-info-row">
+                                        <span>Заметки:</span>
+                                        <span class="film-info-value">${project.notes}</span>
+                                    </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                projectsGrid.innerHTML = html;
+            }
+            
+            // ========== ФУНКЦИЯ ДЛЯ РАСКРЫТИЯ КАРТОЧКИ ==========
+            window.toggleCard = function(card) {
+                card.classList.toggle('expanded');
+            };
+            
+            // ========== ЗАПУСК ==========
+            initAuth();
+            
+        })();
+    </script>
+</body>
+</html>
