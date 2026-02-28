@@ -1,5 +1,5 @@
 (function () {
-    const API_URL = 'https://movie-project-server-1tzp.onrender.com';
+    const API_URL = 'https://DeutscherFuchs.pythonanywhere.com';
 
     let allItems = [];
     let wheelItems = [];

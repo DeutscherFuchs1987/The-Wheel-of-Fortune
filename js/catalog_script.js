@@ -1,6 +1,6 @@
 (function () {
     const KINOPOISK_TOKEN = 'ea7304c3-e5e9-43cd-aca0-f47d1abd3621';
-    const API_URL = 'https://movie-project-server-1tzp.onrender.com';
+    const API_URL = 'https://DeutscherFuchs.pythonanywhere.com';
 
     let myProjects = [];
     let currentFilter = 'all';
