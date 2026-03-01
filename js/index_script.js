@@ -48,6 +48,7 @@
         jsonUploadElement.style.display = 'none';
     }
 
+
     async function loadProjectsFromServer() {
         try {
             console.log('Загружаем проекты с сервера...');
@@ -63,6 +64,62 @@
 
             console.log('Проектов в планах:', plannedProjects.length);
 
+ 
+            const newItems = plannedProjects.map(p => ({
+                Название: p.title_ru || p.title,
+                Жанр: p.type || 'Фильм'
+            }));
+
+
+            const currentTitles = new Set(allItems.map(item => item.Название));
+            const newTitles = newItems.filter(item => !currentTitles.has(item.Название));
+
+            if (newTitles.length > 0) {
+                allItems = [...allItems, ...newTitles];
+                showSuccess(`Добавлено ${newTitles.length} новых проектов`);
+                
+
+                updateFilters();
+                
+
+                if (currentCategory === 'Все') {
+
+                    const newWheelItems = newTitles.map(item => item.Название);
+                    wheelItems = [...wheelItems, ...newWheelItems];
+                } else {
+
+                    const newItemsInCategory = newTitles
+                        .filter(item => item.Жанр === currentCategory)
+                        .map(item => item.Название);
+                    wheelItems = [...wheelItems, ...newItemsInCategory];
+                }
+                
+                // Обновляем отображение, но НЕ сбрасываем eliminatedLog
+                drawWheel();
+                updatePoolView();
+                updateEliminatedView();
+            } else {
+                console.log('Новых проектов нет');
+            }
+
+        } catch (error) {
+            console.error('Ошибка загрузки:', error);
+            showError('Ошибка загрузки с сервера: ' + error.message);
+        }
+    }
+
+
+    async function fullReload() {
+        try {
+            const response = await fetch(`${API_URL}/projects`);
+            if (!response.ok) throw new Error(`Ошибка загрузки: ${response.status}`);
+
+            const allProjects = await response.json();
+
+            const plannedProjects = allProjects.filter(p =>
+                !p.watched && !p.inProgress
+            );
+
             allItems = plannedProjects.map(p => ({
                 Название: p.title_ru || p.title,
                 Жанр: p.type || 'Фильм'
@@ -70,8 +127,6 @@
 
             if (allItems.length > 0) {
                 showSuccess(`Загружено ${allItems.length} проектов в планах`);
-            } else {
-                console.log('Нет проектов в планах');
             }
 
             updateFilters();
@@ -90,7 +145,6 @@
         addManualBtn.addEventListener('click', () => {
             const val = manualInput.value.trim();
             if (val === '') return;
-
             addManualProject(val);
         });
     }
@@ -124,7 +178,7 @@
             }
             if (!response.ok) throw new Error(`Ошибка добавления: ${response.status}`);
 
-            await loadProjectsFromServer();
+            await fullReload();
             if (manualInput) manualInput.value = '';
 
         } catch (error) {
@@ -149,7 +203,7 @@
 
                 if (!deleteResponse.ok) throw new Error('Ошибка удаления');
 
-                await loadProjectsFromServer();
+                await fullReload();
                 showSuccess(`Удалено: ${itemName}`);
             }
         } catch (error) {
@@ -173,7 +227,7 @@
                     });
                 }
 
-                await loadProjectsFromServer();
+                await fullReload();
                 showSuccess('Все проекты удалены');
 
             } catch (error) {
@@ -477,7 +531,8 @@
     resetWheelBtn.addEventListener('click', syncWheel);
 
     console.log('Запуск колеса фортуны...');
-    loadProjectsFromServer();
+    
+    fullReload();
 
     setInterval(loadProjectsFromServer, 30000);
 
