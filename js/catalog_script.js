@@ -51,12 +51,52 @@
         return 'Фильм';
     }
 
+    // ========== ФУНКЦИЯ ОБНОВЛЕНИЯ ДАННЫХ ПРОЕКТА ==========
+    async function refreshProjectDetails(projectId) {
+        try {
+            const response = await fetch(`${API_URL}/projects/${projectId}/refresh`, {
+                method: 'POST'
+            });
+            
+            if (!response.ok) throw new Error('Ошибка обновления');
+            
+            const data = await response.json();
+            
+            // Обновляем проект в локальном массиве
+            const index = myProjects.findIndex(p => p.id === projectId);
+            if (index !== -1) {
+                myProjects[index] = data.project;
+                renderProjects();
+                
+                // Если модалка открыта, обновляем её
+                const modal = document.querySelector('.project-modal.active');
+                if (modal && modal.dataset.projectId === projectId) {
+                    openModal(projectId);
+                }
+            }
+            
+            showSuccess('Данные проекта обновлены!');
+        } catch (error) {
+            showError('Ошибка обновления: ' + error.message);
+        }
+    }
+
+    // ========== ЗАГРУЗКА ПРОЕКТОВ ==========
     async function loadUnwatchedProjects() {
         try {
             const response = await fetch(`${API_URL}/projects`);
             if (!response.ok) throw new Error(`Ошибка загрузки: ${response.status}`);
             const allProjects = await response.json();
             myProjects = allProjects.filter(p => !p.watched);
+            
+            // Автоматическое обновление данных для всех проектов при загрузке
+            for (let project of myProjects) {
+                if (!project.genres || !project.description || project.genres.length === 0) {
+                    console.log(`Обновляю данные для: ${project.title_ru}`);
+                    await refreshProjectDetails(project.id);
+                }
+            }
+            
             renderProjects();
             updateStats();
         } catch (error) {
@@ -77,7 +117,10 @@
             watched: false,
             watchedDate: null,
             ratings: { senya: null, vanya: null, pasha: null, volodya: null },
-            notes: ''
+            notes: '',
+            genres: film.genres || [],
+            description: film.description || 'Описание будет добавлено позже',
+            filmId: film.filmId
         };
 
         try {
@@ -115,6 +158,11 @@
                 myProjects[index] = { ...myProjects[index], ...updates };
                 renderProjects();
                 updateStats();
+
+                const modal = document.querySelector('.project-modal.active');
+                if (modal && modal.dataset.projectId === projectId) {
+                    openModal(projectId);
+                }
             }
         } catch (error) {
             showError('Ошибка обновления: ' + error.message);
@@ -135,6 +183,12 @@
             myProjects = myProjects.filter(p => p.id !== projectId);
             renderProjects();
             updateStats();
+
+            const modal = document.querySelector('.project-modal.active');
+            if (modal && modal.dataset.projectId === projectId) {
+                closeModal();
+            }
+
             showSuccess('Проект удалён');
         } catch (error) {
             showError('Ошибка удаления: ' + error.message);
@@ -160,6 +214,7 @@
             myProjects = myProjects.filter(p => p.id !== projectId);
             renderProjects();
             updateStats();
+            closeModal();
             showSuccess('Фильм перемещён в просмотренное! ✨');
         } catch (error) {
             showError('Ошибка: ' + error.message);
@@ -191,6 +246,144 @@
         return myProjects.filter(p => p.type === currentFilter);
     }
 
+    // ========== ФУНКЦИИ ДЛЯ МОДАЛЬНОГО ОКНА ==========
+
+    window.openModal = function (projectId) {
+        const project = myProjects.find(p => p.id === projectId);
+        if (!project) return;
+
+        const existingModal = document.querySelector('.project-modal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        document.body.classList.add('modal-open');
+
+        const modal = document.createElement('div');
+        modal.className = 'project-modal active';
+        modal.dataset.projectId = project.id;
+
+        let posterEmoji = '🎬';
+        if (project.type === 'Аниме') posterEmoji = '🇯🇵';
+        else if (project.type === 'Сериал') posterEmoji = '📺';
+        else if (project.type === 'Мультфильм') posterEmoji = '🖍️';
+
+        // Форматируем жанры
+        let genresHtml = '';
+        if (project.genres && project.genres.length > 0) {
+            genresHtml = project.genres.map(g => {
+                const genreName = typeof g === 'string' ? g : (g.genre || g);
+                return `<span class="modal-genre-tag">${genreName}</span>`;
+            }).join('');
+        } else {
+            genresHtml = '<span class="modal-genre-tag">Жанры будут добавлены</span>';
+        }
+
+        // Форматируем описание (обрезаем если слишком длинное)
+        let description = project.description || 'Описание будет загружено позже...';
+        if (description.length > 500) {
+            description = description.substring(0, 500) + '...';
+        }
+
+        modal.innerHTML = `
+        <div class="modal-overlay" onclick="window.closeModal()"></div>
+        <div class="modal-content">
+            <button class="modal-close" onclick="window.closeModal()">✕</button>
+            
+            <div class="modal-layout">
+                <div class="modal-left">
+                    <div class="modal-poster">
+                        ${project.poster
+                ? `<img src="${project.poster}" alt="${project.title_ru || project.title}">`
+                : `<div class="modal-no-poster">${posterEmoji}</div>`
+            }
+                    </div>
+                    
+                    <div class="modal-quick-info">
+                        <div class="modal-rating-badge">
+                            <span>⭐</span>
+                            <span>${project.rating}</span>
+                        </div>
+                        <div class="modal-year-badge">
+                            <span>📅</span>
+                            <span>${project.year}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="modal-actions">
+                        <button class="modal-action-btn delete" onclick="window.deleteProject('${project.id}'); window.closeModal()" title="Удалить">
+                            <span class="btn-icon">🗑️</span>
+                            <span class="btn-text">Удалить</span>
+                        </button>
+                        <button class="modal-action-btn progress ${project.inProgress ? 'active' : ''}" 
+                                onclick="window.toggleInProgress('${project.id}')" 
+                                title="${project.inProgress ? 'Убрать из процесса' : 'В процессе'}">
+                            <span class="btn-icon">🔥</span>
+                            <span class="btn-text">${project.inProgress ? 'В процессе' : 'В процесс'}</span>
+                        </button>
+                        <button class="modal-action-btn watched" 
+                                onclick="window.markAsWatched('${project.id}'); window.closeModal()" 
+                                title="Просмотрено">
+                            <span class="btn-icon">✅</span>
+                            <span class="btn-text">Просмотрено</span>
+                        </button>
+                        <button class="modal-action-btn refresh" 
+                                onclick="window.refreshProjectDetails('${project.id}')" 
+                                title="Обновить данные">
+                            <span class="btn-icon">🔄</span>
+                            <span class="btn-text">Обновить</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="modal-right">
+                    <h2 class="modal-title">${project.title_ru || project.title}</h2>
+                    
+                    <div class="modal-section">
+                        <h3>Жанры</h3>
+                        <div class="modal-genres">
+                            ${genresHtml}
+                        </div>
+                    </div>
+                    
+                    <div class="modal-section">
+                        <h3>Описание</h3>
+                        <p class="modal-description">${description}</p>
+                    </div>
+                    
+                    <div class="modal-section">
+                        <h3>Плеер</h3>
+                        <div class="modal-player-placeholder">
+                            <div class="player-placeholder-content">
+                                <span class="player-icon">🎬</span>
+                                <p>Здесь будет плеер</p>
+                                <p class="player-hint">Интеграция с Rutube/VK в разработке</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+        document.body.appendChild(modal);
+    };
+
+    window.closeModal = function () {
+        const modal = document.querySelector('.project-modal');
+        if (modal) {
+            modal.classList.remove('active');
+            document.body.classList.remove('modal-open');
+            setTimeout(() => {
+                if (modal && modal.parentNode) {
+                    modal.remove();
+                }
+            }, 300);
+        }
+    };
+
+    // ========== ОТРИСОВКА КАРТОЧЕК ==========
+
     function renderProjects() {
         const filtered = getFilteredProjects();
 
@@ -202,14 +395,14 @@
             }
 
             projectsGrid.innerHTML = `
-                        <div class="empty-state">
-                            <span>🎬</span>
-                            <p>${emptyMessage}</p>
-                            <p style="font-size: 1rem; margin-top: 10px; color: #6b729b;">
-                                Начните искать фильмы выше и добавляйте их в каталог
-                            </p>
-                        </div>
-                    `;
+                <div class="empty-state">
+                    <span>🎬</span>
+                    <p>${emptyMessage}</p>
+                    <p style="font-size: 1rem; margin-top: 10px; color: #6b729b;">
+                        Начните искать фильмы выше и добавляйте их в каталог
+                    </p>
+                </div>
+            `;
             return;
         }
 
@@ -228,61 +421,62 @@
 
             const posterHtml = project.poster
                 ? `<div class="poster" style="background-image: url('${project.poster}');">
-                             ${project.rating !== '—' ? `<div class="rating-badge">${project.rating}</div>` : '<div class="rating-badge none">—</div>'}
-                           </div>`
+                     ${project.rating !== '—' ? `<div class="rating-badge">${project.rating}</div>` : '<div class="rating-badge none">—</div>'}
+                   </div>`
                 : `<div class="poster">
-                             <div class="no-poster">${posterEmoji}</div>
-                             ${project.rating !== '—' ? `<div class="rating-badge">${project.rating}</div>` : '<div class="rating-badge none">—</div>'}
-                           </div>`;
+                     <div class="no-poster">${posterEmoji}</div>
+                     ${project.rating !== '—' ? `<div class="rating-badge">${project.rating}</div>` : '<div class="rating-badge none">—</div>'}
+                   </div>`;
 
             html += `
-                        <div class="card ${project.inProgress ? 'in-progress' : ''}" data-project-id="${project.id}">
-                            <div class="card-buttons">
-                                <button class="delete-card" onclick="window.deleteProject('${project.id}')" title="Удалить">✕</button>
-                                <div style="display: flex; gap: 5px;">
-                                    <button class="in-progress-btn ${project.inProgress ? 'active' : ''}" 
-                                            onclick="window.toggleInProgress('${project.id}')" 
-                                            title="${project.inProgress ? 'Убрать из процесса' : 'В процессе просмотра'}">
-                                        🔥
-                                    </button>
-                                    <button class="watched-btn" 
-                                            onclick="window.markAsWatched('${project.id}')" 
-                                            title="Отметить просмотренным">
-                                        ✅
-                                    </button>
-                                </div>
-                            </div>
-                            ${posterHtml}
-                            <div class="card-content">
-                                <div class="card-title">${project.title_ru || project.title}</div>
-                                
-                                <div class="type-selector">
-                                    <button class="type-btn ${project.type === 'Фильм' ? 'active' : ''}" 
-                                            onclick="window.changeProjectType('${project.id}', 'Фильм')" 
-                                            title="Фильм">🎬</button>
-                                    <button class="type-btn ${project.type === 'Сериал' ? 'active' : ''}" 
-                                            onclick="window.changeProjectType('${project.id}', 'Сериал')" 
-                                            title="Сериал">📺</button>
-                                    <button class="type-btn ${project.type === 'Мультфильм' ? 'active' : ''}" 
-                                            onclick="window.changeProjectType('${project.id}', 'Мультфильм')" 
-                                            title="Мультфильм">🖍️</button>
-                                    <button class="type-btn ${project.type === 'Аниме' ? 'active' : ''}" 
-                                            onclick="window.changeProjectType('${project.id}', 'Аниме')" 
-                                            title="Аниме">🇯🇵</button>
-                                </div>
-                                
-                                <div class="card-meta">
-                                    <span>📅 ${project.year}</span>
-                                </div>
-                                <div class="rating-details">
-                                    <div class="rating-row">
-                                        <span class="rating-label">Кинопоиск:</span>
-                                        <span class="rating-value">${project.rating}</span>
-                                    </div>
-                                </div>
+                <div class="card ${project.inProgress ? 'in-progress' : ''}" data-project-id="${project.id}" onclick="openModal('${project.id}')">
+                    <div class="card-buttons" onclick="event.stopPropagation()">
+                        <button class="delete-card" onclick="window.deleteProject('${project.id}')" title="Удалить">✕</button>
+                        <div style="display: flex; gap: 5px;">
+                            <button class="in-progress-btn ${project.inProgress ? 'active' : ''}" 
+                                    onclick="window.toggleInProgress('${project.id}')" 
+                                    title="${project.inProgress ? 'Убрать из процесса' : 'В процессе просмотра'}">
+                                🔥
+                            </button>
+                            <button class="watched-btn" 
+                                    onclick="window.markAsWatched('${project.id}')" 
+                                    title="Отметить просмотренным">
+                                ✅
+                            </button>
+                        </div>
+                    </div>
+                    ${posterHtml}
+                    <div class="card-content">
+                        <div class="card-title">${project.title_ru || project.title}</div>
+                        
+                        <div class="type-selector" onclick="event.stopPropagation()">
+                            <button class="type-btn ${project.type === 'Фильм' ? 'active' : ''}" 
+                                    onclick="window.changeProjectType('${project.id}', 'Фильм')" 
+                                    title="Фильм">🎬</button>
+                            <button class="type-btn ${project.type === 'Сериал' ? 'active' : ''}" 
+                                    onclick="window.changeProjectType('${project.id}', 'Сериал')" 
+                                    title="Сериал">📺</button>
+                            <button class="type-btn ${project.type === 'Мультфильм' ? 'active' : ''}" 
+                                    onclick="window.changeProjectType('${project.id}', 'Мультфильм')" 
+                                    title="Мультфильм">🖍️</button>
+                            <button class="type-btn ${project.type === 'Аниме' ? 'active' : ''}" 
+                                    onclick="window.changeProjectType('${project.id}', 'Аниме')" 
+                                    title="Аниме">🇯🇵</button>
+                        </div>
+                        
+                        <div class="card-meta">
+                            <span>📅 ${project.year}</span>
+                        </div>
+                        
+                        <div class="rating-details">
+                            <div class="rating-row">
+                                <span class="rating-label">Кинопоиск:</span>
+                                <span class="rating-value">${project.rating}</span>
                             </div>
                         </div>
-                    `;
+                    </div>
+                </div>
+            `;
         });
 
         projectsGrid.innerHTML = html;
@@ -322,18 +516,18 @@
                     const posterUrl = film.posterUrlPreview || film.posterUrl;
 
                     resultsHtml += `
-                                <div class="result-item" onclick="window.addMovieFromKinopoisk('${encodeURIComponent(JSON.stringify(film).replace(/'/g, "\\'"))}')">
-                                    <div class="result-poster" style="background-image: url('${posterUrl || ''}'); background-size: cover; background-position: center;"></div>
-                                    <div class="result-info">
-                                        <div class="result-title">${film.nameRu || film.nameEn || 'Без названия'}</div>
-                                        <div class="result-meta">
-                                            <span>📅 ${film.year || '?'}</span>
-                                            <span class="result-rating">⭐ ${film.rating || '—'}</span>
-                                            <span class="result-type">${type}</span>
-                                        </div>
-                                    </div>
+                        <div class="result-item" onclick="window.addMovieFromKinopoisk('${encodeURIComponent(JSON.stringify(film).replace(/'/g, "\\'"))}')">
+                            <div class="result-poster" style="background-image: url('${posterUrl || ''}'); background-size: cover; background-position: center;"></div>
+                            <div class="result-info">
+                                <div class="result-title">${film.nameRu || film.nameEn || 'Без названия'}</div>
+                                <div class="result-meta">
+                                    <span>📅 ${film.year || '?'}</span>
+                                    <span class="result-rating">⭐ ${film.rating || '—'}</span>
+                                    <span class="result-type">${type}</span>
                                 </div>
-                            `;
+                            </div>
+                        </div>
+                    `;
                 });
 
                 searchResults.innerHTML = resultsHtml;
@@ -363,20 +557,10 @@
         }
     };
 
-    window.deleteProject = function (id) {
-        deleteProject(id);
-    };
-
-    window.toggleInProgress = function (id) {
-        toggleInProgress(id);
-    };
-
-    window.markAsWatched = function (id) {
-        markAsWatched(id);
-    };
-
-    window.changeProjectType = function (id, newType) {
-        changeProjectType(id, newType);
-    };
+    window.deleteProject = deleteProject;
+    window.toggleInProgress = toggleInProgress;
+    window.markAsWatched = markAsWatched;
+    window.changeProjectType = changeProjectType;
+    window.refreshProjectDetails = refreshProjectDetails;
 
 })();
