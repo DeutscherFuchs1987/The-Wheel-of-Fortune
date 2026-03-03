@@ -20,6 +20,24 @@
             </div>
         </div>
 
+        <!-- Панель голосования -->
+        <div class="voting-panel">
+            <div class="voting-info">
+                <span class="voting-title">🗳️ Голосование</span>
+                <span class="voting-stats" id="votingStats">0 активных голосов</span>
+            </div>
+            <div class="voting-actions">
+                <button class="voting-btn primary" id="openVoteBtn">🗳️ Голосовать</button>
+                <button class="voting-btn secondary" id="resetBoostsBtn">🔄 Сбросить бусты</button>
+                <button class="voting-btn secondary" id="showStatsBtn">📊 Статистика</button>
+            </div>
+            <!-- Индикатор кто голосовал -->
+            <div class="voters-indicator" id="votersIndicator" style="display: none;">
+                <span>Проголосовали:</span>
+                <span class="voters-list" id="votersList"></span>
+            </div>
+        </div>
+
         <div class="filter-badge" id="filter-buttons"></div>
         <div class="success-message" id="successMessage"></div>
 
@@ -47,8 +65,8 @@
                 </div>
                 <canvas id="wheelCanvas" width="600" height="600"></canvas>
                 <div class="wheel-controls">
-                    <button id="spinOnceBtn">🎲 Крутить (один выбор)</button>
-                    <button id="spinEliminateBtn" class="eliminate-mode">⚔️ Режим исключения</button>
+                    <button id="spinOnceBtn">🎲 Один выбор</button>
+                    <button id="spinEliminateBtn" class="eliminate-mode">⚔️ На исключение</button>
                     <button id="resetWheelBtn">⟲ Сброс колеса</button>
                 </div>
                 <div class="spin-indicator" id="spinIndicator"></div>
