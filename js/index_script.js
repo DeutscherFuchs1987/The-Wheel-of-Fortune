@@ -1,5 +1,5 @@
 (function () {
-    const API_URL = 'https://DeutscherFuchs.pythonanywhere.com';
+    const API_URL = 'https://movie-server-deutscherfuchs.amvera.io';
 
     let allItems = [];
     let wheelItems = [];

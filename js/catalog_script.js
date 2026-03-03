@@ -1,6 +1,6 @@
 (function () {
     const KINOPOISK_TOKEN = 'ea7304c3-e5e9-43cd-aca0-f47d1abd3621';
-    const API_URL = 'https://DeutscherFuchs.pythonanywhere.com';
+    const API_URL = 'https://movie-server-deutscherfuchs.amvera.io';
 
     let myProjects = [];
     let currentFilter = 'all';
@@ -51,52 +51,47 @@
         return 'Фильм';
     }
 
-    // ========== ФУНКЦИЯ ОБНОВЛЕНИЯ ДАННЫХ ПРОЕКТА ==========
     async function refreshProjectDetails(projectId) {
         try {
             const response = await fetch(`${API_URL}/projects/${projectId}/refresh`, {
                 method: 'POST'
             });
-            
+
             if (!response.ok) throw new Error('Ошибка обновления');
-            
+
             const data = await response.json();
-            
-            // Обновляем проект в локальном массиве
+
             const index = myProjects.findIndex(p => p.id === projectId);
             if (index !== -1) {
                 myProjects[index] = data.project;
                 renderProjects();
-                
-                // Если модалка открыта, обновляем её
+
                 const modal = document.querySelector('.project-modal.active');
                 if (modal && modal.dataset.projectId === projectId) {
                     openModal(projectId);
                 }
             }
-            
+
             showSuccess('Данные проекта обновлены!');
         } catch (error) {
             showError('Ошибка обновления: ' + error.message);
         }
     }
 
-    // ========== ЗАГРУЗКА ПРОЕКТОВ ==========
     async function loadUnwatchedProjects() {
         try {
             const response = await fetch(`${API_URL}/projects`);
             if (!response.ok) throw new Error(`Ошибка загрузки: ${response.status}`);
             const allProjects = await response.json();
             myProjects = allProjects.filter(p => !p.watched);
-            
-            // Автоматическое обновление данных для всех проектов при загрузке
+
             for (let project of myProjects) {
                 if (!project.genres || !project.description || project.genres.length === 0) {
                     console.log(`Обновляю данные для: ${project.title_ru}`);
                     await refreshProjectDetails(project.id);
                 }
             }
-            
+
             renderProjects();
             updateStats();
         } catch (error) {
@@ -248,6 +243,50 @@
 
     // ========== ФУНКЦИИ ДЛЯ МОДАЛЬНОГО ОКНА ==========
 
+    window.playOnRutube = async function (projectId, title, year, originalTitle) {
+        const btn = document.getElementById(`rutube-btn-${projectId}`);
+        const playerDiv = document.getElementById(`rutube-player-${projectId}`);
+
+        if (!btn || !playerDiv) return;
+
+        // Показываем загрузку
+        const originalText = btn.textContent;
+        btn.textContent = '🔍 Ищем видео...';
+        btn.disabled = true;
+
+        try {
+            const response = await fetch(`${API_URL}/api/search-rutube`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: title,
+                    year: year,
+                    original_title: originalTitle,
+                    movie_id: projectId
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Прячем кнопку, показываем плеер
+                btn.style.display = 'none';
+                playerDiv.style.display = 'block';
+                playerDiv.innerHTML = data.embed_code;
+                showSuccess('Видео загружено!');
+            } else {
+                alert('Не удалось найти видео на Rutube. Попробуйте найти вручную.');
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
+        } catch (error) {
+            console.error('Ошибка:', error);
+            alert('Ошибка при поиске видео');
+            btn.textContent = originalText;
+            btn.disabled = false;
+        }
+    };
+
     window.openModal = function (projectId) {
         const project = myProjects.find(p => p.id === projectId);
         if (!project) return;
@@ -351,14 +390,15 @@
                         <p class="modal-description">${description}</p>
                     </div>
                     
+                    <!-- Rutube секция с одной кнопкой -->
                     <div class="modal-section">
-                        <h3>Плеер</h3>
-                        <div class="modal-player-placeholder">
-                            <div class="player-placeholder-content">
-                                <span class="player-icon">🎬</span>
-                                <p>Здесь будет плеер</p>
-                                <p class="player-hint">Интеграция с Rutube/VK в разработке</p>
-                            </div>
+                        <h3>🎬 Смотреть на Rutube</h3>
+                        <div class="rutube-simple-container">
+                            <button class="rutube-simple-btn" id="rutube-btn-${project.id}" 
+                                    onclick="playOnRutube('${project.id}', '${project.title_ru || project.title}', '${project.year}', '${project.title || ''}')">
+                                ▶️ Смотреть на Rutube
+                            </button>
+                            <div class="rutube-player" id="rutube-player-${project.id}" style="display: none;"></div>
                         </div>
                     </div>
                 </div>
