@@ -13,13 +13,13 @@
     let spinRotations = 8;
 
     // Переменные для голосования
-    let filmBoosts = {}; // { 'id1': 0.3, 'id2': 0.1 }
+    let filmBoosts = {};
     let currentUser = localStorage.getItem('voting_user') || null;
-    let userVotes = {}; // { 'senya': ['id1', 'id2', 'id3'], ... }
+    let userVotes = {};
     let isEliminationMode = false;
     let currentCycleId = null;
 
-    // Карта для быстрого поиска
+    // Карты для поиска
     let titleToIdMap = {};
     let idToTitleMap = {};
 
@@ -40,7 +40,6 @@
     const errorMessageDiv = document.getElementById('errorMessage');
     const successMessageDiv = document.getElementById('successMessage');
     const spinIndicator = document.getElementById('spinIndicator');
-    const fileNameSpan = document.getElementById('fileName');
 
     const spinOnceBtn = document.getElementById('spinOnceBtn');
     const spinEliminateBtn = document.getElementById('spinEliminateBtn');
@@ -51,7 +50,7 @@
     const rotationsSlider = document.getElementById('rotationsSlider');
     const rotationsValue = document.getElementById('rotationsValue');
 
-    // Новые элементы для голосования
+    // Элементы голосования
     const openVoteBtn = document.getElementById('openVoteBtn');
     const resetBoostsBtn = document.getElementById('resetBoostsBtn');
     const showStatsBtn = document.getElementById('showStatsBtn');
@@ -59,50 +58,83 @@
     const votersIndicator = document.getElementById('votersIndicator');
     const votersList = document.getElementById('votersList');
 
-    // Переключатель режимов
-    const modeSwitch = document.getElementById('modeSwitch');
-    const modeIndicator = document.getElementById('modeIndicator');
-
     // Скрываем ненужные элементы
     const jsonUploadElement = document.querySelector('.json-upload');
     if (jsonUploadElement) jsonUploadElement.style.display = 'none';
 
+    // ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
+    function showError(text) {
+        console.error('Ошибка:', text);
+        errorMessageDiv.style.display = 'block';
+        errorMessageDiv.textContent = '❌ ' + text;
+        setTimeout(() => {
+            errorMessageDiv.style.display = 'none';
+        }, 3000);
+    }
+
+    function showSuccess(text) {
+        console.log('Успех:', text);
+        successMessageDiv.style.display = 'block';
+        successMessageDiv.textContent = '✅ ' + text;
+        setTimeout(() => {
+            successMessageDiv.style.display = 'none';
+        }, 2000);
+    }
+
     // ========== ПЕРЕКЛЮЧАТЕЛЬ РЕЖИМОВ ==========
-    function initModeSwitch() {
-        if (!modeSwitch || !modeIndicator) return;
+    function initModeToggle() {
+        const modeToggle = document.getElementById('modeToggle');
+        const normalLabel = document.querySelector('.mode-label:first-child');
+        const elimLabel = document.querySelector('.elimination-label');
 
-        // При клике на переключатель
-        modeSwitch.addEventListener('click', () => {
-            isEliminationMode = !isEliminationMode;
-            updateModeUI();
-            drawWheel(); // Перерисовываем колесо с новыми размерами
-        });
+        if (!modeToggle) return;
 
-        // Обновляем визуал в зависимости от режима
-        function updateModeUI() {
-            if (isEliminationMode) {
-                modeSwitch.classList.add('elimination-mode');
-                modeIndicator.textContent = '⚔️';
-                modeIndicator.style.color = '#ff6b8b';
-
-                // Увеличиваем кнопки режима исключения
-                spinEliminateBtn.classList.add('active-mode');
-                spinOnceBtn.classList.remove('active-mode');
-            } else {
-                modeSwitch.classList.remove('elimination-mode');
-                modeIndicator.textContent = '🎲';
-                modeIndicator.style.color = '#ffd966';
-
-                // Увеличиваем кнопки обычного режима
-                spinOnceBtn.classList.add('active-mode');
-                spinEliminateBtn.classList.remove('active-mode');
+        function updateModeLabels(isElim) {
+            if (normalLabel && elimLabel) {
+                if (isElim) {
+                    normalLabel.classList.remove('active');
+                    elimLabel.classList.add('active');
+                } else {
+                    normalLabel.classList.add('active');
+                    elimLabel.classList.remove('active');
+                }
             }
         }
 
-        updateModeUI();
+        updateModeLabels(false);
+
+        modeToggle.addEventListener('click', () => {
+            isEliminationMode = !isEliminationMode;
+            modeToggle.classList.toggle('elimination', isEliminationMode);
+            updateModeLabels(isEliminationMode);
+            drawWheel();
+            showSuccess(isEliminationMode ?
+                '⚔️ Режим исключения: бусты уменьшают шанс вылететь' :
+                '🎲 Обычный режим: бусты увеличивают шанс победы');
+        });
     }
 
-    // ========== ИНИЦИАЛИЗАЦИЯ ПОЛЬЗОВАТЕЛЯ ==========
+    // ========== РАБОТА С ID ФИЛЬМОВ ==========
+    function updateMaps() {
+        titleToIdMap = {};
+        idToTitleMap = {};
+        allItems.forEach(item => {
+            if (item.id) {
+                titleToIdMap[item.Название] = item.id;
+                idToTitleMap[item.id] = item.Название;
+            }
+        });
+    }
+
+    function getFilmIdByTitle(title) {
+        return titleToIdMap[title] || null;
+    }
+
+    function getFilmTitleById(id) {
+        return idToTitleMap[id] || id;
+    }
+
+    // ========== ВЫБОР ПОЛЬЗОВАТЕЛЯ ==========
     function showUserSelection() {
         const modal = document.createElement('div');
         modal.className = 'user-modal';
@@ -127,7 +159,6 @@
                         <span class="user-name">Володя</span>
                     </button>
                 </div>
-                <p class="user-hint">Выберите, чтобы голосовать за фильмы</p>
             </div>
         `;
         document.body.appendChild(modal);
@@ -143,38 +174,13 @@
         });
     }
 
-    // ========== ФУНКЦИИ ДЛЯ РАБОТЫ С ID ФИЛЬМОВ ==========
-    function updateMaps() {
-        titleToIdMap = {};
-        idToTitleMap = {};
-        allItems.forEach(item => {
-            if (item.id) {
-                titleToIdMap[item.Название] = item.id;
-                idToTitleMap[item.id] = item.Название;
-            }
-        });
-    }
-
-    function getFilmIdByTitle(title) {
-        return titleToIdMap[title] || null;
-    }
-
-    function getFilmTitleById(id) {
-        return idToTitleMap[id] || id;
-    }
-
-    // ========== ФУНКЦИИ ДЛЯ ГОЛОСОВАНИЯ ==========
-
+    // ========== ФУНКЦИИ ГОЛОСОВАНИЯ ==========
     async function startVotingCycle() {
         try {
-            const response = await fetch(`${API_URL}/api/voting/start`, {
-                method: 'POST'
-            });
+            const response = await fetch(`${API_URL}/api/voting/start`, { method: 'POST' });
             const data = await response.json();
-
             if (data.success) {
                 currentCycleId = data.cycle_id;
-                console.log('🔄 Новый цикл голосования:', currentCycleId);
                 return true;
             }
             return false;
@@ -220,7 +226,6 @@
 
     function updateVotersIndicator() {
         if (!votersIndicator || !votersList) return;
-
         const voters = Object.keys(userVotes);
         if (voters.length > 0) {
             votersIndicator.style.display = 'flex';
@@ -233,270 +238,14 @@
         }
     }
 
-    function showVotingModal() {
-        if (!currentUser) {
-            showUserSelection();
-            return;
-        }
-
-        const filteredItems = currentCategory === 'Все'
-            ? allItems
-            : allItems.filter(item => item.Жанр === currentCategory);
-
-        const availableMovies = filteredItems.filter(item => item.id);
-
-        if (availableMovies.length === 0) {
-            showError('Нет фильмов в выбранной категории для голосования');
-            return;
-        }
-
-        const currentUserVotes = userVotes[currentUser] || [];
-
-        const modal = document.createElement('div');
-        modal.className = 'voting-modal';
-        modal.innerHTML = `
-            <div class="voting-modal-content">
-                <h3>🗳️ Голосование (${currentCategory === 'Все' ? 'все категории' : currentCategory})</h3>
-                <p class="voting-user">Игрок: 👤 ${currentUser === 'senya' ? 'Сеня' :
-                currentUser === 'vanya' ? 'Ваня' :
-                    currentUser === 'pasha' ? 'Паша' : 'Володя'}</p>
-                
-                <div class="voting-search">
-                    <input type="text" id="voteSearchInput" class="vote-search-input" 
-                           placeholder="🔍 Поиск фильма...">
-                </div>
-                
-                <p class="voting-hint">Выберите 3 фильма, чтобы повысить их шансы на победу</p>
-                
-                <div class="voting-movies" id="votingMoviesList">
-                    ${availableMovies.map(movie => {
-                        const isSelected = currentUserVotes.includes(movie.id);
-                        const boost = filmBoosts[movie.id] || 0;
-                        return `
-                            <div class="voting-movie-item ${isSelected ? 'selected' : ''}" 
-                                 data-film-id="${movie.id}"
-                                 data-film-title="${movie.Название.toLowerCase()}">
-                                <div class="movie-info">
-                                    <span class="movie-title">${movie.Название}</span>
-                                    ${boost > 0 ? `<span class="movie-boost">+${boost.toFixed(1)}</span>` : ''}
-                                </div>
-                                <span class="movie-check">✓</span>
-                            </div>
-                        `;
-                    }).join('')}
-                </div>
-                
-                <div class="voting-footer">
-                    <div class="selected-counter" id="selectedCounter">Выбрано: ${currentUserVotes.length}/3</div>
-                    <div class="voting-buttons">
-                        <button class="voting-btn cancel" id="cancelVoteBtn">Отмена</button>
-                        <button class="voting-btn submit" id="submitVoteBtn" 
-                                ${currentUserVotes.length !== 3 ? 'disabled' : ''}>
-                            Сохранить
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        document.body.appendChild(modal);
-
-        const movieItems = modal.querySelectorAll('.voting-movie-item');
-        const submitBtn = modal.querySelector('#submitVoteBtn');
-        const cancelBtn = modal.querySelector('#cancelVoteBtn');
-        const counter = modal.querySelector('#selectedCounter');
-        const searchInput = modal.querySelector('#voteSearchInput');
-        const moviesList = modal.querySelector('#votingMoviesList');
-
-        let selectedVotes = [...currentUserVotes];
-
-        function filterMovies(searchTerm) {
-            const term = searchTerm.toLowerCase().trim();
-            const allMovies = Array.from(movieItems);
-
-            allMovies.forEach(item => {
-                const title = item.dataset.filmTitle;
-                if (term === '' || title.includes(term)) {
-                    item.style.display = 'flex';
-                } else {
-                    item.style.display = 'none';
-                }
-            });
-        }
-
-        searchInput.addEventListener('input', (e) => {
-            filterMovies(e.target.value);
-        });
-
-        function updateSelection() {
-            movieItems.forEach(item => {
-                const filmId = item.dataset.filmId;
-                if (selectedVotes.includes(filmId)) {
-                    item.classList.add('selected');
-                } else {
-                    item.classList.remove('selected');
-                }
-            });
-            counter.textContent = `Выбрано: ${selectedVotes.length}/3`;
-            submitBtn.disabled = selectedVotes.length !== 3;
-        }
-
-        movieItems.forEach(item => {
-            item.addEventListener('click', () => {
-                const filmId = item.dataset.filmId;
-
-                if (selectedVotes.includes(filmId)) {
-                    selectedVotes = selectedVotes.filter(id => id !== filmId);
-                } else {
-                    if (selectedVotes.length < 3) {
-                        selectedVotes.push(filmId);
-                    } else {
-                        showError('Можно выбрать только 3 фильма');
-                        return;
-                    }
-                }
-                updateSelection();
-            });
-        });
-
-        submitBtn.addEventListener('click', async () => {
-            if (!currentCycleId) {
-                const started = await startVotingCycle();
-                if (!started) {
-                    showError('Не удалось создать цикл голосования');
-                    return;
-                }
-            }
-
-            try {
-                const response = await fetch(`${API_URL}/api/voting/cast`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        cycle_id: currentCycleId,
-                        user: currentUser,
-                        film_ids: selectedVotes,
-                        boost: 0.1
-                    })
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    showSuccess('✓ Голоса сохранены!');
-                    modal.remove();
-                    await loadFilmBoosts();
-                    await loadAllVotes();
-                    drawWheel();
-                } else {
-                    showError('Ошибка: ' + data.error);
-                }
-            } catch (error) {
-                showError('Ошибка сети: ' + error.message);
-            }
-        });
-
-        cancelBtn.addEventListener('click', () => modal.remove());
-    }
-
-    async function resetBoosts() {
-        if (!confirm('Сбросить все накопленные бусты? Это действие нельзя отменить.')) return;
-
-        try {
-            const response = await fetch(`${API_URL}/api/voting/clear`, {
-                method: 'POST'
-            });
-
-            if (response.ok) {
-                filmBoosts = {};
-                userVotes = {};
-                currentCycleId = null;
-                showSuccess('🔄 Все бусты сброшены');
-                updateVotingUI();
-                updateVotersIndicator();
-                drawWheel();
-            }
-        } catch (error) {
-            showError('Ошибка сброса: ' + error.message);
-        }
-    }
-
-    function showStatsModal() {
-        const filteredItems = currentCategory === 'Все'
-            ? allItems
-            : allItems.filter(item => item.Жанр === currentCategory);
-
-        const filteredIds = new Set(filteredItems.map(item => item.id));
-
-        const boostEntries = Object.entries(filmBoosts)
-            .filter(([id]) => filteredIds.has(id))
-            .map(([id, boost]) => ({
-                title: getFilmTitleById(id),
-                boost: boost
-            }))
-            .filter(item => item.title)
-            .sort((a, b) => b.boost - a.boost);
-
-        const modal = document.createElement('div');
-        modal.className = 'stats-modal';
-        modal.innerHTML = `
-            <div class="stats-modal-content">
-                <h3>📊 Статистика бустов (${currentCategory === 'Все' ? 'все категории' : currentCategory})</h3>
-                <div class="stats-list">
-                    ${boostEntries.length > 0 ?
-                boostEntries.map(item => `
-                            <div class="stat-item">
-                                <span class="stat-film">${item.title}</span>
-                                <span class="stat-boost">+${item.boost.toFixed(1)}</span>
-                            </div>
-                        `).join('') :
-                '<p class="stats-empty">В этой категории пока нет бустов</p>'
-            }
-                </div>
-                <button class="stats-close cosmic-close">🌌 ЗАКРЫТЬ 🌌</button>
-            </div>
-        `;
-
-        document.body.appendChild(modal);
-
-        // Добавляем космический эффект при наведении
-        const closeBtn = modal.querySelector('.cosmic-close');
-        closeBtn.addEventListener('mouseenter', () => {
-            createCosmicEffect(closeBtn);
-        });
-
-        closeBtn.addEventListener('click', () => modal.remove());
-    }
-
-    // Космический эффект для кнопки
-    function createCosmicEffect(btn) {
-        // Создаем звездочки вокруг кнопки
-        for (let i = 0; i < 5; i++) {
-            setTimeout(() => {
-                const star = document.createElement('span');
-                star.className = 'cosmic-star';
-                star.style.left = Math.random() * 100 + '%';
-                star.style.top = Math.random() * 100 + '%';
-                star.style.animation = `starTwinkle 0.5s ease-out forwards`;
-                btn.appendChild(star);
-
-                setTimeout(() => star.remove(), 500);
-            }, i * 100);
-        }
-    }
-
-    // ========== ФУНКЦИИ ДЛЯ РАБОТЫ С КОЛЕСОМ ==========
-
+    // ========== ФУНКЦИИ КОЛЕСА ==========
     function getWeightedRandomIndex(items) {
         const weights = items.map(item => {
             const filmId = getFilmIdByTitle(item);
             const boost = filmBoosts[filmId] || 0;
-
-            if (isEliminationMode) {
-                return Math.max(0.1, 1 - boost);
-            } else {
-                return 1 + boost;
-            }
+            return isEliminationMode ?
+                Math.max(0.1, 1 - boost * 2) :
+                1 + boost * 2;
         });
 
         const totalWeight = weights.reduce((a, b) => a + b, 0);
@@ -532,11 +281,13 @@
         const weights = wheelItems.map(item => {
             const filmId = getFilmIdByTitle(item);
             const boost = filmBoosts[filmId] || 0;
-            return 1 + (isEliminationMode ? -boost * 0.5 : boost);
+            return isEliminationMode ?
+                Math.max(0.3, 1 - boost * 2) :
+                1 + boost * 2;
         });
+
         const positiveWeights = weights.map(w => Math.max(0.3, w));
         const totalWeight = positiveWeights.reduce((a, b) => a + b, 0);
-
         const radius = 280;
         const centerX = 300, centerY = 300;
 
@@ -580,10 +331,8 @@
                 ctx.font = 'bold 14px "Segoe UI", sans-serif';
                 ctx.shadowColor = 'rgba(0,0,0,0.5)';
                 ctx.shadowBlur = 4;
-
                 const stars = Math.min(3, Math.ceil(boost * 10));
-                let starText = '★'.repeat(stars);
-                ctx.fillText(starText, radius - 45, -10);
+                ctx.fillText('★'.repeat(stars), radius - 45, -10);
                 ctx.restore();
             }
 
@@ -613,229 +362,6 @@
         ctx.shadowBlur = 0;
     }
 
-    // ========== ЗАГРУЗКА ПРОЕКТОВ ==========
-
-    async function loadProjectsFromServer() {
-        try {
-            const response = await fetch(`${API_URL}/projects`);
-            if (!response.ok) throw new Error(`Ошибка загрузки: ${response.status}`);
-
-            const allProjects = await response.json();
-
-            const plannedProjects = allProjects.filter(p =>
-                !p.watched && !p.inProgress
-            );
-
-            const newItems = plannedProjects.map(p => ({
-                Название: p.title_ru || p.title,
-                Жанр: p.type || 'Фильм',
-                id: p.id
-            }));
-
-            const currentTitles = new Set(allItems.map(item => item.Название));
-            const newTitles = newItems.filter(item => !currentTitles.has(item.Название));
-
-            if (newTitles.length > 0) {
-                allItems = [...allItems, ...newTitles];
-                updateMaps();
-                showSuccess(`Добавлено ${newTitles.length} новых проектов`);
-                updateFilters();
-
-                if (currentCategory === 'Все') {
-                    const newWheelItems = newTitles.map(item => item.Название);
-                    wheelItems = [...wheelItems, ...newWheelItems];
-                } else {
-                    const newItemsInCategory = newTitles
-                        .filter(item => item.Жанр === currentCategory)
-                        .map(item => item.Название);
-                    wheelItems = [...wheelItems, ...newItemsInCategory];
-                }
-
-                drawWheel();
-                updatePoolView();
-                updateEliminatedView();
-            }
-
-        } catch (error) {
-            console.error('Ошибка загрузки:', error);
-        }
-    }
-
-    async function fullReload() {
-        try {
-            const response = await fetch(`${API_URL}/projects`);
-            if (!response.ok) throw new Error(`Ошибка загрузки: ${response.status}`);
-
-            const allProjects = await response.json();
-
-            const plannedProjects = allProjects.filter(p =>
-                !p.watched && !p.inProgress
-            );
-
-            allItems = plannedProjects.map(p => ({
-                Название: p.title_ru || p.title,
-                Жанр: p.type || 'Фильм',
-                id: p.id
-            }));
-
-            updateMaps();
-
-            showSuccess(`Загружено ${allItems.length} проектов в планах`);
-
-            updateFilters();
-            syncWheel();
-
-            await loadFilmBoosts();
-            await loadAllVotes();
-
-        } catch (error) {
-            console.error('Ошибка загрузки:', error);
-            allItems = [];
-            updateFilters();
-            syncWheel();
-        }
-    }
-
-    // ========== БАЗОВЫЕ ФУНКЦИИ ==========
-
-    function showError(text) {
-        console.error('Ошибка:', text);
-        errorMessageDiv.style.display = 'block';
-        errorMessageDiv.textContent = '❌ ' + text;
-        setTimeout(() => {
-            errorMessageDiv.style.display = 'none';
-        }, 3000);
-    }
-
-    function showSuccess(text) {
-        console.log('Успех:', text);
-        successMessageDiv.style.display = 'block';
-        successMessageDiv.textContent = '✅ ' + text;
-        setTimeout(() => {
-            successMessageDiv.style.display = 'none';
-        }, 2000);
-    }
-
-    function updateFilters() {
-        const genres = extractGenres();
-        filterDiv.innerHTML = '';
-
-        const allBtn = document.createElement('button');
-        allBtn.textContent = 'Все';
-        allBtn.dataset.filter = 'Все';
-        if (currentCategory === 'Все') allBtn.classList.add('active');
-        allBtn.addEventListener('click', () => {
-            document.querySelectorAll('.filter-badge button').forEach(b => b.classList.remove('active'));
-            allBtn.classList.add('active');
-            currentCategory = 'Все';
-            syncWheel();
-        });
-        filterDiv.appendChild(allBtn);
-
-        genres.forEach(genre => {
-            const btn = document.createElement('button');
-            btn.textContent = genre;
-            btn.dataset.filter = genre;
-            if (currentCategory === genre) btn.classList.add('active');
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.filter-badge button').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                currentCategory = genre;
-                syncWheel();
-            });
-            filterDiv.appendChild(btn);
-        });
-    }
-
-    function extractGenres() {
-        const genres = new Set();
-        allItems.forEach(item => {
-            if (item.Жанр) genres.add(item.Жанр);
-        });
-        return Array.from(genres).sort();
-    }
-
-    function getCurrentItems() {
-        if (currentCategory === 'Все') {
-            return allItems.map(item => item.Название);
-        } else {
-            return allItems
-                .filter(item => item.Жанр === currentCategory)
-                .map(item => item.Название);
-        }
-    }
-
-    function syncWheel() {
-        wheelItems = getCurrentItems();
-        eliminatedLog = [];
-        winnerNameDiv.textContent = '—';
-        drawWheel();
-        updatePoolView();
-        updateEliminatedView();
-    }
-
-    function updatePoolView() {
-        itemPoolDiv.innerHTML = '';
-        if (wheelItems.length === 0) {
-            itemPoolDiv.innerHTML = '<span class="tag">❌ пусто</span>';
-            itemCountSpan.textContent = '0';
-            return;
-        }
-
-        wheelItems.forEach((item) => {
-            const container = document.createElement('span');
-            container.className = 'tag';
-
-            const nameSpan = document.createElement('span');
-            nameSpan.textContent = item;
-
-            const deleteBtn = document.createElement('button');
-            deleteBtn.className = 'delete-item';
-            deleteBtn.innerHTML = '✕';
-            deleteBtn.title = 'Удалить';
-            deleteBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                deleteItem(item);
-            });
-
-            container.appendChild(nameSpan);
-            container.appendChild(deleteBtn);
-            itemPoolDiv.appendChild(container);
-        });
-
-        itemCountSpan.textContent = wheelItems.length;
-    }
-
-    async function deleteItem(itemName) {
-        try {
-            const response = await fetch(`${API_URL}/projects`);
-            const projects = await response.json();
-
-            const projectToDelete = projects.find(p =>
-                (p.title_ru === itemName || p.title === itemName) &&
-                !p.watched && !p.inProgress
-            );
-
-            if (projectToDelete) {
-                await fetch(`${API_URL}/projects/${projectToDelete.id}`, {
-                    method: 'DELETE'
-                });
-                await fullReload();
-                showSuccess(`Удалено: ${itemName}`);
-            }
-        } catch (error) {
-            showError('Ошибка при удалении: ' + error.message);
-        }
-    }
-
-    function updateEliminatedView() {
-        if (eliminatedLog.length === 0) {
-            eliminatedDiv.innerHTML = '<span>✖️ пока никого</span>';
-            return;
-        }
-        eliminatedDiv.innerHTML = eliminatedLog.map((name, idx) => `<span>❌ ${idx + 1}. ${name}</span>`).join('');
-    }
-
     function spinAnimation(onComplete) {
         if (wheelItems.length === 0) {
             showError('Добавьте элементы на колесо');
@@ -849,7 +375,6 @@
         const startTime = performance.now();
         const duration = spinSpeed * 1000;
         const startAngle = 0;
-
         const targetIndex = getWeightedRandomIndex(wheelItems);
         const pointerAngle = (3 * Math.PI) / 2;
         const segmentSize = (2 * Math.PI) / wheelItems.length;
@@ -920,11 +445,161 @@
         });
     }
 
-    function showStatsModal() {
-        const filteredItems = currentCategory === 'Все'
-            ? allItems
-            : allItems.filter(item => item.Жанр === currentCategory);
+    // ========== МОДАЛЬНЫЕ ОКНА ==========
+    function showVotingModal() {
+        if (!currentUser) {
+            showUserSelection();
+            return;
+        }
 
+        const filteredItems = currentCategory === 'Все' ? allItems : allItems.filter(item => item.Жанр === currentCategory);
+        const availableMovies = filteredItems.filter(item => item.id);
+
+        if (availableMovies.length === 0) {
+            showError('Нет фильмов в выбранной категории для голосования');
+            return;
+        }
+
+        const currentUserVotes = userVotes[currentUser] || [];
+
+        const modal = document.createElement('div');
+        modal.className = 'voting-modal';
+        modal.innerHTML = `
+            <div class="voting-modal-content">
+                <h3>🗳️ Голосование (${currentCategory === 'Все' ? 'все категории' : currentCategory})</h3>
+                <p class="voting-user">Игрок: 👤 ${currentUser === 'senya' ? 'Сеня' : currentUser === 'vanya' ? 'Ваня' : currentUser === 'pasha' ? 'Паша' : 'Володя'}</p>
+                
+                <div class="voting-search">
+                    <input type="text" id="voteSearchInput" class="vote-search-input" placeholder="🔍 Поиск фильма...">
+                </div>
+                
+                <p class="voting-hint">Выберите 3 фильма, чтобы повысить их шансы</p>
+                
+                <div class="voting-movies" id="votingMoviesList">
+                    ${availableMovies.map(movie => {
+                        const isSelected = currentUserVotes.includes(movie.id);
+                        const boost = filmBoosts[movie.id] || 0;
+                        return `
+                            <div class="voting-movie-item ${isSelected ? 'selected' : ''}" 
+                                 data-film-id="${movie.id}" data-film-title="${movie.Название.toLowerCase()}">
+                                <div class="movie-info">
+                                    <span class="movie-title">${movie.Название}</span>
+                                    ${boost > 0 ? `<span class="movie-boost">+${boost.toFixed(1)}</span>` : ''}
+                                </div>
+                                <span class="movie-check">✓</span>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+                
+                <div class="voting-footer">
+                    <div class="selected-counter" id="selectedCounter">Выбрано: ${currentUserVotes.length}/3</div>
+                    <div class="voting-buttons">
+                        <button class="voting-btn cancel" id="cancelVoteBtn">Отмена</button>
+                        <button class="voting-btn submit" id="submitVoteBtn" ${currentUserVotes.length !== 3 ? 'disabled' : ''}>Сохранить</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        const movieItems = modal.querySelectorAll('.voting-movie-item');
+        const submitBtn = modal.querySelector('#submitVoteBtn');
+        const cancelBtn = modal.querySelector('#cancelVoteBtn');
+        const counter = modal.querySelector('#selectedCounter');
+        const searchInput = modal.querySelector('#voteSearchInput');
+        let selectedVotes = [...currentUserVotes];
+
+        function filterMovies(searchTerm) {
+            const term = searchTerm.toLowerCase().trim();
+            movieItems.forEach(item => {
+                item.style.display = term === '' || item.dataset.filmTitle.includes(term) ? 'flex' : 'none';
+            });
+        }
+
+        searchInput.addEventListener('input', (e) => filterMovies(e.target.value));
+
+        function updateSelection() {
+            movieItems.forEach(item => {
+                const filmId = item.dataset.filmId;
+                item.classList.toggle('selected', selectedVotes.includes(filmId));
+            });
+            counter.textContent = `Выбрано: ${selectedVotes.length}/3`;
+            submitBtn.disabled = selectedVotes.length !== 3;
+        }
+
+        movieItems.forEach(item => {
+            item.addEventListener('click', () => {
+                const filmId = item.dataset.filmId;
+                if (selectedVotes.includes(filmId)) {
+                    selectedVotes = selectedVotes.filter(id => id !== filmId);
+                } else if (selectedVotes.length < 3) {
+                    selectedVotes.push(filmId);
+                } else {
+                    showError('Можно выбрать только 3 фильма');
+                    return;
+                }
+                updateSelection();
+            });
+        });
+
+        submitBtn.addEventListener('click', async () => {
+            if (!currentCycleId && !(await startVotingCycle())) {
+                showError('Не удалось создать цикл голосования');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/api/voting/cast`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        cycle_id: currentCycleId,
+                        user: currentUser,
+                        film_ids: selectedVotes,
+                        boost: 0.1
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    showSuccess('✓ Голоса сохранены!');
+                    modal.remove();
+                    await loadFilmBoosts();
+                    await loadAllVotes();
+                    drawWheel();
+                } else {
+                    showError('Ошибка: ' + data.error);
+                }
+            } catch (error) {
+                showError('Ошибка сети: ' + error.message);
+            }
+        });
+
+        cancelBtn.addEventListener('click', () => modal.remove());
+    }
+
+    async function resetBoosts() {
+        if (!confirm('Сбросить все накопленные бусты? Это действие нельзя отменить.')) return;
+        try {
+            const response = await fetch(`${API_URL}/api/voting/clear`, { method: 'POST' });
+            if (response.ok) {
+                filmBoosts = {};
+                userVotes = {};
+                currentCycleId = null;
+                showSuccess('🔄 Все бусты сброшены');
+                updateVotingUI();
+                updateVotersIndicator();
+                drawWheel();
+            }
+        } catch (error) {
+            showError('Ошибка сброса: ' + error.message);
+        }
+    }
+
+    function showStatsModal() {
+        const filteredItems = currentCategory === 'Все' ? allItems : allItems.filter(item => item.Жанр === currentCategory);
         const filteredIds = new Set(filteredItems.map(item => item.id));
 
         const boostEntries = Object.entries(filmBoosts)
@@ -939,254 +614,310 @@
         const modal = document.createElement('div');
         modal.className = 'stats-modal';
         modal.innerHTML = `
-        <div class="stats-modal-content">
-            <h3>📊 Статистика бустов (${currentCategory === 'Все' ? 'все категории' : currentCategory})</h3>
-            <div class="stats-list">
-                ${boostEntries.length > 0 ?
-                boostEntries.map(item => `
+            <div class="stats-modal-content">
+                <h3>📊 Статистика бустов (${currentCategory === 'Все' ? 'все категории' : currentCategory})</h3>
+                <div class="stats-list">
+                    ${boostEntries.length > 0 ? boostEntries.map(item => `
                         <div class="stat-item">
                             <span class="stat-film">${item.title}</span>
                             <span class="stat-boost">+${item.boost.toFixed(1)}</span>
                         </div>
-                    `).join('') :
-                '<p class="stats-empty">В этой категории пока нет бустов</p>'
-            }
+                    `).join('') : '<p class="stats-empty">В этой категории пока нет бустов</p>'}
+                </div>
+                <button class="stats-close cosmic-close" id="cosmicCloseBtn">🌌 ЗАКРЫТЬ 🌌</button>
             </div>
-            <button class="stats-close cosmic-close" id="cosmicCloseBtn">🌌 ЗАКРЫТЬ 🌌</button>
-        </div>
-    `;
+        `;
 
         document.body.appendChild(modal);
 
         const closeBtn = modal.querySelector('#cosmicCloseBtn');
+        const effects = [createFireworks, createConfetti, createLasers, createGiantSkeleton];
 
-        // Массив эффектов
-        const effects = [
-            createFireworks,
-            createConfetti,
-            createLasers,
-            createGiantSkeleton
-        ];
-
-        // При наведении запускаем случайный эффект
         closeBtn.addEventListener('mouseenter', () => {
-            // Очищаем предыдущие эффекты
-            const oldEffects = document.querySelectorAll('.temporary-effect');
-            oldEffects.forEach(effect => effect.remove());
-
-            // Выбираем случайный эффект
-            const randomEffect = effects[Math.floor(Math.random() * effects.length)];
-            randomEffect(closeBtn);
+            document.querySelectorAll('.temporary-effect').forEach(e => e.remove());
+            effects[Math.floor(Math.random() * effects.length)](closeBtn);
         });
 
         closeBtn.addEventListener('click', () => {
-            // Удаляем все временные эффекты
-            const effects = document.querySelectorAll('.temporary-effect');
-            effects.forEach(effect => effect.remove());
+            document.querySelectorAll('.temporary-effect').forEach(e => e.remove());
             modal.remove();
         });
     }
 
-    // ========== ЭФФЕКТ 1: ФЕЙЕРВЕРКИ ==========
-    function createFireworks(btn) {
+    // ========== ЭФФЕКТЫ ==========
+    function createFireworks() {
         const container = document.createElement('div');
         container.className = 'temporary-effect fireworks-container';
-        container.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        pointer-events: none;
-        z-index: 10002;
-    `;
+        container.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10002;';
         document.body.appendChild(container);
 
-        // Создаем 20 фейерверков
         for (let i = 0; i < 20; i++) {
             setTimeout(() => {
                 const firework = document.createElement('div');
-                firework.className = 'firework';
                 firework.style.cssText = `
-                position: absolute;
-                left: ${Math.random() * 100}%;
-                top: ${Math.random() * 100}%;
-                width: 10px;
-                height: 10px;
-                background: ${`hsl(${Math.random() * 360}, 100%, 50%)`};
-                border-radius: 50%;
-                box-shadow: 0 0 20px ${`hsl(${Math.random() * 360}, 100%, 50%)`};
-                animation: explode 1s ease-out forwards;
-            `;
+                    position:absolute;left:${Math.random() * 100}%;top:${Math.random() * 100}%;
+                    width:10px;height:10px;background:hsl(${Math.random() * 360},100%,50%);
+                    border-radius:50%;box-shadow:0 0 20px hsl(${Math.random() * 360},100%,50%);
+                    animation:explode 1s ease-out forwards;
+                `;
                 container.appendChild(firework);
 
-                // Добавляем искры
                 for (let j = 0; j < 8; j++) {
                     const spark = document.createElement('div');
                     spark.style.cssText = `
-                    position: absolute;
-                    left: ${Math.random() * 100}%;
-                    top: ${Math.random() * 100}%;
-                    width: 4px;
-                    height: 4px;
-                    background: ${`hsl(${Math.random() * 360}, 100%, 50%)`};
-                    border-radius: 50%;
-                    animation: spark ${0.5 + Math.random()}s ease-out forwards;
-                `;
+                        position:absolute;left:${Math.random() * 100}%;top:${Math.random() * 100}%;
+                        width:4px;height:4px;background:hsl(${Math.random() * 360},100%,50%);
+                        border-radius:50%;animation:spark ${0.5 + Math.random()}s ease-out forwards;
+                    `;
                     container.appendChild(spark);
                 }
             }, i * 100);
         }
-
         setTimeout(() => container.remove(), 3000);
     }
 
-    // ========== ЭФФЕКТ 2: КОНФЕТИ ==========
-    function createConfetti(btn) {
+    function createConfetti() {
         const container = document.createElement('div');
         container.className = 'temporary-effect confetti-container';
-        container.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        pointer-events: none;
-        z-index: 10002;
-    `;
+        container.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10002;';
         document.body.appendChild(container);
 
-        // Создаем 200 конфетин
         for (let i = 0; i < 200; i++) {
             const confetti = document.createElement('div');
-            confetti.className = 'confetti';
             confetti.style.cssText = `
-            position: absolute;
-            left: ${Math.random() * 100}%;
-            top: -20px;
-            width: ${5 + Math.random() * 10}px;
-            height: ${5 + Math.random() * 10}px;
-            background: ${`hsl(${Math.random() * 360}, 100%, 50%)`};
-            transform: rotate(${Math.random() * 360}deg);
-            animation: confettiFall ${2 + Math.random() * 3}s linear forwards;
-            animation-delay: ${Math.random() * 2}s;
-        `;
+                position:absolute;left:${Math.random() * 100}%;top:-20px;
+                width:${5 + Math.random() * 10}px;height:${5 + Math.random() * 10}px;
+                background:hsl(${Math.random() * 360},100%,50%);
+                transform:rotate(${Math.random() * 360}deg);
+                animation:confettiFall ${2 + Math.random() * 3}s linear forwards;
+                animation-delay:${Math.random() * 2}s;
+            `;
             container.appendChild(confetti);
         }
-
         setTimeout(() => container.remove(), 5000);
     }
 
-    // ========== ЭФФЕКТ 3: ЛАЗЕРЫ ==========
-    function createLasers(btn) {
+    function createLasers() {
         const container = document.createElement('div');
         container.className = 'temporary-effect lasers-container';
-        container.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        pointer-events: none;
-        z-index: 10002;
-    `;
+        container.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10002;';
         document.body.appendChild(container);
 
-        // Создаем лазеры
         for (let i = 0; i < 10; i++) {
             const laser = document.createElement('div');
-            laser.className = 'laser';
             laser.style.cssText = `
-            position: absolute;
-            left: ${Math.random() * 100}%;
-            top: ${Math.random() * 100}%;
-            width: 100%;
-            height: 2px;
-            background: linear-gradient(90deg, 
-                transparent, 
-                ${`hsl(${Math.random() * 360}, 100%, 50%)`}, 
-                transparent);
-            transform: rotate(${Math.random() * 360}deg);
-            animation: laserBeam 1s ease-out forwards;
-            animation-delay: ${i * 0.1}s;
-            box-shadow: 0 0 30px ${`hsl(${Math.random() * 360}, 100%, 50%)`};
-        `;
+                position:absolute;left:${Math.random() * 100}%;top:${Math.random() * 100}%;
+                width:100%;height:2px;
+                background:linear-gradient(90deg,transparent,hsl(${Math.random() * 360},100%,50%),transparent);
+                transform:rotate(${Math.random() * 360}deg);
+                animation:laserBeam 1s ease-out forwards;
+                animation-delay:${i * 0.1}s;
+                box-shadow:0 0 30px hsl(${Math.random() * 360},100%,50%);
+            `;
             container.appendChild(laser);
         }
-
         setTimeout(() => container.remove(), 2000);
     }
 
-    // ========== ЭФФЕКТ 4: ГИГАНТСКИЙ СКЕЛЕТ ==========
-    function createGiantSkeleton(btn) {
+    function createGiantSkeleton() {
         const container = document.createElement('div');
         container.className = 'temporary-effect skeleton-container';
         container.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        pointer-events: none;
-        z-index: 10002;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        animation: skeletonAppear 0.5s ease-out;
-    `;
+            position:fixed;top:0;left:0;width:100%;height:100%;
+            pointer-events:none;z-index:10002;
+            display:flex;align-items:center;justify-content:center;
+            animation:skeletonAppear 0.5s ease-out;
+        `;
 
-        // Выбираем случайное сообщение
         const messages = [
             '💀 ТЫ ВЫЗВАЛ ПОВЕЛИТЕЛЯ СКЕЛЕТОВ? 💀',
             '☠️ СМЕРТЬ ПРИШЛА ЗА ТВОИМИ БУСТАМИ ☠️',
             '🦴 КОСТЯНОЙ КОРОЛЬ ПРИВЕТСТВУЕТ ТЕБЯ 🦴',
-            '💀 НАЖАЛ НА КНОПКУ - ПОЛУЧИ СКЕЛЕТА 💀',
-            '☠️ 5 ЛЕТ ТЮРЬМЫ ЗА ТАКИЕ ШУТКИ ☠️'
+            '💀 НАЖАЛ НА КНОПКУ - ПОЛУЧИ СКЕЛЕТА 💀'
         ];
 
         container.innerHTML = `
-        <div style="
-            font-size: 15rem;
-            filter: drop-shadow(0 0 50px #00ff00);
-            animation: skeletonDance 2s infinite;
-            text-align: center;
-        ">💀</div>
-        <div style="
-            position: absolute;
-            bottom: 20%;
-            font-size: 3rem;
-            color: #fff;
-            text-shadow: 0 0 20px #ff0000, 0 0 40px #00ff00, 0 0 60px #0000ff;
-            background: rgba(0,0,0,0.7);
-            padding: 20px 40px;
-            border-radius: 50px;
-            border: 3px solid #ff0;
-            animation: messageGlitch 0.3s infinite;
-        ">${messages[Math.floor(Math.random() * messages.length)]}</div>
-    `;
-
-        document.body.appendChild(container);
-
-        // Добавляем маленькие скелетики вокруг
-        for (let i = 0; i < 10; i++) {
-            const miniSkeleton = document.createElement('div');
-            miniSkeleton.style.cssText = `
-            position: absolute;
-            left: ${Math.random() * 100}%;
-            top: ${Math.random() * 100}%;
-            font-size: ${1 + Math.random() * 3}rem;
-            animation: miniSkeletonFloat ${3 + Math.random() * 4}s infinite;
-            animation-delay: ${Math.random() * 2}s;
+            <div style="font-size:15rem;filter:drop-shadow(0 0 50px #0f0);animation:skeletonDance 2s infinite;">💀</div>
+            <div style="position:absolute;bottom:20%;font-size:3rem;color:#fff;text-shadow:0 0 20px #f00;
+                background:rgba(0,0,0,0.7);padding:20px 40px;border-radius:50px;border:3px solid #ff0;
+                animation:messageGlitch 0.3s infinite;">${messages[Math.floor(Math.random() * messages.length)]}</div>
         `;
-            miniSkeleton.innerHTML = '💀';
-            container.appendChild(miniSkeleton);
+
+        for (let i = 0; i < 10; i++) {
+            const mini = document.createElement('div');
+            mini.style.cssText = `
+                position:absolute;left:${Math.random() * 100}%;top:${Math.random() * 100}%;
+                font-size:${1 + Math.random() * 3}rem;
+                animation:miniSkeletonFloat ${3 + Math.random() * 4}s infinite;
+                animation-delay:${Math.random() * 2}s;
+            `;
+            mini.innerHTML = '💀';
+            container.appendChild(mini);
         }
 
+        document.body.appendChild(container);
         setTimeout(() => container.remove(), 4000);
     }
 
-    // ========== ОБРАБОТЧИКИ СОБЫТИЙ ==========
+    // ========== ЗАГРУЗКА ПРОЕКТОВ ==========
+    async function loadProjectsFromServer() {
+        try {
+            const response = await fetch(`${API_URL}/projects`);
+            if (!response.ok) throw new Error(`Ошибка загрузки: ${response.status}`);
+            const allProjects = await response.json();
+            const plannedProjects = allProjects.filter(p => !p.watched && !p.inProgress);
 
+            const newItems = plannedProjects.map(p => ({
+                Название: p.title_ru || p.title,
+                Жанр: p.type || 'Фильм',
+                id: p.id
+            }));
+
+            const currentTitles = new Set(allItems.map(item => item.Название));
+            const newTitles = newItems.filter(item => !currentTitles.has(item.Название));
+
+            if (newTitles.length > 0) {
+                allItems = [...allItems, ...newTitles];
+                updateMaps();
+                showSuccess(`Добавлено ${newTitles.length} новых проектов`);
+                updateFilters();
+
+                if (currentCategory === 'Все') {
+                    wheelItems = [...wheelItems, ...newTitles.map(item => item.Название)];
+                } else {
+                    const newInCategory = newTitles.filter(item => item.Жанр === currentCategory).map(item => item.Название);
+                    wheelItems = [...wheelItems, ...newInCategory];
+                }
+
+                drawWheel();
+                updatePoolView();
+                updateEliminatedView();
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки:', error);
+        }
+    }
+
+    async function fullReload() {
+        try {
+            const response = await fetch(`${API_URL}/projects`);
+            if (!response.ok) throw new Error(`Ошибка загрузки: ${response.status}`);
+            const allProjects = await response.json();
+            const plannedProjects = allProjects.filter(p => !p.watched && !p.inProgress);
+
+            allItems = plannedProjects.map(p => ({
+                Название: p.title_ru || p.title,
+                Жанр: p.type || 'Фильм',
+                id: p.id
+            }));
+
+            updateMaps();
+            showSuccess(`Загружено ${allItems.length} проектов в планах`);
+            updateFilters();
+            syncWheel();
+            await loadFilmBoosts();
+            await loadAllVotes();
+        } catch (error) {
+            console.error('Ошибка загрузки:', error);
+            allItems = [];
+            updateFilters();
+            syncWheel();
+        }
+    }
+
+    // ========== ФИЛЬТРЫ ==========
+    function updateFilters() {
+        const genres = extractGenres();
+        filterDiv.innerHTML = '';
+
+        const allBtn = document.createElement('button');
+        allBtn.textContent = 'Все';
+        allBtn.dataset.filter = 'Все';
+        if (currentCategory === 'Все') allBtn.classList.add('active');
+        allBtn.addEventListener('click', () => {
+            document.querySelectorAll('.filter-badge button').forEach(b => b.classList.remove('active'));
+            allBtn.classList.add('active');
+            currentCategory = 'Все';
+            syncWheel();
+        });
+        filterDiv.appendChild(allBtn);
+
+        genres.forEach(genre => {
+            const btn = document.createElement('button');
+            btn.textContent = genre;
+            btn.dataset.filter = genre;
+            if (currentCategory === genre) btn.classList.add('active');
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-badge button').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentCategory = genre;
+                syncWheel();
+            });
+            filterDiv.appendChild(btn);
+        });
+    }
+
+    function extractGenres() {
+        return [...new Set(allItems.map(item => item.Жанр).filter(Boolean))].sort();
+    }
+
+    function getCurrentItems() {
+        return currentCategory === 'Все'
+            ? allItems.map(item => item.Название)
+            : allItems.filter(item => item.Жанр === currentCategory).map(item => item.Название);
+    }
+
+    function syncWheel() {
+        wheelItems = getCurrentItems();
+        eliminatedLog = [];
+        winnerNameDiv.textContent = '—';
+        drawWheel();
+        updatePoolView();
+        updateEliminatedView();
+    }
+
+    function updatePoolView() {
+        itemPoolDiv.innerHTML = '';
+        if (wheelItems.length === 0) {
+            itemPoolDiv.innerHTML = '<span class="tag">❌ пусто</span>';
+            itemCountSpan.textContent = '0';
+            return;
+        }
+
+        wheelItems.forEach(item => {
+            const container = document.createElement('span');
+            container.className = 'tag';
+            container.innerHTML = `<span>${item}</span><button class="delete-item" onclick="deleteItem('${item}')">✕</button>`;
+            itemPoolDiv.appendChild(container);
+        });
+        itemCountSpan.textContent = wheelItems.length;
+    }
+
+    async function deleteItem(itemName) {
+        try {
+            const response = await fetch(`${API_URL}/projects`);
+            const projects = await response.json();
+            const projectToDelete = projects.find(p =>
+                (p.title_ru === itemName || p.title === itemName) && !p.watched && !p.inProgress
+            );
+
+            if (projectToDelete) {
+                await fetch(`${API_URL}/projects/${projectToDelete.id}`, { method: 'DELETE' });
+                await fullReload();
+                showSuccess(`Удалено: ${itemName}`);
+            }
+        } catch (error) {
+            showError('Ошибка при удалении: ' + error.message);
+        }
+    }
+
+    function updateEliminatedView() {
+        eliminatedDiv.innerHTML = eliminatedLog.length === 0
+            ? '<span>✖️ пока никого</span>'
+            : eliminatedLog.map((name, idx) => `<span>❌ ${idx + 1}. ${name}</span>`).join('');
+    }
+
+    // ========== ИНИЦИАЛИЗАЦИЯ ==========
     spinOnceBtn.addEventListener('click', spinOnce);
     spinEliminateBtn.addEventListener('click', spinElimination);
     resetWheelBtn.addEventListener('click', syncWheel);
@@ -1205,10 +936,9 @@
     if (resetBoostsBtn) resetBoostsBtn.addEventListener('click', resetBoosts);
     if (showStatsBtn) showStatsBtn.addEventListener('click', showStatsModal);
 
-    // ========== ЗАПУСК ==========
     console.log('🚀 Запуск колеса фортуны...');
 
-    initModeSwitch();
+    initModeToggle();
 
     if (!currentUser) {
         showUserSelection();

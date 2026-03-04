@@ -38,7 +38,24 @@
             </div>
         </div>
 
-        <div class="filter-badge" id="filter-buttons"></div>
+        <!-- Объединенная панель: фильтры по типу + переключатель режимов -->
+        <div class="filter-panel">
+            <div class="filter-section">
+                <span class="filter-title">📌 Тип:</span>
+                <div class="filter-buttons" id="filter-buttons"></div>
+            </div>
+            
+            <div class="mode-toggle-section">
+                <span class="mode-label">🎲 Обычный</span>
+                <div class="mode-toggle" id="modeToggle">
+                    <div class="toggle-track">
+                        <div class="toggle-thumb" id="toggleThumb"></div>
+                    </div>
+                </div>
+                <span class="mode-label elimination-label">⚔️ Исключение</span>
+            </div>
+        </div>
+
         <div class="success-message" id="successMessage"></div>
 
         <div class="controls-panel">
@@ -61,7 +78,6 @@
         <div class="wheel-container">
             <div class="canvas-wrapper">
                 <div class="pointer">
-                    <div class="pointer-glow"></div>
                 </div>
                 <canvas id="wheelCanvas" width="600" height="600"></canvas>
                 <div class="wheel-controls">

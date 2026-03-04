@@ -4,6 +4,7 @@
 
     let myProjects = [];
     let currentFilter = 'all';
+    let animeSources = [];
 
     const searchInput = document.getElementById('searchInput');
     const searchResults = document.getElementById('searchResults');
@@ -14,6 +15,7 @@
     const filterButtons = document.querySelectorAll('.filter-btn');
 
     loadUnwatchedProjects();
+    loadAnimeSources();
 
     filterButtons.forEach(btn => {
         btn.addEventListener('click', () => {
@@ -49,6 +51,19 @@
         if (genres.includes('мультфильм') || genres.includes('анимация')) return 'Мультфильм';
         if (film.type === 'TV_SERIES' || film.type === 'MINI_SERIES') return 'Сериал';
         return 'Фильм';
+    }
+
+    async function loadAnimeSources() {
+        try {
+            const response = await fetch(`${API_URL}/api/anime/sources/list`);
+            const data = await response.json();
+            if (data.success) {
+                animeSources = data.sources;
+                console.log('✅ Загружены источники аниме:', animeSources);
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки источников аниме:', error);
+        }
     }
 
     async function refreshProjectDetails(projectId) {
@@ -241,7 +256,76 @@
         return myProjects.filter(p => p.type === currentFilter);
     }
 
-    // ========== ФУНКЦИИ ДЛЯ МОДАЛЬНОГО ОКНА ==========
+    // ========== ФУНКЦИИ ДЛЯ АНИМЕ ==========
+
+    async function loadAnimeEpisodes(animeId, source = 'animego') {
+        try {
+            console.log(`📺 Загружаю эпизоды для ${animeId} из ${source}`);
+            
+            const response = await fetch(`${API_URL}/api/anime/episodes`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    anime_id: animeId,
+                    source: source
+                })
+            });
+            
+            console.log('📡 Статус ответа эпизодов:', response.status);
+            
+            if (!response.ok) {
+                console.error('❌ Ошибка ответа эпизодов:', response.status);
+                return [];
+            }
+            
+            const data = await response.json();
+            console.log('✅ Получены эпизоды:', data);
+            
+            if (data.success) {
+                return data.episodes || [];
+            }
+            return [];
+        } catch (error) {
+            console.error('❌ Ошибка загрузки эпизодов:', error);
+            return [];
+        }
+    }
+
+    async function loadAnimeSources(animeId, episode, source = 'animego') {
+        try {
+            console.log(`🔊 Загружаю озвучки для ${animeId}, эпизод ${episode} из ${source}`);
+            
+            const response = await fetch(`${API_URL}/api/anime/sources`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    anime_id: animeId,
+                    episode: parseInt(episode) || 1,
+                    source: source
+                })
+            });
+            
+            console.log('📡 Статус ответа озвучек:', response.status);
+            
+            if (!response.ok) {
+                console.error('❌ Ошибка ответа озвучек:', response.status);
+                return [];
+            }
+            
+            const data = await response.json();
+            console.log('✅ Получены озвучки:', data);
+            
+            if (data.success) {
+                return data.sources || [];
+            }
+            return [];
+        } catch (error) {
+            console.error('❌ Ошибка загрузки озвучек:', error);
+            return [];
+        }
+    }
+
+    // ========== ФУНКЦИИ ДЛЯ RUTUBE ==========
 
     window.playOnRutube = async function (projectId, title, year, originalTitle) {
         const btn = document.getElementById(`rutube-btn-${projectId}`);
@@ -249,7 +333,6 @@
 
         if (!btn || !playerDiv) return;
 
-        // Показываем загрузку
         const originalText = btn.textContent;
         btn.textContent = '🔍 Ищем видео...';
         btn.disabled = true;
@@ -269,7 +352,6 @@
             const data = await response.json();
 
             if (data.success) {
-                // Прячем кнопку, показываем плеер
                 btn.style.display = 'none';
                 playerDiv.style.display = 'block';
                 playerDiv.innerHTML = data.embed_code;
@@ -286,6 +368,8 @@
             btn.disabled = false;
         }
     };
+
+    // ========== МОДАЛЬНОЕ ОКНО ==========
 
     window.openModal = function (projectId) {
         const project = myProjects.find(p => p.id === projectId);
@@ -318,10 +402,55 @@
             genresHtml = '<span class="modal-genre-tag">Жанры будут добавлены</span>';
         }
 
-        // Форматируем описание (обрезаем если слишком длинное)
+        // Форматируем описание
         let description = project.description || 'Описание будет загружено позже...';
         if (description.length > 500) {
             description = description.substring(0, 500) + '...';
+        }
+
+        // Формируем секцию плеера в зависимости от типа
+        let playerSection = '';
+        
+        if (project.type === 'Аниме') {
+            playerSection = `
+                <div class="modal-section">
+                    <h3>🎬 Аниме плеер</h3>
+                    <div class="anime-controls" id="anime-controls-${project.id}">
+                        <div class="anime-selectors">
+                            <select class="anime-source-select" id="anime-source-${project.id}">
+                                <option value="animego">AnimeGO</option>
+                                <option value="anilibria">AniLibria</option>
+                                <option value="animevost">AnimeVost</option>
+                            </select>
+                            <select class="anime-episode-select" id="anime-episode-${project.id}">
+                                <option value="1">Эпизод 1</option>
+                            </select>
+                            <select class="anime-dubber-select" id="anime-dubber-${project.id}" style="display: none;">
+                                <option value="">Выберите озвучку</option>
+                            </select>
+                        </div>
+                        <button class="anime-play-btn" onclick="loadAnimeAndPlay('${project.id}')">
+                            ▶️ Загрузить эпизод
+                        </button>
+                    </div>
+                    <div class="anime-player" id="anime-player-${project.id}">
+                        <div class="anime-loading" style="display: none;">🔍 Загружаем видео...</div>
+                    </div>
+                </div>
+            `;
+        } else {
+            playerSection = `
+                <div class="modal-section">
+                    <h3>🎬 Смотреть на Rutube</h3>
+                    <div class="rutube-simple-container">
+                        <button class="rutube-simple-btn" id="rutube-btn-${project.id}" 
+                                onclick="playOnRutube('${project.id}', '${project.title_ru || project.title}', '${project.year}', '${project.title || ''}')">
+                            ▶️ Смотреть на Rutube
+                        </button>
+                        <div class="rutube-player" id="rutube-player-${project.id}" style="display: none;"></div>
+                    </div>
+                </div>
+            `;
         }
 
         modal.innerHTML = `
@@ -390,23 +519,22 @@
                         <p class="modal-description">${description}</p>
                     </div>
                     
-                    <!-- Rutube секция с одной кнопкой -->
-                    <div class="modal-section">
-                        <h3>🎬 Смотреть на Rutube</h3>
-                        <div class="rutube-simple-container">
-                            <button class="rutube-simple-btn" id="rutube-btn-${project.id}" 
-                                    onclick="playOnRutube('${project.id}', '${project.title_ru || project.title}', '${project.year}', '${project.title || ''}')">
-                                ▶️ Смотреть на Rutube
-                            </button>
-                            <div class="rutube-player" id="rutube-player-${project.id}" style="display: none;"></div>
-                        </div>
-                    </div>
+                    ${playerSection}
                 </div>
             </div>
         </div>
     `;
 
         document.body.appendChild(modal);
+
+        // Если это аниме, загружаем эпизоды
+        if (project.type === 'Аниме') {
+            const animeId = project.id.replace('kp_', '');
+            console.log('🎯 Открыто аниме с ID:', animeId);
+            
+            // Загружаем эпизоды сразу
+            setTimeout(() => loadAnimeData(project.id, animeId), 100);
+        }
     };
 
     window.closeModal = function () {
@@ -421,6 +549,107 @@
             }, 300);
         }
     };
+
+    // ========== ФУНКЦИИ ДЛЯ ЗАГРУЗКИ АНИМЕ ==========
+
+    window.loadAnimeData = async function (projectId, animeId) {
+        const sourceSelect = document.getElementById(`anime-source-${projectId}`);
+        const episodeSelect = document.getElementById(`anime-episode-${projectId}`);
+        
+        if (!sourceSelect || !episodeSelect) {
+            console.error('❌ Не найдены селекторы для аниме');
+            return;
+        }
+
+        const source = sourceSelect.value;
+        
+        // Показываем загрузку
+        episodeSelect.innerHTML = '<option value="">Загрузка...</option>';
+        
+        // Загружаем эпизоды
+        const episodes = await loadAnimeEpisodes(animeId, source);
+        
+        if (episodes && episodes.length > 0) {
+            episodeSelect.innerHTML = episodes.map((ep, i) => 
+                `<option value="${i + 1}">${ep.title || `Эпизод ${i + 1}`}</option>`
+            ).join('');
+            
+            console.log(`✅ Загружено ${episodes.length} эпизодов`);
+        } else {
+            episodeSelect.innerHTML = '<option value="1">Эпизод 1 (нет данных)</option>';
+            showError('Не удалось загрузить список эпизодов');
+        }
+    };
+
+    window.loadAnimeAndPlay = async function (projectId) {
+        const animeId = projectId.replace('kp_', '');
+        const sourceSelect = document.getElementById(`anime-source-${projectId}`);
+        const episodeSelect = document.getElementById(`anime-episode-${projectId}`);
+        const dubberSelect = document.getElementById(`anime-dubber-${projectId}`);
+        const playerDiv = document.getElementById(`anime-player-${projectId}`);
+        
+        if (!sourceSelect || !episodeSelect || !playerDiv) {
+            showError('Не найдены элементы плеера');
+            return;
+        }
+
+        const source = sourceSelect.value;
+        const episode = parseInt(episodeSelect.value) || 1;
+
+        console.log(`▶️ Загружаем аниме ID: ${animeId}, эпизод: ${episode}, источник: ${source}`);
+
+        // Показываем загрузку
+        playerDiv.innerHTML = '<div class="anime-loading">🔍 Загружаем видео...</div>';
+
+        // Получаем все доступные озвучки
+        const sources = await loadAnimeSources(animeId, episode, source);
+
+        if (sources && sources.length > 0) {
+            console.log(`✅ Получено ${sources.length} озвучек`);
+            
+            // Показываем селектор озвучек
+            if (dubberSelect) {
+                dubberSelect.style.display = 'block';
+                dubberSelect.innerHTML = sources.map((s, index) => 
+                    `<option value="${index}">${s.dubber} (${s.videos.length} качеств)</option>`
+                ).join('');
+
+                // Добавляем обработчик смены озвучки
+                dubberSelect.onchange = () => {
+                    const selectedIndex = parseInt(dubberSelect.value);
+                    const selectedSource = sources[selectedIndex];
+                    if (selectedSource && selectedSource.videos.length > 0) {
+                        const bestVideo = selectedSource.videos.sort((a, b) => b.quality - a.quality)[0];
+                        updateVideoPlayer(playerDiv, bestVideo, selectedSource.dubber);
+                    }
+                };
+            }
+
+            // Автоматически запускаем первую озвучку
+            const bestSource = sources[0];
+            if (bestSource && bestSource.videos.length > 0) {
+                const bestVideo = bestSource.videos.sort((a, b) => b.quality - a.quality)[0];
+                updateVideoPlayer(playerDiv, bestVideo, bestSource.dubber);
+            } else {
+                playerDiv.innerHTML = '<div class="anime-error">❌ Нет доступных видео для этой озвучки</div>';
+            }
+        } else {
+            playerDiv.innerHTML = '<div class="anime-error">❌ Не удалось загрузить видео</div>';
+        }
+    };
+
+    function updateVideoPlayer(playerDiv, video, dubberName) {
+        playerDiv.innerHTML = `
+            <video controls width="100%" height="405" autoplay>
+                <source src="${video.url}" type="${video.type === 'mp4' ? 'video/mp4' : 'application/x-mpegURL'}">
+                Ваш браузер не поддерживает видео.
+            </video>
+            <div class="anime-info">
+                <span class="anime-dubber">🎙️ ${dubberName}</span>
+                <span class="anime-quality">📺 ${video.quality}p</span>
+            </div>
+        `;
+    }
 
     // ========== ОТРИСОВКА КАРТОЧЕК ==========
 
@@ -522,6 +751,8 @@
         projectsGrid.innerHTML = html;
     }
 
+    // ========== ПОИСК НА КИНОПОИСКЕ ==========
+
     let searchTimeout;
     searchInput.addEventListener('input', (e) => {
         clearTimeout(searchTimeout);
@@ -602,5 +833,4 @@
     window.markAsWatched = markAsWatched;
     window.changeProjectType = changeProjectType;
     window.refreshProjectDetails = refreshProjectDetails;
-
 })();

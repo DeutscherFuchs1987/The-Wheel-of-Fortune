@@ -981,3 +981,106 @@ body.modal-open {
     background: #0c1020;
     min-height: 200px;
 }
+
+/* Аниме плеер */
+.anime-controls {
+    background: #0c1020;
+    border-radius: 20px;
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+.anime-selectors {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.anime-source-select,
+.anime-episode-select,
+.anime-dubber-select {
+    flex: 1;
+    min-width: 120px;
+    background: #262d4a;
+    border: 1px solid #48537e;
+    color: #cbd5ff;
+    padding: 10px 15px;
+    border-radius: 30px;
+    font-size: 0.95rem;
+    cursor: pointer;
+    outline: none;
+}
+
+.anime-source-select:hover,
+.anime-episode-select:hover,
+.anime-dubber-select:hover {
+    background: #323d62;
+}
+
+.anime-play-btn {
+    width: 100%;
+    background: #5f4bb6;
+    color: white;
+    border: none;
+    border-radius: 30px;
+    padding: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border-bottom: 4px solid #352b66;
+    transition: all 0.2s;
+}
+
+.anime-play-btn:hover {
+    transform: translateY(-2px);
+    background: #6f5bc6;
+}
+
+.anime-player {
+    margin-top: 15px;
+    border-radius: 15px;
+    overflow: hidden;
+    background: #0c1020;
+    min-height: 405px;
+}
+
+.anime-player video {
+    width: 100%;
+    height: auto;
+    background: #000;
+}
+
+.anime-loading {
+    height: 405px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #a3b7f0;
+    font-size: 1.2rem;
+}
+
+.anime-error {
+    height: 405px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ff8a8a;
+    font-size: 1.2rem;
+}
+
+.anime-info {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px;
+    background: #1a1f33;
+    border-radius: 0 0 15px 15px;
+}
+
+.anime-dubber {
+    color: #ffd966;
+    font-weight: 600;
+}
+
+.anime-quality {
+    color: #a3b7f0;
+}
