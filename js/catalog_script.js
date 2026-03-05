@@ -14,9 +14,11 @@
     const successMessageDiv = document.getElementById('successMessage');
     const filterButtons = document.querySelectorAll('.filter-btn');
 
+    // Загружаем данные при старте
     loadUnwatchedProjects();
     loadAnimeSources();
 
+    // Фильтры
     filterButtons.forEach(btn => {
         btn.addEventListener('click', () => {
             filterButtons.forEach(b => b.classList.remove('active'));
@@ -27,8 +29,10 @@
         });
     });
 
+    // ========== УТИЛИТЫ ==========
+
     function showError(text) {
-        console.error('Ошибка:', text);
+        console.error('❌ Ошибка:', text);
         errorMessageDiv.style.display = 'block';
         errorMessageDiv.textContent = '❌ ' + text;
         setTimeout(() => {
@@ -37,7 +41,7 @@
     }
 
     function showSuccess(text) {
-        console.log('Успех:', text);
+        console.log('✅ Успех:', text);
         successMessageDiv.style.display = 'block';
         successMessageDiv.textContent = '✅ ' + text;
         setTimeout(() => {
@@ -53,6 +57,8 @@
         return 'Фильм';
     }
 
+    // ========== ЗАГРУЗКА ДАННЫХ ==========
+
     async function loadAnimeSources() {
         try {
             const response = await fetch(`${API_URL}/api/anime/sources/list`);
@@ -62,9 +68,30 @@
                 console.log('✅ Загружены источники аниме:', animeSources);
             }
         } catch (error) {
-            console.error('Ошибка загрузки источников аниме:', error);
+            console.error('❌ Ошибка загрузки источников аниме:', error);
         }
     }
+
+    async function loadUnwatchedProjects() {
+        try {
+            console.log('📡 Загружаем проекты с сервера...');
+            const response = await fetch(`${API_URL}/projects`);
+            if (!response.ok) throw new Error(`Ошибка загрузки: ${response.status}`);
+
+            const allProjects = await response.json();
+            console.log(`✅ Загружено ${allProjects.length} проектов`);
+
+            myProjects = allProjects.filter(p => !p.watched);
+            console.log(`📊 Непросмотренных: ${myProjects.length}`);
+
+            renderProjects();
+            updateStats();
+        } catch (error) {
+            showError('Не удалось загрузить проекты: ' + error.message);
+        }
+    }
+
+    // ========== РАБОТА С ПРОЕКТАМИ ==========
 
     async function refreshProjectDetails(projectId) {
         try {
@@ -74,43 +101,23 @@
 
             if (!response.ok) throw new Error('Ошибка обновления');
 
-            const data = await response.json();
-
             const index = myProjects.findIndex(p => p.id === projectId);
             if (index !== -1) {
-                myProjects[index] = data.project;
-                renderProjects();
+                const updatedResponse = await fetch(`${API_URL}/projects`);
+                const allProjects = await updatedResponse.json();
+                myProjects = allProjects.filter(p => !p.watched);
+            }
 
-                const modal = document.querySelector('.project-modal.active');
-                if (modal && modal.dataset.projectId === projectId) {
-                    openModal(projectId);
-                }
+            renderProjects();
+
+            const modal = document.querySelector('.project-modal.active');
+            if (modal && modal.dataset.projectId === projectId) {
+                openModal(projectId);
             }
 
             showSuccess('Данные проекта обновлены!');
         } catch (error) {
             showError('Ошибка обновления: ' + error.message);
-        }
-    }
-
-    async function loadUnwatchedProjects() {
-        try {
-            const response = await fetch(`${API_URL}/projects`);
-            if (!response.ok) throw new Error(`Ошибка загрузки: ${response.status}`);
-            const allProjects = await response.json();
-            myProjects = allProjects.filter(p => !p.watched);
-
-            for (let project of myProjects) {
-                if (!project.genres || !project.description || project.genres.length === 0) {
-                    console.log(`Обновляю данные для: ${project.title_ru}`);
-                    await refreshProjectDetails(project.id);
-                }
-            }
-
-            renderProjects();
-            updateStats();
-        } catch (error) {
-            showError('Не удалось загрузить проекты: ' + error.message);
         }
     }
 
@@ -235,6 +242,8 @@
         await updateProject(projectId, { type: newType });
     }
 
+    // ========== СТАТИСТИКА ==========
+
     function updateStats() {
         const total = myProjects.length;
         const inProgress = myProjects.filter(p => p.inProgress).length;
@@ -256,75 +265,6 @@
         return myProjects.filter(p => p.type === currentFilter);
     }
 
-    // ========== ФУНКЦИИ ДЛЯ АНИМЕ ==========
-
-    async function loadAnimeEpisodes(animeId, source = 'animego') {
-        try {
-            console.log(`📺 Загружаю эпизоды для ${animeId} из ${source}`);
-            
-            const response = await fetch(`${API_URL}/api/anime/episodes`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    anime_id: animeId,
-                    source: source
-                })
-            });
-            
-            console.log('📡 Статус ответа эпизодов:', response.status);
-            
-            if (!response.ok) {
-                console.error('❌ Ошибка ответа эпизодов:', response.status);
-                return [];
-            }
-            
-            const data = await response.json();
-            console.log('✅ Получены эпизоды:', data);
-            
-            if (data.success) {
-                return data.episodes || [];
-            }
-            return [];
-        } catch (error) {
-            console.error('❌ Ошибка загрузки эпизодов:', error);
-            return [];
-        }
-    }
-
-    async function loadAnimeSources(animeId, episode, source = 'animego') {
-        try {
-            console.log(`🔊 Загружаю озвучки для ${animeId}, эпизод ${episode} из ${source}`);
-            
-            const response = await fetch(`${API_URL}/api/anime/sources`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    anime_id: animeId,
-                    episode: parseInt(episode) || 1,
-                    source: source
-                })
-            });
-            
-            console.log('📡 Статус ответа озвучек:', response.status);
-            
-            if (!response.ok) {
-                console.error('❌ Ошибка ответа озвучек:', response.status);
-                return [];
-            }
-            
-            const data = await response.json();
-            console.log('✅ Получены озвучки:', data);
-            
-            if (data.success) {
-                return data.sources || [];
-            }
-            return [];
-        } catch (error) {
-            console.error('❌ Ошибка загрузки озвучек:', error);
-            return [];
-        }
-    }
-
     // ========== ФУНКЦИИ ДЛЯ RUTUBE ==========
 
     window.playOnRutube = async function (projectId, title, year, originalTitle) {
@@ -344,8 +284,7 @@
                 body: JSON.stringify({
                     title: title,
                     year: year,
-                    original_title: originalTitle,
-                    movie_id: projectId
+                    original_title: originalTitle
                 })
             });
 
@@ -376,9 +315,7 @@
         if (!project) return;
 
         const existingModal = document.querySelector('.project-modal');
-        if (existingModal) {
-            existingModal.remove();
-        }
+        if (existingModal) existingModal.remove();
 
         document.body.classList.add('modal-open');
 
@@ -391,28 +328,15 @@
         else if (project.type === 'Сериал') posterEmoji = '📺';
         else if (project.type === 'Мультфильм') posterEmoji = '🖍️';
 
-        // Форматируем жанры
-        let genresHtml = '';
-        if (project.genres && project.genres.length > 0) {
-            genresHtml = project.genres.map(g => {
-                const genreName = typeof g === 'string' ? g : (g.genre || g);
-                return `<span class="modal-genre-tag">${genreName}</span>`;
-            }).join('');
-        } else {
-            genresHtml = '<span class="modal-genre-tag">Жанры будут добавлены</span>';
-        }
+        let genresHtml = project.genres?.length 
+            ? project.genres.map(g => `<span class="modal-genre-tag">${typeof g === 'string' ? g : (g.genre || g)}</span>`).join('')
+            : '<span class="modal-genre-tag">Жанры будут добавлены</span>';
 
-        // Форматируем описание
         let description = project.description || 'Описание будет загружено позже...';
-        if (description.length > 500) {
-            description = description.substring(0, 500) + '...';
-        }
+        if (description.length > 500) description = description.substring(0, 500) + '...';
 
-        // Формируем секцию плеера в зависимости от типа
-        let playerSection = '';
-        
-        if (project.type === 'Аниме') {
-            playerSection = `
+        let playerSection = project.type === 'Аниме'
+            ? `
                 <div class="modal-section">
                     <h3>🎬 Аниме плеер</h3>
                     <div class="anime-controls" id="anime-controls-${project.id}">
@@ -423,13 +347,16 @@
                                 <option value="animevost">AnimeVost</option>
                             </select>
                             <select class="anime-episode-select" id="anime-episode-${project.id}">
-                                <option value="1">Эпизод 1</option>
+                                <option value="1">Нажмите "Найти аниме"</option>
                             </select>
                             <select class="anime-dubber-select" id="anime-dubber-${project.id}" style="display: none;">
                                 <option value="">Выберите озвучку</option>
                             </select>
                         </div>
-                        <button class="anime-play-btn" onclick="loadAnimeAndPlay('${project.id}')">
+                        <button class="anime-play-btn" onclick="window.findAnimeByTitle('${project.id}', '${(project.title_ru || project.title).replace(/'/g, "\\'")}')">
+                            🔍 Найти аниме
+                        </button>
+                        <button class="anime-play-btn" onclick="window.loadAnimeAndPlay('${project.id}')" style="margin-top: 10px;">
                             ▶️ Загрузить эпизод
                         </button>
                     </div>
@@ -437,104 +364,54 @@
                         <div class="anime-loading" style="display: none;">🔍 Загружаем видео...</div>
                     </div>
                 </div>
-            `;
-        } else {
-            playerSection = `
+            `
+            : `
                 <div class="modal-section">
                     <h3>🎬 Смотреть на Rutube</h3>
                     <div class="rutube-simple-container">
                         <button class="rutube-simple-btn" id="rutube-btn-${project.id}" 
-                                onclick="playOnRutube('${project.id}', '${project.title_ru || project.title}', '${project.year}', '${project.title || ''}')">
+                                onclick="window.playOnRutube('${project.id}', '${(project.title_ru || project.title).replace(/'/g, "\\'")}', '${project.year}', '${(project.title || '').replace(/'/g, "\\'")}')">
                             ▶️ Смотреть на Rutube
                         </button>
                         <div class="rutube-player" id="rutube-player-${project.id}" style="display: none;"></div>
                     </div>
                 </div>
             `;
-        }
 
         modal.innerHTML = `
-        <div class="modal-overlay" onclick="window.closeModal()"></div>
-        <div class="modal-content">
-            <button class="modal-close" onclick="window.closeModal()">✕</button>
-            
-            <div class="modal-layout">
-                <div class="modal-left">
-                    <div class="modal-poster">
-                        ${project.poster
+            <div class="modal-overlay" onclick="window.closeModal()"></div>
+            <div class="modal-content">
+                <button class="modal-close" onclick="window.closeModal()">✕</button>
+                <div class="modal-layout">
+                    <div class="modal-left">
+                        <div class="modal-poster">
+                            ${project.poster
                 ? `<img src="${project.poster}" alt="${project.title_ru || project.title}">`
                 : `<div class="modal-no-poster">${posterEmoji}</div>`
             }
-                    </div>
-                    
-                    <div class="modal-quick-info">
-                        <div class="modal-rating-badge">
-                            <span>⭐</span>
-                            <span>${project.rating}</span>
                         </div>
-                        <div class="modal-year-badge">
-                            <span>📅</span>
-                            <span>${project.year}</span>
+                        <div class="modal-quick-info">
+                            <div class="modal-rating-badge"><span>⭐</span><span>${project.rating}</span></div>
+                            <div class="modal-year-badge"><span>📅</span><span>${project.year}</span></div>
                         </div>
-                    </div>
-                    
-                    <div class="modal-actions">
-                        <button class="modal-action-btn delete" onclick="window.deleteProject('${project.id}'); window.closeModal()" title="Удалить">
-                            <span class="btn-icon">🗑️</span>
-                            <span class="btn-text">Удалить</span>
-                        </button>
-                        <button class="modal-action-btn progress ${project.inProgress ? 'active' : ''}" 
-                                onclick="window.toggleInProgress('${project.id}')" 
-                                title="${project.inProgress ? 'Убрать из процесса' : 'В процессе'}">
-                            <span class="btn-icon">🔥</span>
-                            <span class="btn-text">${project.inProgress ? 'В процессе' : 'В процесс'}</span>
-                        </button>
-                        <button class="modal-action-btn watched" 
-                                onclick="window.markAsWatched('${project.id}'); window.closeModal()" 
-                                title="Просмотрено">
-                            <span class="btn-icon">✅</span>
-                            <span class="btn-text">Просмотрено</span>
-                        </button>
-                        <button class="modal-action-btn refresh" 
-                                onclick="window.refreshProjectDetails('${project.id}')" 
-                                title="Обновить данные">
-                            <span class="btn-icon">🔄</span>
-                            <span class="btn-text">Обновить</span>
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="modal-right">
-                    <h2 class="modal-title">${project.title_ru || project.title}</h2>
-                    
-                    <div class="modal-section">
-                        <h3>Жанры</h3>
-                        <div class="modal-genres">
-                            ${genresHtml}
+                        <div class="modal-actions">
+                            <button class="modal-action-btn delete" onclick="window.deleteProject('${project.id}'); window.closeModal()" title="Удалить"><span class="btn-icon">🗑️</span><span class="btn-text">Удалить</span></button>
+                            <button class="modal-action-btn progress ${project.inProgress ? 'active' : ''}" onclick="window.toggleInProgress('${project.id}')" title="${project.inProgress ? 'Убрать из процесса' : 'В процессе'}"><span class="btn-icon">🔥</span><span class="btn-text">${project.inProgress ? 'В процессе' : 'В процесс'}</span></button>
+                            <button class="modal-action-btn watched" onclick="window.markAsWatched('${project.id}'); window.closeModal()" title="Просмотрено"><span class="btn-icon">✅</span><span class="btn-text">Просмотрено</span></button>
+                            <button class="modal-action-btn refresh" onclick="window.refreshProjectDetails('${project.id}')" title="Обновить данные"><span class="btn-icon">🔄</span><span class="btn-text">Обновить</span></button>
                         </div>
                     </div>
-                    
-                    <div class="modal-section">
-                        <h3>Описание</h3>
-                        <p class="modal-description">${description}</p>
+                    <div class="modal-right">
+                        <h2 class="modal-title">${project.title_ru || project.title}</h2>
+                        <div class="modal-section"><h3>Жанры</h3><div class="modal-genres">${genresHtml}</div></div>
+                        <div class="modal-section"><h3>Описание</h3><p class="modal-description">${description}</p></div>
+                        ${playerSection}
                     </div>
-                    
-                    ${playerSection}
                 </div>
             </div>
-        </div>
-    `;
+        `;
 
         document.body.appendChild(modal);
-
-        // Если это аниме, загружаем эпизоды
-        if (project.type === 'Аниме') {
-            const animeId = project.id.replace('kp_', '');
-            console.log('🎯 Открыто аниме с ID:', animeId);
-            
-            // Загружаем эпизоды сразу
-            setTimeout(() => loadAnimeData(project.id, animeId), 100);
-        }
     };
 
     window.closeModal = function () {
@@ -542,108 +419,198 @@
         if (modal) {
             modal.classList.remove('active');
             document.body.classList.remove('modal-open');
-            setTimeout(() => {
-                if (modal && modal.parentNode) {
-                    modal.remove();
-                }
-            }, 300);
+            setTimeout(() => modal.remove(), 300);
         }
     };
 
-    // ========== ФУНКЦИИ ДЛЯ ЗАГРУЗКИ АНИМЕ ==========
+    // ========== НОВЫЕ ФУНКЦИИ ДЛЯ АНИМЕ (С УЧЕТОМ ИЗМЕНЕНИЙ В СЕРВЕРЕ) ==========
 
-    window.loadAnimeData = async function (projectId, animeId) {
+    /**
+     * Поиск аниме по названию и загрузка эпизодов
+     * @param {string} projectId - ID проекта
+     * @param {string} animeTitle - Название аниме (с Кинопоиска)
+     */
+    window.findAnimeByTitle = async function (projectId, animeTitle) {
         const sourceSelect = document.getElementById(`anime-source-${projectId}`);
         const episodeSelect = document.getElementById(`anime-episode-${projectId}`);
         
         if (!sourceSelect || !episodeSelect) {
-            console.error('❌ Не найдены селекторы для аниме');
+            showError('Элементы плеера не найдены');
             return;
         }
 
         const source = sourceSelect.value;
         
         // Показываем загрузку
-        episodeSelect.innerHTML = '<option value="">Загрузка...</option>';
-        
-        // Загружаем эпизоды
-        const episodes = await loadAnimeEpisodes(animeId, source);
-        
-        if (episodes && episodes.length > 0) {
-            episodeSelect.innerHTML = episodes.map((ep, i) => 
-                `<option value="${i + 1}">${ep.title || `Эпизод ${i + 1}`}</option>`
-            ).join('');
-            
-            console.log(`✅ Загружено ${episodes.length} эпизодов`);
-        } else {
-            episodeSelect.innerHTML = '<option value="1">Эпизод 1 (нет данных)</option>';
-            showError('Не удалось загрузить список эпизодов');
+        episodeSelect.innerHTML = '<option value="">🔍 Поиск...</option>';
+        episodeSelect.disabled = true;
+
+        try {
+            console.log(`🔍 ИЩУ АНИМЕ ПО НАЗВАНИЮ: "${animeTitle}" в источнике ${source}`);
+
+            // ШАГ 1: Получаем эпизоды по названию (сервер сам найдёт аниме)
+            const episodesResponse = await fetch(`${API_URL}/api/anime/episodes`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    anime_title: animeTitle,  // ВАЖНО: передаём название!
+                    source: source
+                })
+            });
+
+            if (!episodesResponse.ok) {
+                throw new Error(`Ошибка сервера: ${episodesResponse.status}`);
+            }
+
+            const episodesData = await episodesResponse.json();
+            console.log('📺 Ответ от сервера:', episodesData);
+
+            if (!episodesData.success) {
+                throw new Error(episodesData.error || 'Не удалось загрузить эпизоды');
+            }
+
+            // Сохраняем информацию об аниме
+            if (episodesData.anime_found_title) {
+                episodeSelect.dataset.animeFoundTitle = episodesData.anime_found_title;
+            }
+
+            // Заполняем селектор эпизодов
+            if (episodesData.episodes && episodesData.episodes.length > 0) {
+                episodeSelect.innerHTML = episodesData.episodes.map((ep, i) => 
+                    `<option value="${i + 1}">${ep.title || `Эпизод ${i + 1}`}</option>`
+                ).join('');
+                episodeSelect.disabled = false;
+                
+                showSuccess(`Найдено ${episodesData.episodes.length} эпизодов`);
+                console.log(`✅ Загружено ${episodesData.episodes.length} эпизодов для "${episodesData.anime_found_title || animeTitle}"`);
+            } else {
+                throw new Error('У аниме нет эпизодов');
+            }
+
+        } catch (error) {
+            console.error('❌ Ошибка:', error);
+            episodeSelect.innerHTML = '<option value="1">❌ ' + error.message + '</option>';
+            showError(error.message);
         }
     };
 
+    /**
+     * Загрузка и воспроизведение эпизода
+     * @param {string} projectId - ID проекта
+     */
     window.loadAnimeAndPlay = async function (projectId) {
-        const animeId = projectId.replace('kp_', '');
         const sourceSelect = document.getElementById(`anime-source-${projectId}`);
         const episodeSelect = document.getElementById(`anime-episode-${projectId}`);
         const dubberSelect = document.getElementById(`anime-dubber-${projectId}`);
         const playerDiv = document.getElementById(`anime-player-${projectId}`);
-        
+        const animeTitle = episodeSelect?.dataset?.animeFoundTitle || 
+                          document.querySelector('.modal-title')?.textContent;
+
         if (!sourceSelect || !episodeSelect || !playerDiv) {
-            showError('Не найдены элементы плеера');
+            showError('Элементы плеера не найдены');
+            return;
+        }
+
+        if (!animeTitle) {
+            showError('Сначала нажмите "Найти аниме"');
             return;
         }
 
         const source = sourceSelect.value;
         const episode = parseInt(episodeSelect.value) || 1;
 
-        console.log(`▶️ Загружаем аниме ID: ${animeId}, эпизод: ${episode}, источник: ${source}`);
-
-        // Показываем загрузку
         playerDiv.innerHTML = '<div class="anime-loading">🔍 Загружаем видео...</div>';
 
-        // Получаем все доступные озвучки
-        const sources = await loadAnimeSources(animeId, episode, source);
+        try {
+            console.log(`▶️ Загружаю эпизод ${episode} для "${animeTitle}" из ${source}`);
 
-        if (sources && sources.length > 0) {
+            // ШАГ 2: Получаем озвучки по названию
+            const sourcesResponse = await fetch(`${API_URL}/api/anime/sources`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    anime_title: animeTitle,  // ВАЖНО: передаём название!
+                    episode: episode,
+                    source: source
+                })
+            });
+
+            if (!sourcesResponse.ok) {
+                throw new Error(`Ошибка сервера: ${sourcesResponse.status}`);
+            }
+
+            const sourcesData = await sourcesResponse.json();
+            console.log('🔊 Озвучки:', sourcesData);
+
+            if (!sourcesData.success || !sourcesData.sources?.length) {
+                throw new Error(sourcesData.error || 'Нет доступных озвучек');
+            }
+
+            const sources = sourcesData.sources;
             console.log(`✅ Получено ${sources.length} озвучек`);
-            
+
             // Показываем селектор озвучек
             if (dubberSelect) {
                 dubberSelect.style.display = 'block';
-                dubberSelect.innerHTML = sources.map((s, index) => 
-                    `<option value="${index}">${s.dubber} (${s.videos.length} качеств)</option>`
+                dubberSelect.innerHTML = sources.map((s, i) => 
+                    `<option value="${i}">${s.dubber} (${s.videos.length} качеств)</option>`
                 ).join('');
+                dubberSelect.disabled = false;
 
-                // Добавляем обработчик смены озвучки
                 dubberSelect.onchange = () => {
-                    const selectedIndex = parseInt(dubberSelect.value);
-                    const selectedSource = sources[selectedIndex];
-                    if (selectedSource && selectedSource.videos.length > 0) {
-                        const bestVideo = selectedSource.videos.sort((a, b) => b.quality - a.quality)[0];
-                        updateVideoPlayer(playerDiv, bestVideo, selectedSource.dubber);
+                    const idx = parseInt(dubberSelect.value);
+                    const source = sources[idx];
+                    const bestVideo = source.videos.sort((a, b) => 
+                        (parseInt(b.quality) || 0) - (parseInt(a.quality) || 0)
+                    )[0];
+                    if (bestVideo) {
+                        updateVideoPlayer(playerDiv, bestVideo, source.dubber);
                     }
                 };
             }
 
             // Автоматически запускаем первую озвучку
             const bestSource = sources[0];
-            if (bestSource && bestSource.videos.length > 0) {
-                const bestVideo = bestSource.videos.sort((a, b) => b.quality - a.quality)[0];
+            const bestVideo = bestSource.videos.sort((a, b) => 
+                (parseInt(b.quality) || 0) - (parseInt(a.quality) || 0)
+            )[0];
+            
+            if (bestVideo) {
                 updateVideoPlayer(playerDiv, bestVideo, bestSource.dubber);
-            } else {
-                playerDiv.innerHTML = '<div class="anime-error">❌ Нет доступных видео для этой озвучки</div>';
+                showSuccess(`Запущено: ${bestSource.dubber}`);
             }
-        } else {
-            playerDiv.innerHTML = '<div class="anime-error">❌ Не удалось загрузить видео</div>';
+
+        } catch (error) {
+            console.error('❌ Ошибка:', error);
+            playerDiv.innerHTML = `<div class="anime-error">❌ ${error.message}</div>`;
+            showError(error.message);
         }
     };
 
+    /**
+     * Обновление видеоплеера
+     */
     function updateVideoPlayer(playerDiv, video, dubberName) {
+        const isHLS = video.type === 'application/x-mpegURL' || video.url?.includes('.m3u8');
+        
         playerDiv.innerHTML = `
-            <video controls width="100%" height="405" autoplay>
-                <source src="${video.url}" type="${video.type === 'mp4' ? 'video/mp4' : 'application/x-mpegURL'}">
-                Ваш браузер не поддерживает видео.
-            </video>
+            ${isHLS 
+                ? `<video controls width="100%" height="405" autoplay>
+                     <source src="${video.url}" type="application/x-mpegURL">
+                     Ваш браузер не поддерживает HLS видео.
+                   </video>
+                   <script>
+                       if (Hls.isSupported()) {
+                           var video = document.querySelector('video');
+                           var hls = new Hls();
+                           hls.loadSource('${video.url}');
+                           hls.attachMedia(video);
+                       }
+                   <\/script>`
+                : `<video controls width="100%" height="405" autoplay>
+                     <source src="${video.url}" type="video/mp4">
+                   </video>`
+            }
             <div class="anime-info">
                 <span class="anime-dubber">🎙️ ${dubberName}</span>
                 <span class="anime-quality">📺 ${video.quality}p</span>
@@ -651,104 +618,90 @@
         `;
     }
 
+    /**
+     * Отладочная функция для проверки поиска
+     */
+    window.debugAnimeSearch = async function (title) {
+        console.log(`🔍 ОТЛАДКА ПОИСКА: "${title}"`);
+        
+        const sources = ['animego', 'anilibria', 'animevost'];
+        
+        for (const source of sources) {
+            console.log(`\n📌 ИСТОЧНИК: ${source}`);
+            
+            try {
+                const response = await fetch(`${API_URL}/api/anime/search`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: title,
+                        source: source,
+                        limit: 5
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.anime) {
+                    console.log(`Найдено ${data.anime.length} результатов:`);
+                    data.anime.forEach((a, i) => {
+                        console.log(`  ${i+1}. "${a.title}" (ID: ${a.id}, эпизодов: ${a.episodes_count})`);
+                    });
+                } else {
+                    console.log('❌ Нет результатов');
+                }
+            } catch (e) {
+                console.error(`Ошибка в ${source}:`, e);
+            }
+        }
+    };
+
     // ========== ОТРИСОВКА КАРТОЧЕК ==========
 
     function renderProjects() {
         const filtered = getFilteredProjects();
 
         if (filtered.length === 0) {
-            let emptyMessage = 'Пока нет добавленных проектов';
-            if (currentFilter !== 'all') {
-                const filterName = Array.from(filterButtons).find(b => b.dataset.filter === currentFilter)?.textContent || '';
-                emptyMessage = `В категории «${filterName}» пока нет проектов`;
-            }
-
             projectsGrid.innerHTML = `
                 <div class="empty-state">
                     <span>🎬</span>
-                    <p>${emptyMessage}</p>
-                    <p style="font-size: 1rem; margin-top: 10px; color: #6b729b;">
-                        Начните искать фильмы выше и добавляйте их в каталог
-                    </p>
+                    <p>${currentFilter === 'all' ? 'Пока нет добавленных проектов' : `В категории нет проектов`}</p>
                 </div>
             `;
             return;
         }
 
-        const sorted = [...filtered].sort((a, b) => {
-            if (a.inProgress && !b.inProgress) return -1;
-            if (!a.inProgress && b.inProgress) return 1;
-            return 0;
-        });
+        const sorted = [...filtered].sort((a, b) => (a.inProgress === b.inProgress) ? 0 : a.inProgress ? -1 : 1);
 
-        let html = '';
-        sorted.forEach(project => {
-            let posterEmoji = '🎬';
-            if (project.type === 'Аниме') posterEmoji = '🇯🇵';
-            else if (project.type === 'Сериал') posterEmoji = '📺';
-            else if (project.type === 'Мультфильм') posterEmoji = '🖍️';
-
-            const posterHtml = project.poster
-                ? `<div class="poster" style="background-image: url('${project.poster}');">
-                     ${project.rating !== '—' ? `<div class="rating-badge">${project.rating}</div>` : '<div class="rating-badge none">—</div>'}
-                   </div>`
-                : `<div class="poster">
-                     <div class="no-poster">${posterEmoji}</div>
-                     ${project.rating !== '—' ? `<div class="rating-badge">${project.rating}</div>` : '<div class="rating-badge none">—</div>'}
-                   </div>`;
-
-            html += `
-                <div class="card ${project.inProgress ? 'in-progress' : ''}" data-project-id="${project.id}" onclick="openModal('${project.id}')">
+        projectsGrid.innerHTML = sorted.map(project => {
+            const posterEmoji = project.type === 'Аниме' ? '🇯🇵' : project.type === 'Сериал' ? '📺' : project.type === 'Мультфильм' ? '🖍️' : '🎬';
+            
+            return `
+                <div class="card ${project.inProgress ? 'in-progress' : ''}" data-project-id="${project.id}" onclick="window.openModal('${project.id}')">
                     <div class="card-buttons" onclick="event.stopPropagation()">
-                        <button class="delete-card" onclick="window.deleteProject('${project.id}')" title="Удалить">✕</button>
+                        <button class="delete-card" onclick="window.deleteProject('${project.id}')">✕</button>
                         <div style="display: flex; gap: 5px;">
-                            <button class="in-progress-btn ${project.inProgress ? 'active' : ''}" 
-                                    onclick="window.toggleInProgress('${project.id}')" 
-                                    title="${project.inProgress ? 'Убрать из процесса' : 'В процессе просмотра'}">
-                                🔥
-                            </button>
-                            <button class="watched-btn" 
-                                    onclick="window.markAsWatched('${project.id}')" 
-                                    title="Отметить просмотренным">
-                                ✅
-                            </button>
+                            <button class="in-progress-btn ${project.inProgress ? 'active' : ''}" onclick="window.toggleInProgress('${project.id}')">🔥</button>
+                            <button class="watched-btn" onclick="window.markAsWatched('${project.id}')">✅</button>
                         </div>
                     </div>
-                    ${posterHtml}
+                    ${project.poster
+                ? `<div class="poster" style="background-image: url('${project.poster}');"><div class="rating-badge ${project.rating === '—' ? 'none' : ''}">${project.rating}</div></div>`
+                : `<div class="poster"><div class="no-poster">${posterEmoji}</div><div class="rating-badge ${project.rating === '—' ? 'none' : ''}">${project.rating}</div></div>`
+            }
                     <div class="card-content">
                         <div class="card-title">${project.title_ru || project.title}</div>
-                        
                         <div class="type-selector" onclick="event.stopPropagation()">
-                            <button class="type-btn ${project.type === 'Фильм' ? 'active' : ''}" 
-                                    onclick="window.changeProjectType('${project.id}', 'Фильм')" 
-                                    title="Фильм">🎬</button>
-                            <button class="type-btn ${project.type === 'Сериал' ? 'active' : ''}" 
-                                    onclick="window.changeProjectType('${project.id}', 'Сериал')" 
-                                    title="Сериал">📺</button>
-                            <button class="type-btn ${project.type === 'Мультфильм' ? 'active' : ''}" 
-                                    onclick="window.changeProjectType('${project.id}', 'Мультфильм')" 
-                                    title="Мультфильм">🖍️</button>
-                            <button class="type-btn ${project.type === 'Аниме' ? 'active' : ''}" 
-                                    onclick="window.changeProjectType('${project.id}', 'Аниме')" 
-                                    title="Аниме">🇯🇵</button>
+                            <button class="type-btn ${project.type === 'Фильм' ? 'active' : ''}" onclick="window.changeProjectType('${project.id}', 'Фильм')">🎬</button>
+                            <button class="type-btn ${project.type === 'Сериал' ? 'active' : ''}" onclick="window.changeProjectType('${project.id}', 'Сериал')">📺</button>
+                            <button class="type-btn ${project.type === 'Мультфильм' ? 'active' : ''}" onclick="window.changeProjectType('${project.id}', 'Мультфильм')">🖍️</button>
+                            <button class="type-btn ${project.type === 'Аниме' ? 'active' : ''}" onclick="window.changeProjectType('${project.id}', 'Аниме')">🇯🇵</button>
                         </div>
-                        
-                        <div class="card-meta">
-                            <span>📅 ${project.year}</span>
-                        </div>
-                        
-                        <div class="rating-details">
-                            <div class="rating-row">
-                                <span class="rating-label">Кинопоиск:</span>
-                                <span class="rating-value">${project.rating}</span>
-                            </div>
-                        </div>
+                        <div class="card-meta"><span>📅 ${project.year}</span></div>
                     </div>
                 </div>
             `;
-        });
-
-        projectsGrid.innerHTML = html;
+        }).join('');
     }
 
     // ========== ПОИСК НА КИНОПОИСКЕ ==========
@@ -765,30 +718,29 @@
 
         searchTimeout = setTimeout(async () => {
             try {
-                searchResults.innerHTML = '<div class="loading" style="padding:20px; text-align:center;">🔍 Поиск на Кинопоиске...</div>';
+                searchResults.innerHTML = '<div class="loading">🔍 Поиск на Кинопоиске...</div>';
                 searchResults.classList.add('active');
 
                 const response = await fetch(`https://kinopoiskapiunofficial.tech/api/v2.1/films/search-by-keyword?keyword=${encodeURIComponent(query)}`, {
-                    headers: { 'X-API-KEY': KINOPOISK_TOKEN, 'Content-Type': 'application/json' }
+                    headers: { 'X-API-KEY': KINOPOISK_TOKEN }
                 });
 
                 if (!response.ok) throw new Error(`Ошибка ${response.status}`);
 
                 const data = await response.json();
 
-                if (!data.films || data.films.length === 0) {
-                    searchResults.innerHTML = '<div style="padding:20px; text-align:center; color:#a3b7f0;">Ничего не найдено</div>';
+                if (!data.films?.length) {
+                    searchResults.innerHTML = '<div style="padding:20px; text-align:center;">Ничего не найдено</div>';
                     return;
                 }
 
-                let resultsHtml = '';
-                data.films.slice(0, 7).forEach(film => {
+                searchResults.innerHTML = data.films.slice(0, 7).map(film => {
                     const type = detectTypeByGenres(film);
-                    const posterUrl = film.posterUrlPreview || film.posterUrl;
-
-                    resultsHtml += `
+                    const poster = film.posterUrlPreview || film.posterUrl;
+                    
+                    return `
                         <div class="result-item" onclick="window.addMovieFromKinopoisk('${encodeURIComponent(JSON.stringify(film).replace(/'/g, "\\'"))}')">
-                            <div class="result-poster" style="background-image: url('${posterUrl || ''}'); background-size: cover; background-position: center;"></div>
+                            <div class="result-poster" style="background-image: url('${poster || ''}');"></div>
                             <div class="result-info">
                                 <div class="result-title">${film.nameRu || film.nameEn || 'Без названия'}</div>
                                 <div class="result-meta">
@@ -799,9 +751,7 @@
                             </div>
                         </div>
                     `;
-                });
-
-                searchResults.innerHTML = resultsHtml;
+                }).join('');
 
             } catch (error) {
                 console.error('Ошибка поиска:', error);
@@ -828,9 +778,12 @@
         }
     };
 
+    // Экспортируем функции в глобальную область
     window.deleteProject = deleteProject;
     window.toggleInProgress = toggleInProgress;
     window.markAsWatched = markAsWatched;
     window.changeProjectType = changeProjectType;
     window.refreshProjectDetails = refreshProjectDetails;
+    window.playOnRutube = playOnRutube;
+    // findAnimeByTitle уже экспортируется через window в определении
 })();
