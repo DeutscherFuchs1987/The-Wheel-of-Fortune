@@ -989,3 +989,17 @@ canvas {
 }
 
 
+.mode-label.active {
+    color: #ffd700;
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+    font-weight: bold;
+}
+
+#spinOnceBtn.eliminate-mode {
+    background: linear-gradient(135deg, #8b0000, #450000);
+    border-color: #ff6b6b;
+}
+
+#spinOnceBtn.eliminate-mode:hover {
+    background: linear-gradient(135deg, #a52a2a, #5a0000);
+}

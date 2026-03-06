@@ -16,7 +16,7 @@
     let filmBoosts = {};
     let currentUser = localStorage.getItem('voting_user') || null;
     let userVotes = {};
-    let isEliminationMode = false;
+    let isEliminationMode = false; // Режим игры: false - обычный, true - исключение
     let currentCycleId = null;
 
     // Карты для поиска
@@ -41,8 +41,8 @@
     const successMessageDiv = document.getElementById('successMessage');
     const spinIndicator = document.getElementById('spinIndicator');
 
-    const spinOnceBtn = document.getElementById('spinOnceBtn');
-    const spinEliminateBtn = document.getElementById('spinEliminateBtn');
+    // Одна кнопка для кручения
+    const spinBtn = document.getElementById('spinOnceBtn'); // Переиспользуем существующую кнопку
     const resetWheelBtn = document.getElementById('resetWheelBtn');
 
     const speedSlider = document.getElementById('speedSlider');
@@ -57,6 +57,12 @@
     const votingStats = document.getElementById('votingStats');
     const votersIndicator = document.getElementById('votersIndicator');
     const votersList = document.getElementById('votersList');
+
+    // Скрываем вторую кнопку режима исключения
+    const spinEliminateBtn = document.getElementById('spinEliminateBtn');
+    if (spinEliminateBtn) {
+        spinEliminateBtn.style.display = 'none';
+    }
 
     // Скрываем ненужные элементы
     const jsonUploadElement = document.querySelector('.json-upload');
@@ -94,13 +100,24 @@
                 if (isElim) {
                     normalLabel.classList.remove('active');
                     elimLabel.classList.add('active');
+                    // Обновляем текст кнопки
+                    if (spinBtn) {
+                        spinBtn.innerHTML = '⚔️ Крутить (Исключение)';
+                        spinBtn.classList.add('eliminate-mode');
+                    }
                 } else {
                     normalLabel.classList.add('active');
                     elimLabel.classList.remove('active');
+                    // Обновляем текст кнопки
+                    if (spinBtn) {
+                        spinBtn.innerHTML = '🎲 Крутить (Обычный)';
+                        spinBtn.classList.remove('eliminate-mode');
+                    }
                 }
             }
         }
 
+        // Устанавливаем начальное состояние
         updateModeLabels(false);
 
         modeToggle.addEventListener('click', () => {
@@ -244,8 +261,8 @@
             const filmId = getFilmIdByTitle(item);
             const boost = filmBoosts[filmId] || 0;
             return isEliminationMode ?
-                Math.max(0.1, 1 - boost * 2) :
-                1 + boost * 2;
+                Math.max(0.1, 1 - boost * 2) : // В режиме исключения бусты УМЕНЬШАЮТ шанс вылететь
+                1 + boost * 2; // В обычном режиме бусты УВЕЛИЧИВАЮТ шанс победы
         });
 
         const totalWeight = weights.reduce((a, b) => a + b, 0);
@@ -362,6 +379,40 @@
         ctx.shadowBlur = 0;
     }
 
+    // Основная функция вращения, которая вызывает нужный режим
+    function spinWheel() {
+        if (isEliminationMode) {
+            spinElimination();
+        } else {
+            spinNormal();
+        }
+    }
+
+    function spinNormal() {
+        spinAnimation((selected, index) => {
+            winnerNameDiv.textContent = selected;
+        });
+    }
+
+    function spinElimination() {
+        if (wheelItems.length === 0) {
+            showError('Колесо пустое');
+            return;
+        }
+        if (wheelItems.length === 1) {
+            winnerNameDiv.textContent = wheelItems[0] + ' 🏆';
+            return;
+        }
+
+        spinAnimation((selected, index) => {
+            const removed = wheelItems.splice(index, 1)[0];
+            eliminatedLog.push(removed);
+            updateEliminatedView();
+            drawWheel();
+            updatePoolView();
+        });
+    }
+
     function spinAnimation(onComplete) {
         if (wheelItems.length === 0) {
             showError('Добавьте элементы на колесо');
@@ -369,8 +420,7 @@
         }
 
         isSpinning = true;
-        spinOnceBtn.disabled = true;
-        spinEliminateBtn.disabled = true;
+        spinBtn.disabled = true;
 
         const startTime = performance.now();
         const duration = spinSpeed * 1000;
@@ -394,8 +444,7 @@
                 requestAnimationFrame(animate);
             } else {
                 isSpinning = false;
-                spinOnceBtn.disabled = false;
-                spinEliminateBtn.disabled = false;
+                spinBtn.disabled = false;
                 spinIndicator.textContent = '';
 
                 const selected = wheelItems[targetIndex];
@@ -418,31 +467,6 @@
         }
 
         requestAnimationFrame(animate);
-    }
-
-    function spinOnce() {
-        spinAnimation();
-    }
-
-    function spinElimination() {
-        if (wheelItems.length === 0) {
-            showError('Колесо пустое');
-            return;
-        }
-        if (wheelItems.length === 1) {
-            winnerNameDiv.textContent = wheelItems[0] + ' 🏆';
-            return;
-        }
-
-        isEliminationMode = true;
-        spinAnimation((selected, index) => {
-            const removed = wheelItems.splice(index, 1)[0];
-            eliminatedLog.push(removed);
-            updateEliminatedView();
-            drawWheel();
-            updatePoolView();
-            isEliminationMode = false;
-        });
     }
 
     // ========== МОДАЛЬНЫЕ ОКНА ==========
@@ -918,8 +942,8 @@
     }
 
     // ========== ИНИЦИАЛИЗАЦИЯ ==========
-    spinOnceBtn.addEventListener('click', spinOnce);
-    spinEliminateBtn.addEventListener('click', spinElimination);
+    // Привязываем одну кнопку к функции spinWheel
+    spinBtn.addEventListener('click', spinWheel);
     resetWheelBtn.addEventListener('click', syncWheel);
 
     speedSlider.addEventListener('input', () => {
