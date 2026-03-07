@@ -929,7 +929,6 @@
         if (iframe && iframe.contentWindow?.player?.api) {
             iframe.contentWindow.player.api.seek(startTime);
         } else {
-            // Если API недоступно, просто показываем сообщение
             showInfo('⏱️ Функция продолжения доступна только при активном плеере');
         }
     }
