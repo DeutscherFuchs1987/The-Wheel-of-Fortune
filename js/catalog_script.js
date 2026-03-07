@@ -4,8 +4,9 @@
 
     let myProjects = [];
     let currentFilter = 'all';
-    let searchCache = new Map(); // Кэш для поиска на Кинопоиске
-    let seasonsCache = new Map(); // Кэш для сезонов
+    let searchCache = new Map();
+    let seasonsCache = new Map();
+    let videoCandidates = new Map();
 
     const searchInput = document.getElementById('searchInput');
     const searchResults = document.getElementById('searchResults');
@@ -15,10 +16,8 @@
     const successMessageDiv = document.getElementById('successMessage');
     const filterButtons = document.querySelectorAll('.filter-btn');
 
-    // Загружаем данные при старте
     loadUnwatchedProjects();
 
-    // Фильтры
     filterButtons.forEach(btn => {
         btn.addEventListener('click', () => {
             filterButtons.forEach(b => b.classList.remove('active'));
@@ -30,7 +29,6 @@
     });
 
     // ========== УТИЛИТЫ ==========
-
     function showError(text) {
         console.error('❌ Ошибка:', text);
         errorMessageDiv.style.display = 'block';
@@ -65,8 +63,14 @@
         `;
         infoDiv.textContent = 'ℹ️ ' + text;
         document.body.appendChild(infoDiv);
-        
         setTimeout(() => infoDiv.remove(), 3000);
+    }
+
+    function formatDuration(seconds) {
+        if (!seconds) return '0:00';
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
     }
 
     function detectTypeByGenres(film) {
@@ -78,7 +82,6 @@
     }
 
     // ========== ЗАГРУЗКА ДАННЫХ ==========
-
     async function loadUnwatchedProjects() {
         try {
             console.log('📡 Загружаем проекты с сервера...');
@@ -99,13 +102,9 @@
     }
 
     // ========== РАБОТА С ПРОЕКТАМИ ==========
-
     async function refreshProjectDetails(projectId) {
         try {
-            const response = await fetch(`${API_URL}/projects/${projectId}/refresh`, {
-                method: 'POST'
-            });
-
+            const response = await fetch(`${API_URL}/projects/${projectId}/refresh`, { method: 'POST' });
             if (!response.ok) throw new Error('Ошибка обновления');
 
             const index = myProjects.findIndex(p => p.id === projectId);
@@ -198,10 +197,7 @@
         if (!confirm('Удалить проект?')) return;
 
         try {
-            const response = await fetch(`${API_URL}/projects/${projectId}`, {
-                method: 'DELETE'
-            });
-
+            const response = await fetch(`${API_URL}/projects/${projectId}`, { method: 'DELETE' });
             if (!response.ok) throw new Error(`Ошибка удаления: ${response.status}`);
 
             myProjects = myProjects.filter(p => p.id !== projectId);
@@ -250,7 +246,6 @@
     }
 
     // ========== СТАТИСТИКА ==========
-
     function updateStats() {
         const total = myProjects.length;
         const inProgress = myProjects.filter(p => p.inProgress).length;
@@ -272,34 +267,21 @@
         return myProjects.filter(p => p.type === currentFilter);
     }
 
-    // ========== ФУНКЦИИ ДЛЯ ЗАГРУЗКИ СЕЗОНОВ ==========
-
+    // ========== ЗАГРУЗКА СЕЗОНОВ ==========
     async function loadSeasons(filmId) {
         const cacheKey = `seasons_${filmId}`;
-        
-        // Проверяем кэш
-        if (seasonsCache.has(cacheKey)) {
-            console.log('📦 Используем кэшированные сезоны');
-            return seasonsCache.get(cacheKey);
-        }
+        if (seasonsCache.has(cacheKey)) return seasonsCache.get(cacheKey);
 
         try {
-            console.log(`📺 Загружаем сезоны для filmId: ${filmId}`);
-            
             const response = await fetch(
                 `https://kinopoiskapiunofficial.tech/api/v2.2/films/${filmId}/seasons`,
                 { headers: { 'X-API-KEY': KINOPOISK_TOKEN } }
             );
 
-            if (!response.ok) {
-                throw new Error(`Ошибка загрузки сезонов: ${response.status}`);
-            }
+            if (!response.ok) throw new Error(`Ошибка загрузки сезонов: ${response.status}`);
 
             const data = await response.json();
-            
-            // Сохраняем в кэш
             seasonsCache.set(cacheKey, data);
-            
             return data;
         } catch (error) {
             console.error('❌ Ошибка загрузки сезонов:', error);
@@ -307,274 +289,261 @@
         }
     }
 
-    // ========== ФУНКЦИЯ ДЛЯ ЗАГРУЗКИ ВИДЕО ПО СЕРИИ ==========
-
-    async function loadEpisodeVideo(projectId, title, year, originalTitle, seasonNum, episodeNum, contentType) {
+    // ========== ЗАГРУЗКА ВИДЕО ==========
+    async function loadEpisodeVideo(projectId, filmId, title, year, originalTitle, seasonNum, episodeNum, contentType) {
         const playerDiv = document.getElementById(`rutube-player-${projectId}`);
-        
         if (!playerDiv) return;
 
-        // Проверяем, не смотрели ли мы эту серию раньше
-        const savedProgress = window.watchProgress.get(projectId);
+        const isSeries = contentType === 'Сериал';
+
         let startTime = 0;
-        
-        if (savedProgress && 
-            savedProgress.season === seasonNum && 
-            savedProgress.episode === episodeNum && 
-            !savedProgress.completed) {
-            startTime = savedProgress.timecode;
-            console.log(`⏱️ Восстанавливаем просмотр с ${window.watchProgress.formatTime(startTime)}`);
+        if (isSeries) {
+            const savedProgress = window.watchProgress?.get(projectId);
+            if (savedProgress &&
+                savedProgress.season === seasonNum &&
+                savedProgress.episode === episodeNum &&
+                !savedProgress.completed) {
+                startTime = savedProgress.timecode;
+            }
         }
 
         playerDiv.style.display = 'block';
-        playerDiv.innerHTML = `<div class="loading-spinner" style="text-align:center; padding:50px;">🔍 Ищем ${seasonNum} сезон ${episodeNum} серию...</div>`;
-
-        // ЧЁТКАЯ ИЕРАРХИЯ ПРИОРИТЕТОВ
-        const searchQueries = [
-            { text: `${title} ${seasonNum} сезон ${episodeNum} серия`, priority: 100 },
-            { text: `${title} ${episodeNum} серия ${seasonNum} сезон`, priority: 95 },
-            { text: `${title} ${seasonNum} сезон`, priority: 80 },
-            { text: `${title} ${episodeNum} серия`, priority: 70 },
-            { text: `${title} ${year}`, priority: 60 },
-            { text: title, priority: 50 },
-            { text: `${originalTitle} ${year}`, priority: 40 },
-            { text: originalTitle, priority: 30 }
-        ];
-        
-        let found = false;
-        let lastError = null;
-        
-        for (const query of searchQueries) {
-            if (found) break;
-            
-            console.log(`🔍 Пробуем запрос (приоритет ${query.priority}): ${query.text}`);
-            
-            try {
-                const response = await fetch(`${API_URL}/api/search-rutube`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        title: query.text,
-                        year: year,
-                        original_title: originalTitle,
-                        type: contentType,
-                        priority: query.priority
-                    })
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    playerDiv.innerHTML = embedPlayerWithProgress(
-                        projectId, 
-                        data.embed_code, 
-                        seasonNum, 
-                        episodeNum,
-                        startTime,
-                        title,
-                        year,
-                        originalTitle,
-                        contentType
-                    );
-                    
-                    // Показываем информацию о том, по какому запросу нашли
-                    const qualityInfo = `
-                        <div style="text-align:center; padding:5px; margin-top:5px; background:#4a3f7a; color:white; border-radius:4px; font-size:12px;">
-                            ✅ Найдено по запросу: "${query.text}" (совпадение: ${data.quality || 'среднее'})
-                        </div>
-                    `;
-                    playerDiv.insertAdjacentHTML('afterend', qualityInfo);
-                    
-                    setTimeout(() => {
-                        const info = playerDiv.nextElementSibling;
-                        if (info && info.style) info.remove();
-                    }, 5000);
-                    
-                    showSuccess(`Загружена ${seasonNum} сезон ${episodeNum} серия`);
-                    found = true;
-                    break;
-                } else {
-                    console.log(`❌ Запрос "${query.text}" не дал результатов`);
-                    lastError = `Не найдено по запросу: ${query.text}`;
-                }
-            } catch (error) {
-                console.error(`Ошибка при запросе "${query.text}":`, error);
-                lastError = error.message;
-            }
-        }
-        
-        if (!found) {
-            playerDiv.innerHTML = `
-                <div style="text-align:center; padding:30px; color:#ff8a8a;">
-                    ❌ Не удалось найти видео<br>
-                    <small style="color:#aaa;">Последняя ошибка: ${lastError || 'Неизвестная ошибка'}</small><br>
-                    <button class="retry-btn" onclick="window.loadEpisodeVideo('${projectId}', '${title.replace(/'/g, "\\'")}', '${year}', '${originalTitle.replace(/'/g, "\\'")}', ${seasonNum}, ${episodeNum}, '${contentType}')">
-                        🔄 Повторить
-                    </button>
-                    <button class="retry-btn" onclick="window.openManualSearch('${title}', ${seasonNum}, ${episodeNum})" style="margin-left:10px;">
-                        🔍 Ручной поиск
-                    </button>
+        playerDiv.innerHTML = `
+            <div style="text-align:center; padding:30px;">
+                <div class="loading-spinner" style="margin: 0 auto 20px;"></div>
+                <div style="color: #a3b7f0; font-size: 1rem;">
+                    ${isSeries
+                ? `🔍 Ищем ${seasonNum} сезон ${episodeNum} серию...`
+                : `🔍 Ищем "${title}"...`}
                 </div>
-            `;
+            </div>
+        `;
+
+        try {
+            const response = await fetch(`${API_URL}/api/search-rutube`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: title,
+                    film_id: filmId,  // 👈 Передаём ID для анализа жанров на сервере
+                    season: isSeries ? seasonNum : null,
+                    episode: isSeries ? episodeNum : null,
+                    year: year,
+                    original_title: originalTitle,
+                    type: contentType
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                if (data.candidates?.length) {
+                    videoCandidates.set(`${projectId}_${seasonNum}_${episodeNum}`, data.candidates);
+                }
+
+                playerDiv.innerHTML = embedPlayerWithOptions(
+                    projectId,
+                    {
+                        embed_code: data.embed_code,
+                        title: data.title,
+                        score: data.score,
+                        reasons: data.reasons || []
+                    },
+                    data.candidates || [],
+                    seasonNum,
+                    episodeNum,
+                    isSeries ? startTime : 0
+                );
+
+                if (isSeries) {
+                    showSuccess(`Загружена ${seasonNum} сезон ${episodeNum} серия`);
+                } else {
+                    showSuccess(`Видео загружено`);
+                }
+            } else {
+                showVideoNotFound(playerDiv, projectId, filmId, title, year, originalTitle, seasonNum, episodeNum, contentType);
+            }
+        } catch (error) {
+            console.error('❌ Ошибка загрузки видео:', error);
+            showVideoNotFound(playerDiv, projectId, filmId, title, year, originalTitle, seasonNum, episodeNum, contentType);
         }
     }
 
-    // Функция для ручного поиска (открывает Rutube в новой вкладке)
-    window.openManualSearch = function(title, seasonNum, episodeNum) {
-        const searchQuery = `${title} ${seasonNum} сезон ${episodeNum} серия`;
-        const url = `https://rutube.ru/search/?query=${encodeURIComponent(searchQuery)}`;
-        window.open(url, '_blank');
-        showInfo('Открыт Rutube для ручного поиска');
-    };
+    function showVideoNotFound(playerDiv, projectId, filmId, title, year, originalTitle, seasonNum, episodeNum, contentType) {
+        const errorMessage = contentType === 'Сериал'
+            ? `Не удалось найти "${title} ${seasonNum} сезон ${episodeNum} серия"`
+            : `Не удалось найти "${title}"`;
 
-    // Функция для встраивания плеера с отслеживанием прогресса
-    function embedPlayerWithProgress(projectId, embedCode, season, episode, startTime = 0, title, year, originalTitle, contentType) {
-        const playerId = `player-${projectId}-${season}-${episode}-${Date.now()}`;
-        
-        return `
-            <div class="progress-player-wrapper" id="${playerId}" 
-                 data-project="${projectId}" 
-                 data-season="${season}" 
-                 data-episode="${episode}"
-                 data-title="${title}"
-                 data-year="${year}"
-                 data-original="${originalTitle}"
-                 data-type="${contentType}">
-                ${embedCode}
-                <div class="progress-controls" style="margin-top: 10px; text-align: center;">
-                    <button class="progress-save-btn" onclick="window.saveManualProgress('${projectId}', ${season}, ${episode})">
-                        ⏱️ Сохранить позицию вручную
-                    </button>
-                    ${startTime > 0 ? `
-                        <div class="progress-indicator" style="margin-top: 5px; color: #ffd700;">
-                            ⏯️ Продолжить с ${window.watchProgress.formatTime(startTime)}
-                        </div>
-                    ` : ''}
-                </div>
+        playerDiv.innerHTML = `
+            <div style="text-align:center; padding:30px; color:#ff8a8a;">
+                ❌ ${errorMessage}<br>
+                <small style="color:#aaa;">Попробуйте найти вручную на Rutube</small><br><br>
+                <button class="retry-btn" onclick="window.openManualSearch('${title}', ${seasonNum}, ${episodeNum}, '${contentType}')">
+                    🔍 Поиск на Rutube
+                </button>
+                <button class="retry-btn" onclick="window.loadEpisodeVideo('${projectId}', '${filmId}', '${title.replace(/'/g, "\\'")}', '${year}', '${originalTitle.replace(/'/g, "\\'")}', ${seasonNum}, ${episodeNum}, '${contentType}')" style="margin-left:10px;">
+                    🔄 Повторить
+                </button>
             </div>
+        `;
+    }
+
+    // ========== ПЛЕЕР С ВЫБОРОМ ВАРИАНТОВ ==========
+    function embedPlayerWithOptions(projectId, primaryVideo, candidates, season, episode, startTime = 0) {
+        const playerId = `player-${projectId}-${season}-${episode}-${Date.now()}`;
+        const cacheKey = `${projectId}_${season}_${episode}`;
+
+        return `
+            <div class="player-container" id="${playerId}">
+                <div class="primary-player">${primaryVideo.embed_code}</div>
+                
+                <div style="display: flex; justify-content: flex-end; align-items: center; margin-top: 5px; opacity: 0.5;">
+                    <span style="color: #888; font-size: 11px;">🎯 осн.</span>
+                    <span style="color: #666; font-size: 10px; margin-left: 5px;">${primaryVideo.score} баллов</span>
+                </div>
+                
+                ${candidates?.length > 1 ? `
+                    <div class="alternative-toggle" style="margin-top: 5px; opacity: 0.3; transition: opacity 0.3s; text-align: right; font-size: 11px;"
+                         onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='0.3'">
+                        <span style="color: #666; cursor: pointer;" onclick="window.toggleAlternatives('${playerId}')">
+                            📋 еще ${candidates.length - 1} вар.
+                        </span>
+                    </div>
+                    
+                    <div class="alternatives-hidden" id="alt-${playerId}" style="display: none; margin-top: 10px; padding: 8px; background: rgba(255,255,255,0.02); border-radius: 6px;">
+                        <div style="font-size: 12px; color: #aaa; margin-bottom: 8px; text-align: center;">другие варианты</div>
+                        <div style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px;">
+                            ${candidates.slice(1).map((video, index) => `
+                                <div style="min-width: 200px; padding: 8px; background: rgba(255,255,255,0.03); border-radius: 4px; cursor: pointer;" 
+                                     onclick="window.switchVideo('${projectId}', ${season}, ${episode}, ${index + 1})">
+                                    <div style="font-size: 11px; color: #ccc;">${video.title.substring(0, 40)}${video.title.length > 40 ? '...' : ''}</div>
+                                    <div style="display: flex; gap: 10px; font-size: 10px; color: #666; margin-top: 4px;">
+                                        <span>⏱️ ${formatDuration(video.duration)}</span>
+                                        <span>👁️ ${Math.round(video.views / 1000)}k</span>
+                                        <span style="color: #888;">${video.score} баллов</span>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+                
+                ${startTime > 0 ? `
+                    <div style="margin-top: 8px; text-align: center; opacity: 0.6;">
+                        <button class="resume-btn-mini" onclick="window.resumeVideo('${projectId}', ${season}, ${episode}, ${startTime})" 
+                                style="background: none; border: 1px solid #4caf50; border-radius: 12px; color: #4caf50; padding: 4px 12px; font-size: 11px; cursor: pointer;">
+                            ⏯️ продолжить с ${window.watchProgress?.formatTime(startTime) || '0:00'}
+                        </button>
+                    </div>
+                ` : ''}
+            </div>
+            
             <script>
                 (function() {
-                    const wrapper = document.getElementById('${playerId}');
-                    const projectId = '${projectId}';
-                    const season = ${season};
-                    const episode = ${episode};
-                    const startTime = ${startTime};
+                    if (!window.videoCandidates) window.videoCandidates = new Map();
+                    window.videoCandidates.set('${cacheKey}', ${JSON.stringify(candidates)});
                     
-                    // Пытаемся получить доступ к плееру Rutube
                     setTimeout(() => {
+                        const wrapper = document.getElementById('${playerId}');
                         const iframe = wrapper.querySelector('iframe');
                         if (!iframe) return;
                         
                         try {
-                            // Пробуем достучаться до плеера
                             const player = iframe.contentWindow?.player;
-                            
-                            if (player && player.api) {
-                                console.log('✅ Rutube API доступен');
+                            if (player?.api) {
+                                if (${startTime} > 0) player.api.seek(${startTime});
                                 
-                                // Устанавливаем время начала
-                                if (startTime > 0) {
-                                    player.api.seek(startTime);
-                                }
-                                
-                                // Отслеживаем прогресс
                                 let lastSave = 0;
                                 player.api.on('timeupdate', (data) => {
-                                    const currentTime = data.currentTime;
-                                    const duration = data.duration;
-                                    
-                                    // Сохраняем каждые 10 секунд
-                                    if (Math.floor(currentTime / 10) > Math.floor(lastSave / 10)) {
-                                        lastSave = currentTime;
-                                        window.watchProgress.markStarted(
-                                            projectId, season, episode, 
-                                            currentTime, duration
+                                    if (Math.floor(data.currentTime / 10) > Math.floor(lastSave / 10)) {
+                                        lastSave = data.currentTime;
+                                        window.watchProgress?.markStarted(
+                                            '${projectId}', ${season}, ${episode}, 
+                                            data.currentTime, data.duration
                                         );
-                                        
-                                        // Обновляем индикатор
-                                        updateProgressIndicator(currentTime, duration);
                                     }
                                 });
                                 
-                                // Отслеживаем окончание
                                 player.api.on('ended', () => {
-                                    window.watchProgress.markWatched(projectId, season, episode);
-                                    showInfo('✅ Серия отмечена как просмотренная');
-                                    
-                                    // Автоматически загружаем следующую серию
-                                    setTimeout(() => {
-                                        const nextBtn = document.querySelector('.next-episode-btn');
-                                        if (nextBtn) nextBtn.click();
-                                    }, 3000);
+                                    window.watchProgress?.markWatched('${projectId}', ${season}, ${episode});
+                                    if (window.showInfo) window.showInfo('✅ Серия отмечена как просмотренная');
                                 });
-                            } else {
-                                console.log('⚠️ Rutube API не доступен, используем ручное сохранение');
-                                setupManualMode(wrapper, projectId, season, episode, startTime);
                             }
                         } catch (e) {
-                            console.log('⚠️ Ошибка доступа к плееру:', e);
-                            setupManualMode(wrapper, projectId, season, episode, startTime);
+                            console.log('⚠️ Rutube API недоступен');
                         }
                     }, 2000);
-                    
-                    function updateProgressIndicator(current, total) {
-                        let indicator = wrapper.querySelector('.live-progress');
-                        if (!indicator) {
-                            indicator = document.createElement('div');
-                            indicator.className = 'live-progress';
-                            indicator.style.cssText = 'margin-top:5px; font-size:12px; color:#4caf50;';
-                            wrapper.querySelector('.progress-controls').appendChild(indicator);
-                        }
-                        indicator.textContent = \`▶️ Сейчас: \${window.watchProgress.formatTime(current)} / \${window.watchProgress.formatTime(total)}\`;
-                    }
-                    
-                    function setupManualMode(wrapper, projectId, season, episode, startTime) {
-                        // Добавляем кнопки для ручного управления
-                        const controls = wrapper.querySelector('.progress-controls');
-                        
-                        if (startTime > 0) {
-                            const resumeBtn = document.createElement('button');
-                            resumeBtn.className = 'retry-btn';
-                            resumeBtn.style.marginLeft = '10px';
-                            resumeBtn.textContent = \`▶️ Продолжить с \${window.watchProgress.formatTime(startTime)}\`;
-                            resumeBtn.onclick = () => {
-                                alert('⏱️ Продолжить можно будет после внедрения полноценного плеера');
-                            };
-                            controls.appendChild(resumeBtn);
-                        }
-                    }
                 })();
             <\/script>
         `;
     }
 
-    // Функция для ручного сохранения прогресса
-    window.saveManualProgress = function(projectId, season, episode) {
+    // ========== ПЕРЕКЛЮЧЕНИЕ ВАРИАНТОВ ==========
+    window.switchVideo = function (projectId, season, episode, candidateIndex) {
+        const cacheKey = `${projectId}_${season}_${episode}`;
+        const candidates = window.videoCandidates?.get(cacheKey) || [];
+
+        if (!candidates[candidateIndex]) {
+            showError('Вариант не найден');
+            return;
+        }
+
+        const video = candidates[candidateIndex];
+        const playerDiv = document.getElementById(`rutube-player-${projectId}`);
+        if (!playerDiv) return;
+
+        playerDiv.innerHTML = embedPlayerWithOptions(
+            projectId,
+            {
+                embed_code: video.embed_code,
+                title: video.title,
+                score: video.score,
+                reasons: video.reasons
+            },
+            candidates.filter((_, i) => i !== candidateIndex),
+            season,
+            episode,
+            0
+        );
+
+        showSuccess(`Выбран вариант ${candidateIndex + 1}`);
+    };
+
+    // ========== РУЧНОЙ ПОИСК ==========
+    window.openManualSearch = function (title, seasonNum, episodeNum, contentType) {
+        const searchQuery = contentType === 'Сериал'
+            ? `${title} ${seasonNum} сезон ${episodeNum} серия`
+            : title;
+
+        window.open(`https://rutube.ru/search/?query=${encodeURIComponent(searchQuery)}`, '_blank');
+        showInfo(`Поиск на Rutube: "${searchQuery}"`);
+    };
+
+    // ========== РУЧНОЕ СОХРАНЕНИЕ ПРОГРЕССА ==========
+    window.saveManualProgress = function (projectId, season, episode) {
         const timeStr = prompt('Введите время в минутах (например, 24:30 или 1250 секунд):');
-        if (timeStr) {
-            const seconds = window.watchProgress.parseTime(timeStr);
-            if (seconds > 0) {
-                window.watchProgress.markStarted(projectId, season, episode, seconds, 0);
-                alert(`✅ Позиция сохранена! При следующем просмотре начнём с ${window.watchProgress.formatTime(seconds)}`);
-            }
+        if (!timeStr) return;
+
+        const seconds = window.watchProgress?.parseTime(timeStr);
+        if (seconds > 0) {
+            window.watchProgress?.markStarted(projectId, season, episode, seconds, 0);
+            alert(`✅ Позиция сохранена! При следующем просмотре начнём с ${window.watchProgress?.formatTime(seconds)}`);
         }
     };
 
-    // ========== ФУНКЦИЯ ДЛЯ ОТОБРАЖЕНИЯ СЕЗОНОВ ==========
-
-    function renderSeasons(seasonsData, projectId, title, year, originalTitle, contentType) {
+    // ========== ОТОБРАЖЕНИЕ СЕЗОНОВ ==========
+    function renderSeasons(seasonsData, projectId, filmId, title, year, originalTitle, contentType) {
         const container = document.getElementById(`seasons-container-${projectId}`);
         if (!container) return;
 
-        if (!seasonsData || !seasonsData.items || seasonsData.items.length === 0) {
+        if (!seasonsData?.items?.length) {
             container.innerHTML = '<p class="no-data">Нет информации о сезонах</p>';
             return;
         }
 
-        const progress = window.watchProgress.get(projectId);
-
+        const progress = window.watchProgress?.get(projectId);
         let html = '<div class="seasons-list">';
-        
+
         seasonsData.items.forEach(season => {
             html += `
                 <div class="season-item">
@@ -584,83 +553,55 @@
                     </h4>
                     <div class="episodes-list" id="season-${projectId}-${season.number}" style="display: none;">
             `;
-            
+
             season.episodes.forEach(episode => {
-                const isCurrentEpisode = progress && 
-                                        progress.season === season.number && 
-                                        progress.episode === episode.episodeNumber;
-                
-                const episodeClass = isCurrentEpisode ? 'episode-item current' : 'episode-item';
-                const episodeStyle = isCurrentEpisode ? 'border-left: 4px solid #ffd700; background: rgba(255,215,0,0.1);' : '';
-                
+                const isCurrentEpisode = progress?.season === season.number &&
+                    progress?.episode === episode.episodeNumber;
+                const progressPercent = isCurrentEpisode && progress?.duration
+                    ? Math.round((progress.timecode / progress.duration) * 100)
+                    : 0;
+
                 html += `
-                    <div class="${episodeClass}" 
-                         style="${episodeStyle}"
-                         onclick="window.loadEpisodeVideo('${projectId}', '${title.replace(/'/g, "\\'")}', '${year}', '${originalTitle.replace(/'/g, "\\'")}', ${season.number}, ${episode.episodeNumber}, '${contentType}')">
+                    <div class="episode-item ${isCurrentEpisode ? 'current' : ''}" 
+                         onclick="window.loadEpisodeVideo('${projectId}', '${filmId}', '${title.replace(/'/g, "\\'")}', '${year}', '${originalTitle.replace(/'/g, "\\'")}', ${season.number}, ${episode.episodeNumber}, '${contentType}')">
                         <span class="episode-number">Серия ${episode.episodeNumber}</span>
                         <span class="episode-title">${episode.nameRu || episode.nameEn || ''}</span>
-                        ${isCurrentEpisode && !progress.completed ? 
-                            `<span class="episode-progress">${Math.round((progress.timecode / progress.duration) * 100)}%</span>` : 
-                            ''}
+                        ${isCurrentEpisode && !progress?.completed ? `<span class="episode-progress">${progressPercent}%</span>` : ''}
                     </div>
                 `;
             });
-            
-            html += `
-                    </div>
-                </div>
-            `;
+
+            html += `</div></div>`;
         });
-        
+
         html += '</div>';
         container.innerHTML = html;
 
-        // Автоматически раскрываем первый сезон и загружаем нужную серию
         if (seasonsData.items.length > 0) {
-            let targetSeason = 1;
-            let targetEpisode = 1;
-            
-            // Если есть прогресс, открываем на нужной серии
-            if (progress && progress.season && progress.episode) {
-                targetSeason = progress.season;
-                targetEpisode = progress.episode;
-            }
-            
-            // Раскрываем нужный сезон
+            let targetSeason = progress?.season || 1;
+            let targetEpisode = progress?.episode || 1;
+
             toggleSeason(projectId, targetSeason, true);
-            
-            // Загружаем нужную серию
+
             const season = seasonsData.items.find(s => s.number === targetSeason);
             if (season) {
                 const episode = season.episodes.find(e => e.episodeNumber === targetEpisode);
                 if (episode) {
-                    loadEpisodeVideo(projectId, title, year, originalTitle, targetSeason, targetEpisode, contentType);
-                } else {
-                    // Если серия не найдена, грузим первую
-                    loadEpisodeVideo(projectId, title, year, originalTitle, targetSeason, 1, contentType);
+                    loadEpisodeVideo(projectId, filmId, title, year, originalTitle, targetSeason, targetEpisode, contentType);
                 }
-            } else {
-                // Если сезон не найден, грузим первый сезон первую серию
-                loadEpisodeVideo(projectId, title, year, originalTitle, 1, 1, contentType);
             }
         }
     }
 
-    // ========== ФУНКЦИЯ ДЛЯ РАСКРЫТИЯ/СКРЫТИЯ СЕЗОНА ==========
-
-    window.toggleSeason = function(projectId, seasonNumber, forceOpen = false) {
+    window.toggleSeason = function (projectId, seasonNumber, forceOpen = false) {
         const seasonDiv = document.getElementById(`season-${projectId}-${seasonNumber}`);
         if (seasonDiv) {
-            if (forceOpen) {
-                seasonDiv.style.display = 'grid';
-            } else {
-                seasonDiv.style.display = seasonDiv.style.display === 'none' ? 'grid' : 'none';
-            }
+            seasonDiv.style.display = forceOpen ? 'grid' :
+                seasonDiv.style.display === 'none' ? 'grid' : 'none';
         }
     };
 
     // ========== МОДАЛЬНОЕ ОКНО ==========
-
     window.openModal = async function (projectId) {
         const project = myProjects.find(p => p.id === projectId);
         if (!project) return;
@@ -674,47 +615,41 @@
         modal.className = 'project-modal active';
         modal.dataset.projectId = project.id;
 
-        let posterEmoji = '🎬';
-        if (project.type === 'Аниме') posterEmoji = '🇯🇵';
-        else if (project.type === 'Сериал') posterEmoji = '📺';
-        else if (project.type === 'Мультфильм') posterEmoji = '🖍️';
+        const posterEmoji = project.type === 'Аниме' ? '🇯🇵' :
+            project.type === 'Сериал' ? '📺' :
+                project.type === 'Мультфильм' ? '🖍️' : '🎬';
 
-        let genresHtml = project.genres?.length
-            ? project.genres.map(g => `<span class="modal-genre-tag">${typeof g === 'string' ? g : (g.genre || g)}</span>`).join('')
+        const genresHtml = project.genres?.length
+            ? project.genres.map(g => `<span class="modal-genre-tag">${g.genre || g}</span>`).join('')
             : '<span class="modal-genre-tag">Жанры будут добавлены</span>';
 
-        let description = project.description || 'Описание будет загружено позже...';
-        if (description.length > 500) description = description.substring(0, 500) + '...';
+        const description = project.description?.length > 500
+            ? project.description.substring(0, 500) + '...'
+            : project.description || 'Описание будет загружено позже...';
 
-        // Извлекаем filmId из project.id (удаляем префикс 'kp_')
         const filmId = project.id.replace('kp_', '');
+        const progress = window.watchProgress?.get(project.id);
 
-        // Получаем прогресс для отображения кнопки "Продолжить"
-        const progress = window.watchProgress.get(project.id);
-        const continueButton = progress && !progress.completed ? `
+        // 👇 Только сериалы гарантированно имеют сезоны
+        const isSeries = project.type === 'Сериал';
+        // 👇 Аниме и мультфильмы могут быть как сериалами, так и полнометражками
+        const isAnimeOrCartoon = project.type === 'Аниме' || project.type === 'Мультфильм';
+
+        const continueButton = (isSeries || isAnimeOrCartoon) && progress && !progress.completed ? `
             <button class="continue-watching-btn" onclick="window.continueWatching('${project.id}')">
-                ▶️ Продолжить с ${progress.season} сезона ${progress.episode} серии (${window.watchProgress.formatTime(progress.timecode)})
+                ▶️ Продолжить с ${progress.season} сезона ${progress.episode} серии (${window.watchProgress?.formatTime(progress.timecode)})
             </button>
         ` : '';
 
-        // Секция с Rutube и сезонами
-        let playerSection = `
-            <div class="modal-section">
-                <h3>🎬 Смотреть на Rutube</h3>
-                ${continueButton}
-                <div class="rutube-simple-container">
-                    <div class="rutube-player" id="rutube-player-${project.id}" style="display: block;">
-                        <div class="loading-spinner" style="text-align:center; padding:50px;">🔍 Загружаем видео...</div>
-                    </div>
-                </div>
-            </div>
+        // Секция с сезонами (показываем для всего, кроме фильмов)
+        const seasonsSection = (isSeries || isAnimeOrCartoon) ? `
             <div class="modal-section">
                 <h3>📺 Сезоны и серии</h3>
                 <div id="seasons-container-${project.id}" class="seasons-container">
-                    <div class="loading-spinner" style="text-align:center; padding:30px;">⏳ Загружаем сезоны...</div>
+                    <div class="loading-spinner" style="text-align:center; padding:30px;"></div>
                 </div>
             </div>
-        `;
+        ` : '';
 
         modal.innerHTML = `
             <div class="modal-overlay" onclick="window.closeModal()"></div>
@@ -743,7 +678,14 @@
                         <h2 class="modal-title">${project.title_ru || project.title}</h2>
                         <div class="modal-section"><h3>Жанры</h3><div class="modal-genres">${genresHtml}</div></div>
                         <div class="modal-section"><h3>Описание</h3><p class="modal-description">${description}</p></div>
-                        ${playerSection}
+                        <div class="modal-section">
+                            <h3>🎬 Смотреть на Rutube</h3>
+                            ${continueButton}
+                            <div class="rutube-player" id="rutube-player-${project.id}" style="display: block;">
+                                <div class="loading-spinner" style="text-align:center; padding:50px;"></div>
+                            </div>
+                        </div>
+                        ${seasonsSection}
                     </div>
                 </div>
             </div>
@@ -751,37 +693,58 @@
 
         document.body.appendChild(modal);
 
-        // Загружаем сезоны
-        const seasonsData = await loadSeasons(filmId);
-        
-        // Отображаем сезоны с передачей типа контента
-        renderSeasons(
-            seasonsData, 
-            project.id, 
-            project.title_ru || project.title, 
-            project.year, 
-            project.title || '',
-            project.type
-        );
+        // 👇 Загружаем сезоны и проверяем результат
+        if (isSeries || isAnimeOrCartoon) {
+            const seasonsData = await loadSeasons(filmId);
+
+            console.log(`📺 Загружено сезонов для "${project.title_ru || project.title}": ${seasonsData?.items?.length || 0}`);
+
+            // Если есть сезоны - показываем их
+            if (seasonsData?.items?.length > 0) {
+                renderSeasons(seasonsData, project.id, filmId, project.title_ru || project.title,
+                    project.year, project.title || '', project.type);
+            } else {
+                // Если сезонов нет - это полнометражка, грузим как фильм
+                console.log('🎬 Сезонов нет, грузим как фильм');
+                loadEpisodeVideo(
+                    project.id,
+                    filmId,
+                    project.title_ru || project.title,
+                    project.year,
+                    project.title || '',
+                    1,
+                    1,
+                    project.type
+                );
+            }
+        } else {
+            // Фильмы грузим сразу
+            loadEpisodeVideo(
+                project.id,
+                filmId,
+                project.title_ru || project.title,
+                project.year,
+                project.title || '',
+                1,
+                1,
+                project.type
+            );
+        }
     };
 
-    // Функция для кнопки "Продолжить"
-    window.continueWatching = function(projectId) {
-        const progress = window.watchProgress.get(projectId);
-        if (progress) {
-            const seasonDiv = document.getElementById(`season-${projectId}-${progress.season}`);
-            if (seasonDiv) {
-                // Раскрываем сезон
-                window.toggleSeason(projectId, progress.season, true);
-                
-                // Находим и кликаем на нужную серию
-                const episodeItems = seasonDiv.querySelectorAll('.episode-item');
-                episodeItems.forEach(item => {
-                    if (item.textContent.includes(`Серия ${progress.episode}`)) {
-                        item.click();
-                    }
-                });
-            }
+    window.continueWatching = function (projectId) {
+        const progress = window.watchProgress?.get(projectId);
+        if (!progress) return;
+
+        const seasonDiv = document.getElementById(`season-${projectId}-${progress.season}`);
+        if (seasonDiv) {
+            window.toggleSeason(projectId, progress.season, true);
+            const episodeItems = seasonDiv.querySelectorAll('.episode-item');
+            episodeItems.forEach(item => {
+                if (item.textContent.includes(`Серия ${progress.episode}`)) {
+                    item.click();
+                }
+            });
         }
     };
 
@@ -795,7 +758,6 @@
     };
 
     // ========== ОТРИСОВКА КАРТОЧЕК ==========
-
     function renderProjects() {
         const filtered = getFilteredProjects();
 
@@ -812,10 +774,12 @@
         const sorted = [...filtered].sort((a, b) => (a.inProgress === b.inProgress) ? 0 : a.inProgress ? -1 : 1);
 
         projectsGrid.innerHTML = sorted.map(project => {
-            const posterEmoji = project.type === 'Аниме' ? '🇯🇵' : project.type === 'Сериал' ? '📺' : project.type === 'Мультфильм' ? '🖍️' : '🎬';
-            
-            const progress = window.watchProgress.get(project.id);
-            const progressPercent = progress && progress.duration ? (progress.timecode / progress.duration) * 100 : 0;
+            const posterEmoji = project.type === 'Аниме' ? '🇯🇵' :
+                project.type === 'Сериал' ? '📺' :
+                    project.type === 'Мультфильм' ? '🖍️' : '🎬';
+
+            const progress = window.watchProgress?.get(project.id);
+            const progressPercent = progress?.duration ? (progress.timecode / progress.duration) * 100 : 0;
             const hasProgress = progress && !progress.completed && progressPercent > 0;
 
             return `
@@ -857,13 +821,9 @@
         }).join('');
     }
 
-    // Слушаем события обновления прогресса
-    window.addEventListener('progress-updated', () => {
-        renderProjects();
-    });
+    window.addEventListener('progress-updated', () => renderProjects());
 
-    // ========== ПОИСК НА КИНОПОИСКЕ (ДЛЯ ДОБАВЛЕНИЯ) ==========
-
+    // ========== ПОИСК НА КИНОПОИСКЕ ==========
     let searchTimeout;
     searchInput.addEventListener('input', (e) => {
         clearTimeout(searchTimeout);
@@ -879,9 +839,10 @@
                 searchResults.innerHTML = '<div class="loading">🔍 Поиск на Кинопоиске...</div>';
                 searchResults.classList.add('active');
 
-                const response = await fetch(`https://kinopoiskapiunofficial.tech/api/v2.1/films/search-by-keyword?keyword=${encodeURIComponent(query)}`, {
-                    headers: { 'X-API-KEY': KINOPOISK_TOKEN }
-                });
+                const response = await fetch(
+                    `https://kinopoiskapiunofficial.tech/api/v2.1/films/search-by-keyword?keyword=${encodeURIComponent(query)}`,
+                    { headers: { 'X-API-KEY': KINOPOISK_TOKEN } }
+                );
 
                 if (!response.ok) throw new Error(`Ошибка ${response.status}`);
 
@@ -936,11 +897,40 @@
         }
     };
 
-    // Экспорт функций
+    // ========== ЭКСПОРТ ФУНКЦИЙ ==========
     window.deleteProject = deleteProject;
     window.toggleInProgress = toggleInProgress;
     window.markAsWatched = markAsWatched;
     window.changeProjectType = changeProjectType;
     window.refreshProjectDetails = refreshProjectDetails;
     window.loadEpisodeVideo = loadEpisodeVideo;
+    window.switchVideo = switchVideo;
+    window.openManualSearch = openManualSearch;
+    window.saveManualProgress = saveManualProgress;
+    window.continueWatching = continueWatching;
+    window.toggleSeason = toggleSeason;
+    window.toggleAlternatives = toggleAlternatives;
+    window.resumeVideo = resumeVideo;
+    window.showInfo = showInfo;
+
+    // ========== ДОПОЛНИТЕЛЬНЫЕ ФУНКЦИИ ==========
+    function toggleAlternatives(playerId) {
+        const altDiv = document.getElementById('alt-' + playerId);
+        if (altDiv) {
+            altDiv.style.display = altDiv.style.display === 'none' ? 'block' : 'none';
+        }
+    }
+
+    function resumeVideo(projectId, season, episode, startTime) {
+        const playerDiv = document.getElementById(`rutube-player-${projectId}`);
+        if (!playerDiv) return;
+
+        const iframe = playerDiv.querySelector('iframe');
+        if (iframe && iframe.contentWindow?.player?.api) {
+            iframe.contentWindow.player.api.seek(startTime);
+        } else {
+            // Если API недоступно, просто показываем сообщение
+            showInfo('⏱️ Функция продолжения доступна только при активном плеере');
+        }
+    }
 })();

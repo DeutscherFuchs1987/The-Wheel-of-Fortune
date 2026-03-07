@@ -1265,3 +1265,15 @@ body.modal-open {
 @keyframes spin {
     to { transform: rotate(360deg); }
 }
+
+
+/* Стили для загрузчика с текстом */
+.loading-spinner {
+    display: inline-block;
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(255,255,255,0.3);
+    border-radius: 50%;
+    border-top-color: #ffd700;
+    animation: spin 1s ease-in-out infinite;
+}

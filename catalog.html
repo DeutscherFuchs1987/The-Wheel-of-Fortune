@@ -48,14 +48,16 @@
         <div class="projects-grid" id="projectsGrid"></div>
     </div>
 
-    <!-- Модальное окно (будет заполняться динамически, но структура нужна) -->
-    <div class="modal-overlay" style="display: none;"></div>
-    <div class="modal-container" style="display: none;"></div>
+    <!-- Модальное окно (минимальная структура, контент будет вставляться динамически) -->
+    <div class="modal-overlay" onclick="closeModal()" style="display: none;"></div>
+    <div class="modal-container" style="display: none;">
+        <div class="project-modal" id="project-modal">
+            <!-- Весь контент будет вставлен через JavaScript -->
+        </div>
+    </div>
 
-    <script src="js/catalog_script.js"></script>
     <script src="js/watchProgress.js"></script>
+    <script src="js/catalog_script.js"></script>
 </body>
 
 </html>
-
-
