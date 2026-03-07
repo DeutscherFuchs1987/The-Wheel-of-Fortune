@@ -488,7 +488,6 @@
             return;
         }
         const currentUserVotes = userVotes[currentUser] || [];
-
         const modal = document.createElement('div');
         modal.className = 'voting-modal';
         modal.innerHTML = `
