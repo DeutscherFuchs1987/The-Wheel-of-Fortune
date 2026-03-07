@@ -234,6 +234,24 @@
                         <button class="modal-btn clear" onclick="clearRating('volodya')" style="background: #4a4f6e; color: white; padding: 8px 15px; border-radius: 30px; border: none; cursor: pointer;">Не смотрел</button>
                     </div>
                 </div>
+
+                <div class="rating-row">
+                    <div class="rating-header">
+                        <span class="rating-name">Артем (я тебя люблю)</span>
+                        <span class="rating-display ${getRatingClass(project.ratings?.artem)}" id="display-artem">
+                            ${formatRating(project.ratings?.artem)}
+                        </span>
+                    </div>
+                    <div class="rating-controls">
+                        <input type="range" class="rating-slider" id="slider-artem" 
+                               min="1" max="10" step="0.1" 
+                               value="${project.ratings?.artem !== null ? project.ratings?.artem : 5}">
+                        <input type="number" class="rating-input" id="input-artem" 
+                               min="1" max="10" step="0.1" 
+                               value="${project.ratings?.artem !== null ? project.ratings?.artem : 5}">
+                        <button class="modal-btn clear" onclick="clearRating('artem')" style="background: #4a4f6e; color: white; padding: 8px 15px; border-radius: 30px; border: none; cursor: pointer;">Не смотрел</button>
+                    </div>
+                </div>
             </div>
             
             <div class="modal-notes">
@@ -248,7 +266,7 @@
         `;
 
 
-        ['senya', 'vanya', 'pasha', 'volodya'].forEach(name => {
+        ['senya', 'vanya', 'pasha', 'volodya', 'artem'].forEach(name => {
             const slider = document.getElementById(`slider-${name}`);
             const input = document.getElementById(`input-${name}`);
             const display = document.getElementById(`display-${name}`);
@@ -295,7 +313,8 @@
             senya: getRatingValue('senya'),
             vanya: getRatingValue('vanya'),
             pasha: getRatingValue('pasha'),
-            volodya: getRatingValue('volodya')
+            volodya: getRatingValue('volodya'),
+            volodya: getRatingValue('artem')
         };
 
         const notes = document.getElementById('modal-notes')?.value || '';

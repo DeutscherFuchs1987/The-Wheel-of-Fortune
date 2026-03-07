@@ -81,6 +81,32 @@
         return 'Фильм';
     }
 
+    // ========== ФУНКЦИИ ДЛЯ ОЧИСТКИ КЭША ==========
+    function clearVideoCache(projectId, seasonNum, episodeNum) {
+        if (projectId && seasonNum && episodeNum) {
+            // Очищаем кэш для конкретного видео
+            const cacheKey = `${projectId}_${seasonNum}_${episodeNum}`;
+            if (videoCandidates.has(cacheKey)) {
+                videoCandidates.delete(cacheKey);
+                console.log(`🗑️ Очищен кэш для видео: ${cacheKey}`);
+                showSuccess('Кэш видео очищен');
+            }
+        } else {
+            // Очищаем весь кэш кандидатов
+            videoCandidates.clear();
+            console.log('🗑️ Очищен весь кэш видео');
+            showSuccess('Весь кэш видео очищен');
+        }
+    }
+
+    function clearAllCache() {
+        searchCache.clear();
+        seasonsCache.clear();
+        videoCandidates.clear();
+        console.log('🗑️ Очищен весь кэш');
+        showSuccess('Весь кэш очищен');
+    }
+
     // ========== ЗАГРУЗКА ДАННЫХ ==========
     async function loadUnwatchedProjects() {
         try {
@@ -139,7 +165,7 @@
             inProgress: false,
             watched: false,
             watchedDate: null,
-            ratings: { senya: null, vanya: null, pasha: null, volodya: null },
+            ratings: { senya: null, vanya: null, pasha: null, volodya: null, artem: null },
             notes: '',
             genres: film.genres || [],
             description: film.description || 'Описание будет добавлено позже',
@@ -290,14 +316,20 @@
     }
 
     // ========== ЗАГРУЗКА ВИДЕО ==========
-    async function loadEpisodeVideo(projectId, filmId, title, year, originalTitle, seasonNum, episodeNum, contentType) {
+    async function loadEpisodeVideo(projectId, filmId, title, year, originalTitle, seasonNum, episodeNum, contentType, skipCache = false) {
         const playerDiv = document.getElementById(`rutube-player-${projectId}`);
         if (!playerDiv) return;
 
-        const isSeries = contentType === 'Сериал';
+        // 👇 Если нужно пропустить кэш - очищаем его для этого видео
+        if (skipCache) {
+            clearVideoCache(projectId, seasonNum, episodeNum);
+        }
+
+        const hasSeasonInfo = seasonNum !== null && seasonNum !== undefined &&
+            episodeNum !== null && episodeNum !== undefined;
 
         let startTime = 0;
-        if (isSeries) {
+        if (contentType === 'Сериал') {
             const savedProgress = window.watchProgress?.get(projectId);
             if (savedProgress &&
                 savedProgress.season === seasonNum &&
@@ -312,7 +344,7 @@
             <div style="text-align:center; padding:30px;">
                 <div class="loading-spinner" style="margin: 0 auto 20px;"></div>
                 <div style="color: #a3b7f0; font-size: 1rem;">
-                    ${isSeries
+                    ${hasSeasonInfo
                 ? `🔍 Ищем ${seasonNum} сезон ${episodeNum} серию...`
                 : `🔍 Ищем "${title}"...`}
                 </div>
@@ -325,9 +357,9 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     title: title,
-                    film_id: filmId,  // 👈 Передаём ID для анализа жанров на сервере
-                    season: isSeries ? seasonNum : null,
-                    episode: isSeries ? episodeNum : null,
+                    film_id: filmId,
+                    season: seasonNum,
+                    episode: episodeNum,
                     year: year,
                     original_title: originalTitle,
                     type: contentType
@@ -352,10 +384,10 @@
                     data.candidates || [],
                     seasonNum,
                     episodeNum,
-                    isSeries ? startTime : 0
+                    contentType === 'Сериал' ? startTime : 0
                 );
 
-                if (isSeries) {
+                if (hasSeasonInfo) {
                     showSuccess(`Загружена ${seasonNum} сезон ${episodeNum} серия`);
                 } else {
                     showSuccess(`Видео загружено`);
@@ -370,7 +402,10 @@
     }
 
     function showVideoNotFound(playerDiv, projectId, filmId, title, year, originalTitle, seasonNum, episodeNum, contentType) {
-        const errorMessage = contentType === 'Сериал'
+        const hasSeasonInfo = seasonNum !== null && seasonNum !== undefined &&
+            episodeNum !== null && episodeNum !== undefined;
+
+        const errorMessage = hasSeasonInfo
             ? `Не удалось найти "${title} ${seasonNum} сезон ${episodeNum} серия"`
             : `Не удалось найти "${title}"`;
 
@@ -378,12 +413,17 @@
             <div style="text-align:center; padding:30px; color:#ff8a8a;">
                 ❌ ${errorMessage}<br>
                 <small style="color:#aaa;">Попробуйте найти вручную на Rutube</small><br><br>
-                <button class="retry-btn" onclick="window.openManualSearch('${title}', ${seasonNum}, ${episodeNum}, '${contentType}')">
-                    🔍 Поиск на Rutube
-                </button>
-                <button class="retry-btn" onclick="window.loadEpisodeVideo('${projectId}', '${filmId}', '${title.replace(/'/g, "\\'")}', '${year}', '${originalTitle.replace(/'/g, "\\'")}', ${seasonNum}, ${episodeNum}, '${contentType}')" style="margin-left:10px;">
-                    🔄 Повторить
-                </button>
+                <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                    <button class="retry-btn" onclick="window.clearAndRetry('${projectId}', '${filmId}', '${title.replace(/'/g, "\\'")}', '${year}', '${originalTitle.replace(/'/g, "\\'")}', ${seasonNum}, ${episodeNum}, '${contentType}')">
+                        🗑️ Очистить кэш и повторить
+                    </button>
+                    <button class="retry-btn" onclick="window.openManualSearch('${title}', ${seasonNum}, ${episodeNum}, '${contentType}')">
+                        🔍 Поиск на Rutube
+                    </button>
+                    <button class="retry-btn" onclick="window.loadEpisodeVideo('${projectId}', '${filmId}', '${title.replace(/'/g, "\\'")}', '${year}', '${originalTitle.replace(/'/g, "\\'")}', ${seasonNum}, ${episodeNum}, '${contentType}')">
+                        🔄 Повторить
+                    </button>
+                </div>
             </div>
         `;
     }
@@ -397,9 +437,16 @@
             <div class="player-container" id="${playerId}">
                 <div class="primary-player">${primaryVideo.embed_code}</div>
                 
-                <div style="display: flex; justify-content: flex-end; align-items: center; margin-top: 5px; opacity: 0.5;">
-                    <span style="color: #888; font-size: 11px;">🎯 осн.</span>
-                    <span style="color: #666; font-size: 10px; margin-left: 5px;">${primaryVideo.score} баллов</span>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 5px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <button class="retry-btn" style="padding: 4px 8px; font-size: 11px;" onclick="window.clearAndRetry('${projectId}', '', '${primaryVideo.title}', '', '', ${season}, ${episode}, '')">
+                            🗑️ Очистить кэш
+                        </button>
+                    </div>
+                    <div style="display: flex; align-items: center; opacity: 0.5;">
+                        <span style="color: #888; font-size: 11px;">🎯 осн.</span>
+                        <span style="color: #666; font-size: 10px; margin-left: 5px;">${primaryVideo.score} баллов</span>
+                    </div>
                 </div>
                 
                 ${candidates?.length > 1 ? `
@@ -511,7 +558,10 @@
 
     // ========== РУЧНОЙ ПОИСК ==========
     window.openManualSearch = function (title, seasonNum, episodeNum, contentType) {
-        const searchQuery = contentType === 'Сериал'
+        const hasSeasonInfo = seasonNum !== null && seasonNum !== undefined &&
+            episodeNum !== null && episodeNum !== undefined;
+
+        const searchQuery = hasSeasonInfo
             ? `${title} ${seasonNum} сезон ${episodeNum} серия`
             : title;
 
@@ -529,6 +579,12 @@
             window.watchProgress?.markStarted(projectId, season, episode, seconds, 0);
             alert(`✅ Позиция сохранена! При следующем просмотре начнём с ${window.watchProgress?.formatTime(seconds)}`);
         }
+    };
+
+    // ========== ОЧИСТКА КЭША И ПОВТОР ==========
+    window.clearAndRetry = function (projectId, filmId, title, year, originalTitle, seasonNum, episodeNum, contentType) {
+        clearVideoCache(projectId, seasonNum, episodeNum);
+        loadEpisodeVideo(projectId, filmId, title, year, originalTitle, seasonNum, episodeNum, contentType, true);
     };
 
     // ========== ОТОБРАЖЕНИЕ СЕЗОНОВ ==========
@@ -630,9 +686,7 @@
         const filmId = project.id.replace('kp_', '');
         const progress = window.watchProgress?.get(project.id);
 
-        // 👇 Только сериалы гарантированно имеют сезоны
         const isSeries = project.type === 'Сериал';
-        // 👇 Аниме и мультфильмы могут быть как сериалами, так и полнометражками
         const isAnimeOrCartoon = project.type === 'Аниме' || project.type === 'Мультфильм';
 
         const continueButton = (isSeries || isAnimeOrCartoon) && progress && !progress.completed ? `
@@ -641,10 +695,19 @@
             </button>
         ` : '';
 
-        // Секция с сезонами (показываем для всего, кроме фильмов)
+        // Добавляем кнопку очистки всего кэша
+        const cacheButtons = `
+            <div style="display: flex; gap: 10px; margin-bottom: 15px; justify-content: flex-end;">
+                <button class="retry-btn" style="padding: 5px 10px; font-size: 12px;" onclick="window.clearAllCache()">
+                    🗑️ Очистить весь кэш
+                </button>
+            </div>
+        `;
+
         const seasonsSection = (isSeries || isAnimeOrCartoon) ? `
             <div class="modal-section">
                 <h3>📺 Сезоны и серии</h3>
+                ${cacheButtons}
                 <div id="seasons-container-${project.id}" class="seasons-container">
                     <div class="loading-spinner" style="text-align:center; padding:30px;"></div>
                 </div>
@@ -693,18 +756,15 @@
 
         document.body.appendChild(modal);
 
-        // 👇 Загружаем сезоны и проверяем результат
         if (isSeries || isAnimeOrCartoon) {
             const seasonsData = await loadSeasons(filmId);
 
             console.log(`📺 Загружено сезонов для "${project.title_ru || project.title}": ${seasonsData?.items?.length || 0}`);
 
-            // Если есть сезоны - показываем их
             if (seasonsData?.items?.length > 0) {
                 renderSeasons(seasonsData, project.id, filmId, project.title_ru || project.title,
                     project.year, project.title || '', project.type);
             } else {
-                // Если сезонов нет - это полнометражка, грузим как фильм
                 console.log('🎬 Сезонов нет, грузим как фильм');
                 loadEpisodeVideo(
                     project.id,
@@ -718,7 +778,6 @@
                 );
             }
         } else {
-            // Фильмы грузим сразу
             loadEpisodeVideo(
                 project.id,
                 filmId,
@@ -912,6 +971,9 @@
     window.toggleAlternatives = toggleAlternatives;
     window.resumeVideo = resumeVideo;
     window.showInfo = showInfo;
+    window.clearVideoCache = clearVideoCache;
+    window.clearAllCache = clearAllCache;
+    window.clearAndRetry = clearAndRetry;
 
     // ========== ДОПОЛНИТЕЛЬНЫЕ ФУНКЦИИ ==========
     function toggleAlternatives(playerId) {
@@ -933,4 +995,3 @@
         }
     }
 })();
-

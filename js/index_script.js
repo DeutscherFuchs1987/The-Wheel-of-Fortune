@@ -175,6 +175,10 @@
                         <span class="user-icon">👤</span>
                         <span class="user-name">Володя</span>
                     </button>
+                    <button class="user-option" data-user="artem">
+                        <span class="user-icon">👤</span>
+                        <span class="user-name">Артем (я тебя люблю)</span>
+                    </button>
                 </div>
             </div>
         `;
@@ -247,7 +251,7 @@
         if (voters.length > 0) {
             votersIndicator.style.display = 'flex';
             votersList.textContent = voters.map(v => {
-                const names = { senya: 'Сеня', vanya: 'Ваня', pasha: 'Паша', volodya: 'Володя' };
+                const names = { senya: 'Сеня', vanya: 'Ваня', pasha: 'Паша', volodya: 'Володя', artem: 'Артем' };
                 return `👤 ${names[v] || v}`;
             }).join(' • ');
         } else {
@@ -491,7 +495,7 @@
         modal.innerHTML = `
             <div class="voting-modal-content">
                 <h3>🗳️ Голосование (${currentCategory === 'Все' ? 'все категории' : currentCategory})</h3>
-                <p class="voting-user">Игрок: 👤 ${currentUser === 'senya' ? 'Сеня' : currentUser === 'vanya' ? 'Ваня' : currentUser === 'pasha' ? 'Паша' : 'Володя'}</p>
+                <p class="voting-user">Игрок: 👤 ${currentUser === 'senya' ? 'Сеня' : currentUser === 'vanya' ? 'Ваня' : currentUser === 'pasha' ? 'Паша' : currentUser === 'volodya' ? 'Володя' : 'Артем'}</p>
                 
                 <div class="voting-search">
                     <input type="text" id="voteSearchInput" class="vote-search-input" placeholder="🔍 Поиск фильма...">
@@ -501,9 +505,9 @@
                 
                 <div class="voting-movies" id="votingMoviesList">
                     ${availableMovies.map(movie => {
-                        const isSelected = currentUserVotes.includes(movie.id);
-                        const boost = filmBoosts[movie.id] || 0;
-                        return `
+            const isSelected = currentUserVotes.includes(movie.id);
+            const boost = filmBoosts[movie.id] || 0;
+            return `
                             <div class="voting-movie-item ${isSelected ? 'selected' : ''}" 
                                  data-film-id="${movie.id}" data-film-title="${movie.Название.toLowerCase()}">
                                 <div class="movie-info">
@@ -513,7 +517,7 @@
                                 <span class="movie-check">✓</span>
                             </div>
                         `;
-                    }).join('')}
+        }).join('')}
                 </div>
                 
                 <div class="voting-footer">
