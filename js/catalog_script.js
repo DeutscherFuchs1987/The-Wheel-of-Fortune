@@ -4,7 +4,8 @@
 
     let myProjects = [];
     let currentFilter = 'all';
-    let animeCache = new Map(); // Кэш для данных аниме
+    let searchCache = new Map(); // Кэш для поиска на Кинопоиске
+    let seasonsCache = new Map(); // Кэш для сезонов
 
     const searchInput = document.getElementById('searchInput');
     const searchResults = document.getElementById('searchResults');
@@ -46,6 +47,26 @@
         setTimeout(() => {
             successMessageDiv.style.display = 'none';
         }, 2000);
+    }
+
+    function showInfo(text) {
+        const infoDiv = document.createElement('div');
+        infoDiv.style.cssText = `
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #4a3f7a;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            z-index: 10000;
+            animation: fadeOut 3s forwards;
+        `;
+        infoDiv.textContent = 'ℹ️ ' + text;
+        document.body.appendChild(infoDiv);
+        
+        setTimeout(() => infoDiv.remove(), 3000);
     }
 
     function detectTypeByGenres(film) {
@@ -251,443 +272,396 @@
         return myProjects.filter(p => p.type === currentFilter);
     }
 
-    // ========== ФУНКЦИИ ДЛЯ RUTUBE ==========
+    // ========== ФУНКЦИИ ДЛЯ ЗАГРУЗКИ СЕЗОНОВ ==========
 
-    window.playOnRutube = async function (projectId, title, year, originalTitle) {
-        const btn = document.getElementById(`rutube-btn-${projectId}`);
-        const playerDiv = document.getElementById(`rutube-player-${projectId}`);
-
-        if (!btn || !playerDiv) return;
-
-        const originalText = btn.textContent;
-        btn.textContent = '🔍 Ищем видео...';
-        btn.disabled = true;
+    async function loadSeasons(filmId) {
+        const cacheKey = `seasons_${filmId}`;
+        
+        // Проверяем кэш
+        if (seasonsCache.has(cacheKey)) {
+            console.log('📦 Используем кэшированные сезоны');
+            return seasonsCache.get(cacheKey);
+        }
 
         try {
-            const response = await fetch(`${API_URL}/api/search-rutube`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    title: title,
-                    year: year,
-                    original_title: originalTitle
-                })
-            });
+            console.log(`📺 Загружаем сезоны для filmId: ${filmId}`);
+            
+            const response = await fetch(
+                `https://kinopoiskapiunofficial.tech/api/v2.2/films/${filmId}/seasons`,
+                { headers: { 'X-API-KEY': KINOPOISK_TOKEN } }
+            );
+
+            if (!response.ok) {
+                throw new Error(`Ошибка загрузки сезонов: ${response.status}`);
+            }
 
             const data = await response.json();
-
-            if (data.success) {
-                btn.style.display = 'none';
-                playerDiv.style.display = 'block';
-                playerDiv.innerHTML = data.embed_code;
-                showSuccess('Видео загружено!');
-            } else {
-                alert('Не удалось найти видео на Rutube. Попробуйте найти вручную.');
-                btn.textContent = originalText;
-                btn.disabled = false;
-            }
+            
+            // Сохраняем в кэш
+            seasonsCache.set(cacheKey, data);
+            
+            return data;
         } catch (error) {
-            console.error('Ошибка:', error);
-            alert('Ошибка при поиске видео');
-            btn.textContent = originalText;
-            btn.disabled = false;
+            console.error('❌ Ошибка загрузки сезонов:', error);
+            return null;
         }
-    };
-
-    // ========== ФУНКЦИОНАЛ ДЛЯ АНИМЕ (АДАПТИРОВАН ПОД anime-parsers-ru) ==========
-
-    /**
-     * Форматирование названия сезона
-     */
-    function formatSeasonName(seasonNumber) {
-        if (seasonNumber === 1) return '1-й сезон';
-        if (seasonNumber === 2) return '2-й сезон';
-        if (seasonNumber === 3) return '3-й сезон';
-        if (seasonNumber === 4) return '4-й сезон';
-        return `${seasonNumber}-й сезон`;
     }
 
-    /**
-     * Форматирование названия эпизода
-     */
-    function formatEpisodeName(episodeNumber) {
-        return `Серия ${episodeNumber}`;
-    }
+    // ========== ФУНКЦИЯ ДЛЯ ЗАГРУЗКИ ВИДЕО ПО СЕРИИ ==========
 
-    /**
-     * Автоматическая загрузка информации об аниме через новый API
-     */
-    async function loadAnimeInfo(projectId, animeTitle) {
-        const loadingEl = document.getElementById(`anime-loading-${projectId}`);
-        const selectorsEl = document.getElementById(`anime-selectors-${projectId}`);
-        const sourceSelect = document.getElementById(`anime-source-${projectId}`);
-        const seasonSelect = document.getElementById(`anime-season-${projectId}`);
-        const episodeSelect = document.getElementById(`anime-episode-${projectId}`);
-        const playerDiv = document.getElementById(`anime-player-${projectId}`);
+    async function loadEpisodeVideo(projectId, title, year, originalTitle, seasonNum, episodeNum, contentType) {
+        const playerDiv = document.getElementById(`rutube-player-${projectId}`);
+        
+        if (!playerDiv) return;
 
-        if (!loadingEl || !selectorsEl) return;
+        // Проверяем, не смотрели ли мы эту серию раньше
+        const savedProgress = window.watchProgress.get(projectId);
+        let startTime = 0;
+        
+        if (savedProgress && 
+            savedProgress.season === seasonNum && 
+            savedProgress.episode === episodeNum && 
+            !savedProgress.completed) {
+            startTime = savedProgress.timecode;
+            console.log(`⏱️ Восстанавливаем просмотр с ${window.watchProgress.formatTime(startTime)}`);
+        }
 
-        try {
-            console.log(`🔍 Поиск аниме: "${animeTitle}"`);
+        playerDiv.style.display = 'block';
+        playerDiv.innerHTML = `<div class="loading-spinner" style="text-align:center; padding:50px;">🔍 Ищем ${seasonNum} сезон ${episodeNum} серию...</div>`;
 
-            loadingEl.style.display = 'block';
-            selectorsEl.style.display = 'none';
+        // ЧЁТКАЯ ИЕРАРХИЯ ПРИОРИТЕТОВ
+        const searchQueries = [
+            { text: `${title} ${seasonNum} сезон ${episodeNum} серия`, priority: 100 },
+            { text: `${title} ${episodeNum} серия ${seasonNum} сезон`, priority: 95 },
+            { text: `${title} ${seasonNum} сезон`, priority: 80 },
+            { text: `${title} ${episodeNum} серия`, priority: 70 },
+            { text: `${title} ${year}`, priority: 60 },
+            { text: title, priority: 50 },
+            { text: `${originalTitle} ${year}`, priority: 40 },
+            { text: originalTitle, priority: 30 }
+        ];
+        
+        let found = false;
+        let lastError = null;
+        
+        for (const query of searchQueries) {
+            if (found) break;
             
-            if (playerDiv) {
-                playerDiv.innerHTML = '';
-            }
-
-            const cacheKey = `search_${animeTitle}`;
+            console.log(`🔍 Пробуем запрос (приоритет ${query.priority}): ${query.text}`);
             
-            // Проверяем кэш
-            let animeData = animeCache.get(cacheKey);
-
-            if (!animeData) {
-                // ШАГ 1: Поиск аниме через новый эндпоинт
-                const searchResponse = await fetch(`${API_URL}/api/anime/search`, {
+            try {
+                const response = await fetch(`${API_URL}/api/search-rutube`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        title: animeTitle
+                        title: query.text,
+                        year: year,
+                        original_title: originalTitle,
+                        type: contentType,
+                        priority: query.priority
                     })
                 });
 
-                if (!searchResponse.ok) {
-                    throw new Error(`Ошибка поиска: ${searchResponse.status}`);
-                }
+                const data = await response.json();
 
-                const searchData = await searchResponse.json();
-                console.log('📺 Результаты поиска:', searchData);
-
-                if (!searchData.success || !searchData.anime?.length) {
-                    throw new Error('Аниме не найдено');
-                }
-
-                const foundAnime = searchData.anime[0];
-                
-                animeData = {
-                    id: foundAnime.id,
-                    title: foundAnime.title,
-                    title_ru: foundAnime.title_ru || foundAnime.title,
-                    poster: foundAnime.poster,
-                    year: foundAnime.year,
-                    genres: foundAnime.genres || [],
-                    description: foundAnime.description || '',
-                    episodes_count: foundAnime.episodes_count || 0
-                };
-
-                // Получаем информацию о переводах (озвучках)
-                if (foundAnime.id) {
-                    try {
-                        const infoResponse = await fetch(`${API_URL}/api/anime/info`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                anime_id: foundAnime.id,
-                                id_type: 'shikimori'
-                            })
-                        });
-                        
-                        if (infoResponse.ok) {
-                            const infoData = await infoResponse.json();
-                            if (infoData.success && infoData.translations) {
-                                animeData.translations = infoData.translations;
-                            }
-                        }
-                    } catch (e) {
-                        console.warn('Не удалось загрузить информацию о переводах');
-                    }
-                }
-
-                animeCache.set(cacheKey, animeData);
-            }
-
-            // Показываем русское название
-            if (animeData.title_ru && animeData.title_ru !== animeTitle) {
-                const modalTitle = document.querySelector('.modal-title');
-                if (modalTitle) {
-                    modalTitle.innerHTML = `${modalTitle.innerHTML}<br><small style="font-size: 0.8rem; color: #aaa;">${animeData.title_ru}</small>`;
-                }
-            }
-
-            // Заполняем информацию о количестве эпизодов
-            if (animeData.episodes_count > 0) {
-                // Создаем виртуальный список эпизодов
-                const episodes = [];
-                for (let i = 1; i <= animeData.episodes_count; i++) {
-                    episodes.push({
-                        episode: i,
-                        number: i
-                    });
-                }
-                
-                // Группируем по сезонам (условно по 12-13 эпизодов)
-                const seasons = [];
-                const episodesPerSeason = 12;
-                const seasonCount = Math.ceil(episodes.length / episodesPerSeason);
-                
-                for (let s = 1; s <= seasonCount; s++) {
-                    const start = (s - 1) * episodesPerSeason;
-                    const end = Math.min(start + episodesPerSeason, episodes.length);
-                    const seasonEpisodes = episodes.slice(start, end);
+                if (data.success) {
+                    playerDiv.innerHTML = embedPlayerWithProgress(
+                        projectId, 
+                        data.embed_code, 
+                        seasonNum, 
+                        episodeNum,
+                        startTime,
+                        title,
+                        year,
+                        originalTitle,
+                        contentType
+                    );
                     
-                    seasons.push({
-                        number: s,
-                        episodes: seasonEpisodes
-                    });
+                    // Показываем информацию о том, по какому запросу нашли
+                    const qualityInfo = `
+                        <div style="text-align:center; padding:5px; margin-top:5px; background:#4a3f7a; color:white; border-radius:4px; font-size:12px;">
+                            ✅ Найдено по запросу: "${query.text}" (совпадение: ${data.quality || 'среднее'})
+                        </div>
+                    `;
+                    playerDiv.insertAdjacentHTML('afterend', qualityInfo);
+                    
+                    setTimeout(() => {
+                        const info = playerDiv.nextElementSibling;
+                        if (info && info.style) info.remove();
+                    }, 5000);
+                    
+                    showSuccess(`Загружена ${seasonNum} сезон ${episodeNum} серия`);
+                    found = true;
+                    break;
+                } else {
+                    console.log(`❌ Запрос "${query.text}" не дал результатов`);
+                    lastError = `Не найдено по запросу: ${query.text}`;
                 }
-                
-                animeData.seasons = seasons;
+            } catch (error) {
+                console.error(`Ошибка при запросе "${query.text}":`, error);
+                lastError = error.message;
             }
-
-            // Заполняем сезоны
-            if (animeData.seasons?.length > 0) {
-                seasonSelect.style.display = 'block';
-                seasonSelect.innerHTML = '<option value="">Выберите сезон</option>';
-
-                animeData.seasons.forEach((season, index) => {
-                    const option = document.createElement('option');
-                    option.value = index;
-                    option.textContent = formatSeasonName(season.number);
-                    option.dataset.seasonNumber = season.number;
-                    option.dataset.episodes = JSON.stringify(season.episodes);
-                    seasonSelect.appendChild(option);
-                });
-
-                seasonSelect.value = '0';
-                await loadSeasonEpisodes(projectId, animeData.seasons[0], animeData.id);
-            } else {
-                seasonSelect.style.display = 'none';
-                episodeSelect.innerHTML = '<option value="">Нет доступных эпизодов</option>';
-                episodeSelect.disabled = true;
-            }
-
-            loadingEl.style.display = 'none';
-            selectorsEl.style.display = 'block';
-
-        } catch (error) {
-            console.error('❌ Ошибка загрузки аниме:', error);
-            loadingEl.innerHTML = `
-                <div class="anime-error">
-                    ❌ ${error.message}<br>
-                    <button class="retry-btn" onclick="window.loadAnimeInfo('${projectId}', '${animeTitle.replace(/'/g, "\\'")}')">
+        }
+        
+        if (!found) {
+            playerDiv.innerHTML = `
+                <div style="text-align:center; padding:30px; color:#ff8a8a;">
+                    ❌ Не удалось найти видео<br>
+                    <small style="color:#aaa;">Последняя ошибка: ${lastError || 'Неизвестная ошибка'}</small><br>
+                    <button class="retry-btn" onclick="window.loadEpisodeVideo('${projectId}', '${title.replace(/'/g, "\\'")}', '${year}', '${originalTitle.replace(/'/g, "\\'")}', ${seasonNum}, ${episodeNum}, '${contentType}')">
                         🔄 Повторить
+                    </button>
+                    <button class="retry-btn" onclick="window.openManualSearch('${title}', ${seasonNum}, ${episodeNum})" style="margin-left:10px;">
+                        🔍 Ручной поиск
                     </button>
                 </div>
             `;
         }
     }
 
-    /**
-     * Загрузка эпизодов для выбранного сезона
-     */
-    async function loadSeasonEpisodes(projectId, season, animeId) {
-        const episodeSelect = document.getElementById(`anime-episode-${projectId}`);
-        const dubberSelect = document.getElementById(`anime-dubber-${projectId}`);
+    // Функция для ручного поиска (открывает Rutube в новой вкладке)
+    window.openManualSearch = function(title, seasonNum, episodeNum) {
+        const searchQuery = `${title} ${seasonNum} сезон ${episodeNum} серия`;
+        const url = `https://rutube.ru/search/?query=${encodeURIComponent(searchQuery)}`;
+        window.open(url, '_blank');
+        showInfo('Открыт Rutube для ручного поиска');
+    };
 
-        if (!episodeSelect) return;
-
-        if (!season?.episodes?.length) {
-            episodeSelect.innerHTML = '<option value="">Нет эпизодов</option>';
-            episodeSelect.disabled = true;
-            return;
-        }
-
-        // Сохраняем ID аниме для загрузки видео
-        if (animeId) {
-            episodeSelect.dataset.animeId = animeId;
-        }
-
-        episodeSelect.innerHTML = season.episodes.map((ep, index) => {
-            return `<option value="${ep.episode}" data-episode='${JSON.stringify(ep)}'>${formatEpisodeName(ep.episode)}</option>`;
-        }).join('');
-
-        episodeSelect.disabled = false;
-
-        if (dubberSelect) {
-            dubberSelect.style.display = 'none';
-        }
-
-        setTimeout(() => {
-            loadAnimeEpisode(projectId);
-        }, 100);
+    // Функция для встраивания плеера с отслеживанием прогресса
+    function embedPlayerWithProgress(projectId, embedCode, season, episode, startTime = 0, title, year, originalTitle, contentType) {
+        const playerId = `player-${projectId}-${season}-${episode}-${Date.now()}`;
+        
+        return `
+            <div class="progress-player-wrapper" id="${playerId}" 
+                 data-project="${projectId}" 
+                 data-season="${season}" 
+                 data-episode="${episode}"
+                 data-title="${title}"
+                 data-year="${year}"
+                 data-original="${originalTitle}"
+                 data-type="${contentType}">
+                ${embedCode}
+                <div class="progress-controls" style="margin-top: 10px; text-align: center;">
+                    <button class="progress-save-btn" onclick="window.saveManualProgress('${projectId}', ${season}, ${episode})">
+                        ⏱️ Сохранить позицию вручную
+                    </button>
+                    ${startTime > 0 ? `
+                        <div class="progress-indicator" style="margin-top: 5px; color: #ffd700;">
+                            ⏯️ Продолжить с ${window.watchProgress.formatTime(startTime)}
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+            <script>
+                (function() {
+                    const wrapper = document.getElementById('${playerId}');
+                    const projectId = '${projectId}';
+                    const season = ${season};
+                    const episode = ${episode};
+                    const startTime = ${startTime};
+                    
+                    // Пытаемся получить доступ к плееру Rutube
+                    setTimeout(() => {
+                        const iframe = wrapper.querySelector('iframe');
+                        if (!iframe) return;
+                        
+                        try {
+                            // Пробуем достучаться до плеера
+                            const player = iframe.contentWindow?.player;
+                            
+                            if (player && player.api) {
+                                console.log('✅ Rutube API доступен');
+                                
+                                // Устанавливаем время начала
+                                if (startTime > 0) {
+                                    player.api.seek(startTime);
+                                }
+                                
+                                // Отслеживаем прогресс
+                                let lastSave = 0;
+                                player.api.on('timeupdate', (data) => {
+                                    const currentTime = data.currentTime;
+                                    const duration = data.duration;
+                                    
+                                    // Сохраняем каждые 10 секунд
+                                    if (Math.floor(currentTime / 10) > Math.floor(lastSave / 10)) {
+                                        lastSave = currentTime;
+                                        window.watchProgress.markStarted(
+                                            projectId, season, episode, 
+                                            currentTime, duration
+                                        );
+                                        
+                                        // Обновляем индикатор
+                                        updateProgressIndicator(currentTime, duration);
+                                    }
+                                });
+                                
+                                // Отслеживаем окончание
+                                player.api.on('ended', () => {
+                                    window.watchProgress.markWatched(projectId, season, episode);
+                                    showInfo('✅ Серия отмечена как просмотренная');
+                                    
+                                    // Автоматически загружаем следующую серию
+                                    setTimeout(() => {
+                                        const nextBtn = document.querySelector('.next-episode-btn');
+                                        if (nextBtn) nextBtn.click();
+                                    }, 3000);
+                                });
+                            } else {
+                                console.log('⚠️ Rutube API не доступен, используем ручное сохранение');
+                                setupManualMode(wrapper, projectId, season, episode, startTime);
+                            }
+                        } catch (e) {
+                            console.log('⚠️ Ошибка доступа к плееру:', e);
+                            setupManualMode(wrapper, projectId, season, episode, startTime);
+                        }
+                    }, 2000);
+                    
+                    function updateProgressIndicator(current, total) {
+                        let indicator = wrapper.querySelector('.live-progress');
+                        if (!indicator) {
+                            indicator = document.createElement('div');
+                            indicator.className = 'live-progress';
+                            indicator.style.cssText = 'margin-top:5px; font-size:12px; color:#4caf50;';
+                            wrapper.querySelector('.progress-controls').appendChild(indicator);
+                        }
+                        indicator.textContent = \`▶️ Сейчас: \${window.watchProgress.formatTime(current)} / \${window.watchProgress.formatTime(total)}\`;
+                    }
+                    
+                    function setupManualMode(wrapper, projectId, season, episode, startTime) {
+                        // Добавляем кнопки для ручного управления
+                        const controls = wrapper.querySelector('.progress-controls');
+                        
+                        if (startTime > 0) {
+                            const resumeBtn = document.createElement('button');
+                            resumeBtn.className = 'retry-btn';
+                            resumeBtn.style.marginLeft = '10px';
+                            resumeBtn.textContent = \`▶️ Продолжить с \${window.watchProgress.formatTime(startTime)}\`;
+                            resumeBtn.onclick = () => {
+                                alert('⏱️ Продолжить можно будет после внедрения полноценного плеера');
+                            };
+                            controls.appendChild(resumeBtn);
+                        }
+                    }
+                })();
+            <\/script>
+        `;
     }
 
-    /**
-     * Загрузка и воспроизведение эпизода через новый API
-     */
-    window.loadAnimeEpisode = async function (projectId) {
-        const episodeSelect = document.getElementById(`anime-episode-${projectId}`);
-        const dubberSelect = document.getElementById(`anime-dubber-${projectId}`);
-        const playerDiv = document.getElementById(`anime-player-${projectId}`);
-        const modalTitle = document.querySelector('.modal-title');
-
-        if (!episodeSelect || !playerDiv) {
-            showError('Элементы плеера не найдены');
-            return;
-        }
-
-        const selectedOption = episodeSelect.options[episodeSelect.selectedIndex];
-        
-        if (!selectedOption) {
-            showError('Выберите эпизод');
-            return;
-        }
-
-        const episodeNumber = parseInt(selectedOption.value);
-        const animeId = episodeSelect.dataset.animeId;
-
-        playerDiv.innerHTML = '<div class="anime-loading">🔍 Загружаем видео...</div>';
-
-        try {
-            let animeTitle = modalTitle?.childNodes[0]?.textContent?.trim() || '';
-
-            if (!animeTitle) {
-                throw new Error('Не удалось определить название аниме');
+    // Функция для ручного сохранения прогресса
+    window.saveManualProgress = function(projectId, season, episode) {
+        const timeStr = prompt('Введите время в минутах (например, 24:30 или 1250 секунд):');
+        if (timeStr) {
+            const seconds = window.watchProgress.parseTime(timeStr);
+            if (seconds > 0) {
+                window.watchProgress.markStarted(projectId, season, episode, seconds, 0);
+                alert(`✅ Позиция сохранена! При следующем просмотре начнём с ${window.watchProgress.formatTime(seconds)}`);
             }
-
-            console.log(`▶️ Загружаю эпизод ${episodeNumber} для "${animeTitle}"`);
-
-            // Получаем ссылку на видео через новый эндпоинт
-            const linkResponse = await fetch(`${API_URL}/api/anime/link`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    anime_id: animeId,
-                    id_type: 'shikimori',
-                    episode: episodeNumber,
-                    translation_id: dubberSelect?.value || '0'
-                })
-            });
-
-            if (!linkResponse.ok) {
-                throw new Error(`Ошибка сервера: ${linkResponse.status}`);
-            }
-
-            const linkData = await linkResponse.json();
-            console.log('🔗 Ссылка на видео:', linkData);
-
-            if (!linkData.success || !linkData.url) {
-                throw new Error(linkData.error || 'Не удалось получить ссылку на видео');
-            }
-
-            // Создаем виртуальный объект видео
-            const video = {
-                url: linkData.url,
-                quality: linkData.quality || 'HD',
-                type: 'video/mp4'
-            };
-
-            const dubberName = 'Озвучка';
-
-            // Селектор озвучек (если есть информация о переводах)
-            if (dubberSelect && linkData.translation_id) {
-                dubberSelect.style.display = 'block';
-                // Здесь можно добавить загрузку списка переводов через /api/anime/translations
-            }
-
-            // Запускаем видео через прокси
-            playVideoWithProxy(playerDiv, video, dubberName);
-            showSuccess(`Запущено видео (${video.quality}p)`);
-
-        } catch (error) {
-            console.error('❌ Ошибка:', error);
-            playerDiv.innerHTML = `<div class="anime-error">❌ ${error.message}</div>`;
-            showError(error.message);
         }
     };
 
-    /**
-     * Воспроизведение видео через прокси
-     */
-    function playVideoWithProxy(playerDiv, video, dubberName) {
-        const originalUrl = video.url || video;
-        const quality = video.quality || 'HD';
-        const videoId = 'video_' + Math.random().toString(36).substr(2, 9);
-        
-        // Используем прокси для обхода CORS
-        const proxyUrl = `${API_URL}/api/proxy/video?url=${encodeURIComponent(originalUrl)}`;
-        
-        const isHLS = video.type === 'application/x-mpegURL' || 
-                      originalUrl.includes('.m3u8') || 
-                      originalUrl.includes('hls');
+    // ========== ФУНКЦИЯ ДЛЯ ОТОБРАЖЕНИЯ СЕЗОНОВ ==========
 
-        let playerHtml = '';
+    function renderSeasons(seasonsData, projectId, title, year, originalTitle, contentType) {
+        const container = document.getElementById(`seasons-container-${projectId}`);
+        if (!container) return;
 
-        if (isHLS) {
-            playerHtml = `
-                <div class="hls-player-container">
-                    <video id="${videoId}" class="anime-video-player" controls width="100%" height="405" autoplay playsinline></video>
-                </div>
-                <script>
-                    (function() {
-                        var video = document.getElementById('${videoId}');
-                        var proxyUrl = '${proxyUrl}';
-                        
-                        if (Hls.isSupported()) {
-                            var hls = new Hls({
-                                maxBufferLength: 30,
-                                maxMaxBufferLength: 60,
-                                enableWorker: true,
-                                debug: false
-                            });
-                            
-                            hls.loadSource(proxyUrl);
-                            hls.attachMedia(video);
-                            
-                            hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                                video.play().catch(e => console.log('Автовоспроизведение заблокировано'));
-                            });
-                            
-                        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                            video.src = proxyUrl;
-                            video.addEventListener('loadedmetadata', function() {
-                                video.play().catch(e => console.log('Автовоспроизведение заблокировано'));
-                            });
-                        }
-                    })();
-                <\/script>
-            `;
-        } else {
-            playerHtml = `
-                <video id="${videoId}" class="anime-video-player" controls width="100%" height="405" autoplay playsinline>
-                    <source src="${proxyUrl}" type="video/mp4">
-                    Ваш браузер не поддерживает видео.
-                </video>
-                <script>
-                    document.getElementById('${videoId}').play().catch(e => console.log('Автовоспроизведение заблокировано'));
-                <\/script>
-            `;
+        if (!seasonsData || !seasonsData.items || seasonsData.items.length === 0) {
+            container.innerHTML = '<p class="no-data">Нет информации о сезонах</p>';
+            return;
         }
 
-        playerDiv.innerHTML = `
-            ${playerHtml}
-            <div class="anime-info">
-                <span class="anime-dubber">🎙️ ${dubberName}</span>
-                <span class="anime-quality">📺 ${quality}p</span>
-            </div>
-        `;
+        const progress = window.watchProgress.get(projectId);
 
-        // Добавляем обработчик ошибок
-        const videoElement = document.getElementById(videoId);
-        if (videoElement) {
-            videoElement.addEventListener('error', (e) => {
-                console.error('❌ Ошибка видео:', e);
-                playerDiv.innerHTML = `
-                    <div class="anime-error">
-                        ❌ Не удалось загрузить видео<br>
-                        <button class="retry-btn" onclick="window.loadAnimeEpisode('${playerDiv.id.replace('anime-player-', '')}')">
-                            🔄 Попробовать другую озвучку
-                        </button>
+        let html = '<div class="seasons-list">';
+        
+        seasonsData.items.forEach(season => {
+            html += `
+                <div class="season-item">
+                    <h4 onclick="window.toggleSeason('${projectId}', ${season.number})" style="cursor: pointer;">
+                        ${season.number}-й сезон 
+                        <span style="color:#888; font-size:12px;">▼</span>
+                    </h4>
+                    <div class="episodes-list" id="season-${projectId}-${season.number}" style="display: none;">
+            `;
+            
+            season.episodes.forEach(episode => {
+                const isCurrentEpisode = progress && 
+                                        progress.season === season.number && 
+                                        progress.episode === episode.episodeNumber;
+                
+                const episodeClass = isCurrentEpisode ? 'episode-item current' : 'episode-item';
+                const episodeStyle = isCurrentEpisode ? 'border-left: 4px solid #ffd700; background: rgba(255,215,0,0.1);' : '';
+                
+                html += `
+                    <div class="${episodeClass}" 
+                         style="${episodeStyle}"
+                         onclick="window.loadEpisodeVideo('${projectId}', '${title.replace(/'/g, "\\'")}', '${year}', '${originalTitle.replace(/'/g, "\\'")}', ${season.number}, ${episode.episodeNumber}, '${contentType}')">
+                        <span class="episode-number">Серия ${episode.episodeNumber}</span>
+                        <span class="episode-title">${episode.nameRu || episode.nameEn || ''}</span>
+                        ${isCurrentEpisode && !progress.completed ? 
+                            `<span class="episode-progress">${Math.round((progress.timecode / progress.duration) * 100)}%</span>` : 
+                            ''}
                     </div>
                 `;
             });
+            
+            html += `
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        container.innerHTML = html;
+
+        // Автоматически раскрываем первый сезон и загружаем нужную серию
+        if (seasonsData.items.length > 0) {
+            let targetSeason = 1;
+            let targetEpisode = 1;
+            
+            // Если есть прогресс, открываем на нужной серии
+            if (progress && progress.season && progress.episode) {
+                targetSeason = progress.season;
+                targetEpisode = progress.episode;
+            }
+            
+            // Раскрываем нужный сезон
+            toggleSeason(projectId, targetSeason, true);
+            
+            // Загружаем нужную серию
+            const season = seasonsData.items.find(s => s.number === targetSeason);
+            if (season) {
+                const episode = season.episodes.find(e => e.episodeNumber === targetEpisode);
+                if (episode) {
+                    loadEpisodeVideo(projectId, title, year, originalTitle, targetSeason, targetEpisode, contentType);
+                } else {
+                    // Если серия не найдена, грузим первую
+                    loadEpisodeVideo(projectId, title, year, originalTitle, targetSeason, 1, contentType);
+                }
+            } else {
+                // Если сезон не найден, грузим первый сезон первую серию
+                loadEpisodeVideo(projectId, title, year, originalTitle, 1, 1, contentType);
+            }
         }
     }
 
+    // ========== ФУНКЦИЯ ДЛЯ РАСКРЫТИЯ/СКРЫТИЯ СЕЗОНА ==========
+
+    window.toggleSeason = function(projectId, seasonNumber, forceOpen = false) {
+        const seasonDiv = document.getElementById(`season-${projectId}-${seasonNumber}`);
+        if (seasonDiv) {
+            if (forceOpen) {
+                seasonDiv.style.display = 'grid';
+            } else {
+                seasonDiv.style.display = seasonDiv.style.display === 'none' ? 'grid' : 'none';
+            }
+        }
+    };
+
     // ========== МОДАЛЬНОЕ ОКНО ==========
 
-    window.openModal = function (projectId) {
+    window.openModal = async function (projectId) {
         const project = myProjects.find(p => p.id === projectId);
         if (!project) return;
 
@@ -712,49 +686,35 @@
         let description = project.description || 'Описание будет загружено позже...';
         if (description.length > 500) description = description.substring(0, 500) + '...';
 
-        // Секция для аниме
-        let playerSection = project.type === 'Аниме'
-            ? `
-                <div class="modal-section anime-section">
-                    <h3>🎬 Аниме плеер</h3>
-                    <div class="anime-controls" id="anime-controls-${project.id}">
-                        <div class="anime-loading" id="anime-loading-${project.id}" style="display: block;">
-                            <div class="loading-spinner"></div>
-                            <span>🔍 Загружаем информацию об аниме...</span>
-                        </div>
-                        
-                        <div class="anime-selectors" id="anime-selectors-${project.id}" style="display: none;">
-                            <div class="selector-row">
-                                <select class="anime-season-select" id="anime-season-${project.id}" style="display: none;" onchange="window.changeAnimeSeason('${project.id}')">
-                                    <option value="">Выберите сезон</option>
-                                </select>
-                                <select class="anime-episode-select" id="anime-episode-${project.id}" disabled onchange="window.loadAnimeEpisode('${project.id}')">
-                                    <option value="">Сначала выберите сезон</option>
-                                </select>
-                            </div>
-                            <div class="selector-row">
-                                <select class="anime-dubber-select" id="anime-dubber-${project.id}" style="display: none;" onchange="window.changeAnimeDubber('${project.id}')">
-                                    <option value="">Выберите озвучку</option>
-                                </select>
-                            </div>
-                        </div>
-                        
-                        <div class="anime-player" id="anime-player-${project.id}"></div>
+        // Извлекаем filmId из project.id (удаляем префикс 'kp_')
+        const filmId = project.id.replace('kp_', '');
+
+        // Получаем прогресс для отображения кнопки "Продолжить"
+        const progress = window.watchProgress.get(project.id);
+        const continueButton = progress && !progress.completed ? `
+            <button class="continue-watching-btn" onclick="window.continueWatching('${project.id}')">
+                ▶️ Продолжить с ${progress.season} сезона ${progress.episode} серии (${window.watchProgress.formatTime(progress.timecode)})
+            </button>
+        ` : '';
+
+        // Секция с Rutube и сезонами
+        let playerSection = `
+            <div class="modal-section">
+                <h3>🎬 Смотреть на Rutube</h3>
+                ${continueButton}
+                <div class="rutube-simple-container">
+                    <div class="rutube-player" id="rutube-player-${project.id}" style="display: block;">
+                        <div class="loading-spinner" style="text-align:center; padding:50px;">🔍 Загружаем видео...</div>
                     </div>
                 </div>
-            `
-            : `
-                <div class="modal-section">
-                    <h3>🎬 Смотреть на Rutube</h3>
-                    <div class="rutube-simple-container">
-                        <button class="rutube-simple-btn" id="rutube-btn-${project.id}" 
-                                onclick="window.playOnRutube('${project.id}', '${(project.title_ru || project.title).replace(/'/g, "\\'")}', '${project.year}', '${(project.title || '').replace(/'/g, "\\'")}')">
-                            ▶️ Смотреть на Rutube
-                        </button>
-                        <div class="rutube-player" id="rutube-player-${project.id}" style="display: none;"></div>
-                    </div>
+            </div>
+            <div class="modal-section">
+                <h3>📺 Сезоны и серии</h3>
+                <div id="seasons-container-${project.id}" class="seasons-container">
+                    <div class="loading-spinner" style="text-align:center; padding:30px;">⏳ Загружаем сезоны...</div>
                 </div>
-            `;
+            </div>
+        `;
 
         modal.innerHTML = `
             <div class="modal-overlay" onclick="window.closeModal()"></div>
@@ -791,12 +751,37 @@
 
         document.body.appendChild(modal);
 
-        // Автозагрузка для аниме
-        if (project.type === 'Аниме') {
-            const animeTitle = project.title_ru || project.title;
-            setTimeout(() => {
-                loadAnimeInfo(project.id, animeTitle);
-            }, 500);
+        // Загружаем сезоны
+        const seasonsData = await loadSeasons(filmId);
+        
+        // Отображаем сезоны с передачей типа контента
+        renderSeasons(
+            seasonsData, 
+            project.id, 
+            project.title_ru || project.title, 
+            project.year, 
+            project.title || '',
+            project.type
+        );
+    };
+
+    // Функция для кнопки "Продолжить"
+    window.continueWatching = function(projectId) {
+        const progress = window.watchProgress.get(projectId);
+        if (progress) {
+            const seasonDiv = document.getElementById(`season-${projectId}-${progress.season}`);
+            if (seasonDiv) {
+                // Раскрываем сезон
+                window.toggleSeason(projectId, progress.season, true);
+                
+                // Находим и кликаем на нужную серию
+                const episodeItems = seasonDiv.querySelectorAll('.episode-item');
+                episodeItems.forEach(item => {
+                    if (item.textContent.includes(`Серия ${progress.episode}`)) {
+                        item.click();
+                    }
+                });
+            }
         }
     };
 
@@ -807,43 +792,6 @@
             document.body.classList.remove('modal-open');
             setTimeout(() => modal.remove(), 300);
         }
-    };
-
-    // ========== ОБРАБОТЧИКИ ДЛЯ АНИМЕ ==========
-
-    window.changeAnimeSeason = async function (projectId) {
-        const seasonSelect = document.getElementById(`anime-season-${projectId}`);
-        const episodeSelect = document.getElementById(`anime-episode-${projectId}`);
-
-        if (!seasonSelect || !episodeSelect) return;
-
-        const seasonIndex = parseInt(seasonSelect.value);
-        if (isNaN(seasonIndex) || seasonIndex < 0) {
-            episodeSelect.innerHTML = '<option value="">Выберите сезон</option>';
-            episodeSelect.disabled = true;
-            return;
-        }
-
-        const selectedOption = seasonSelect.options[seasonIndex];
-        const episodes = JSON.parse(selectedOption.dataset.episodes || '[]');
-
-        if (episodes.length > 0) {
-            episodeSelect.innerHTML = episodes.map((ep) => {
-                return `<option value="${ep.episode}" data-episode='${JSON.stringify(ep)}'>${formatEpisodeName(ep.episode)}</option>`;
-            }).join('');
-            episodeSelect.disabled = false;
-
-            setTimeout(() => {
-                loadAnimeEpisode(projectId);
-            }, 100);
-        } else {
-            episodeSelect.innerHTML = '<option value="">Нет эпизодов</option>';
-            episodeSelect.disabled = true;
-        }
-    };
-
-    window.changeAnimeDubber = function (projectId) {
-        loadAnimeEpisode(projectId);
     };
 
     // ========== ОТРИСОВКА КАРТОЧЕК ==========
@@ -865,9 +813,15 @@
 
         projectsGrid.innerHTML = sorted.map(project => {
             const posterEmoji = project.type === 'Аниме' ? '🇯🇵' : project.type === 'Сериал' ? '📺' : project.type === 'Мультфильм' ? '🖍️' : '🎬';
+            
+            const progress = window.watchProgress.get(project.id);
+            const progressPercent = progress && progress.duration ? (progress.timecode / progress.duration) * 100 : 0;
+            const hasProgress = progress && !progress.completed && progressPercent > 0;
 
             return `
-                <div class="card ${project.inProgress ? 'in-progress' : ''}" data-project-id="${project.id}" onclick="window.openModal('${project.id}')">
+                <div class="card ${project.inProgress ? 'in-progress' : ''}" 
+                     data-project-id="${project.id}" 
+                     onclick="window.openModal('${project.id}')">
                     <div class="card-buttons" onclick="event.stopPropagation()">
                         <button class="delete-card" onclick="window.deleteProject('${project.id}')">✕</button>
                         <div style="display: flex; gap: 5px;">
@@ -875,10 +829,19 @@
                             <button class="watched-btn" onclick="window.markAsWatched('${project.id}')">✅</button>
                         </div>
                     </div>
-                    ${project.poster
-                    ? `<div class="poster" style="background-image: url('${project.poster}');"><div class="rating-badge ${project.rating === '—' ? 'none' : ''}">${project.rating}</div></div>`
-                    : `<div class="poster"><div class="no-poster">${posterEmoji}</div><div class="rating-badge ${project.rating === '—' ? 'none' : ''}">${project.rating}</div></div>`
-                }
+                    <div class="poster" style="background-image: ${project.poster ? `url('${project.poster}')` : 'none'};">
+                        ${!project.poster ? `<div class="no-poster">${posterEmoji}</div>` : ''}
+                        ${hasProgress ? `
+                            <div class="progress-overlay">
+                                <div class="progress-bar" style="width: ${progressPercent}%;"></div>
+                                <div class="progress-text">
+                                    Сезон ${progress.season} серия ${progress.episode}
+                                    <br><small>${Math.round(progressPercent)}%</small>
+                                </div>
+                            </div>
+                        ` : ''}
+                        <div class="rating-badge ${project.rating === '—' ? 'none' : ''}">${project.rating}</div>
+                    </div>
                     <div class="card-content">
                         <div class="card-title">${project.title_ru || project.title}</div>
                         <div class="type-selector" onclick="event.stopPropagation()">
@@ -894,7 +857,12 @@
         }).join('');
     }
 
-    // ========== ПОИСК НА КИНОПОИСКЕ ==========
+    // Слушаем события обновления прогресса
+    window.addEventListener('progress-updated', () => {
+        renderProjects();
+    });
+
+    // ========== ПОИСК НА КИНОПОИСКЕ (ДЛЯ ДОБАВЛЕНИЯ) ==========
 
     let searchTimeout;
     searchInput.addEventListener('input', (e) => {
@@ -974,9 +942,5 @@
     window.markAsWatched = markAsWatched;
     window.changeProjectType = changeProjectType;
     window.refreshProjectDetails = refreshProjectDetails;
-    window.playOnRutube = playOnRutube;
-    window.loadAnimeInfo = loadAnimeInfo;
-    window.loadAnimeEpisode = loadAnimeEpisode;
-    window.changeAnimeSeason = changeAnimeSeason;
-    window.changeAnimeDubber = changeAnimeDubber;
+    window.loadEpisodeVideo = loadEpisodeVideo;
 })();

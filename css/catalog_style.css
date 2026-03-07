@@ -1084,3 +1084,184 @@ body.modal-open {
 .anime-quality {
     color: #a3b7f0;
 }
+
+
+.seasons-container {
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 10px;
+}
+
+.season-item {
+    margin-bottom: 20px;
+    border-bottom: 1px solid #333;
+    padding-bottom: 15px;
+}
+
+.season-item h4 {
+    color: #ffd700;
+    margin-bottom: 10px;
+    font-size: 16px;
+}
+
+.episodes-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 8px;
+}
+
+.episode-item {
+    background: rgba(255,255,255,0.05);
+    border-radius: 4px;
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: background 0.3s;
+    display: flex;
+    flex-direction: column;
+}
+
+.episode-item:hover {
+    background: rgba(255,215,0,0.1);
+}
+
+.episode-number {
+    color: #ffd700;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+.episode-title {
+    color: #fff;
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.no-data {
+    color: #888;
+    text-align: center;
+    padding: 20px;
+}
+
+
+/* Прогресс на постере */
+.progress-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 100%;
+    background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 10px;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.progress-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #ffd700, #ffaa00);
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    color: white;
+    font-size: 12px;
+    text-shadow: 0 0 5px black;
+    z-index: 3;
+}
+
+/* Текущая серия */
+.episode-item.current {
+    border-left: 4px solid #ffd700;
+    background: rgba(255,215,0,0.1);
+}
+
+.episode-item.current:hover {
+    background: rgba(255,215,0,0.2);
+}
+
+.episode-progress {
+    font-size: 10px;
+    color: #ffd700;
+    margin-left: 8px;
+}
+
+/* Кнопка продолжения */
+.continue-watching-btn {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 10px;
+    background: linear-gradient(135deg, #4a3f7a, #5f4f9e);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s;
+    animation: pulse 2s infinite;
+}
+
+.continue-watching-btn:hover {
+    transform: scale(1.02);
+    background: linear-gradient(135deg, #5f4f9e, #6f5fae);
+}
+
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(255,215,0,0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(255,215,0,0); }
+    100% { box-shadow: 0 0 0 0 rgba(255,215,0,0); }
+}
+
+/* Кнопки сохранения */
+.progress-save-btn {
+    padding: 8px 15px;
+    background: #4a3f7a;
+    color: white;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.3s;
+}
+
+.progress-save-btn:hover {
+    background: #5f4f9e;
+    transform: scale(1.05);
+}
+
+/* Индикатор live-прогресса */
+.live-progress {
+    margin-top: 5px;
+    font-size: 12px;
+    color: #4caf50;
+    animation: fadeInOut 2s infinite;
+}
+
+@keyframes fadeInOut {
+    0% { opacity: 0.6; }
+    50% { opacity: 1; }
+    100% { opacity: 0.6; }
+}
+
+/* Анимация загрузки */
+.loading-spinner {
+    display: inline-block;
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(255,255,255,0.3);
+    border-radius: 50%;
+    border-top-color: #ffd700;
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
