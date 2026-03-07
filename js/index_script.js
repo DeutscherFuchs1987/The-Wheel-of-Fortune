@@ -487,7 +487,6 @@
             showError('Нет фильмов в выбранной категории для голосования');
             return;
         }
-
         const currentUserVotes = userVotes[currentUser] || [];
 
         const modal = document.createElement('div');
