@@ -5,31 +5,265 @@
     let allUsers = [];
     let currentRequestId = null;
 
-    // ========== ЗАЩИТА АДМИНКИ ==========
-    // Самое первое действие при загрузке страницы
+    // ========== ПРОВЕРКА ПРИ ЗАГРУЗКЕ ==========
     document.addEventListener('DOMContentLoaded', async () => {
-        // Показываем заглушку загрузки
-        showLoading();
+        // Сначала проверяем, может уже есть сессия
+        const hasSession = await checkSession();
         
-        // Проверяем авторизацию и права
-        const isAdmin = await checkAdminAccess();
-        
-        if (isAdmin) {
-            // Если админ - загружаем данные
-            hideLoading();
-            loadDashboard();
+        if (!hasSession) {
+            // Если нет сессии - показываем форму входа
+            showLoginForm();
         } else {
-            // Если не админ - редирект на главную
-            redirectToHome();
+            // Если есть сессия и пользователь админ - загружаем данные
+            showLoading();
+            const isAdmin = await checkAdminAccess();
+            
+            if (isAdmin) {
+                hideLoading();
+                hideLoginForm();
+                loadDashboard();
+            } else {
+                hideLoading();
+                showLoginForm();
+                showNotification('❌ У вас нет прав администратора', 'error');
+            }
         }
     });
 
-    // Функция проверки доступа админа
+    // ========== ПРОВЕРКА СЕССИИ ==========
+    async function checkSession() {
+        try {
+            const response = await fetch(`${API_URL}/api/auth/me`, {
+                credentials: 'include',
+                signal: AbortSignal.timeout(3000)
+            });
+            
+            if (!response.ok) return false;
+            
+            const data = await response.json();
+            return data.authenticated;
+        } catch (error) {
+            console.log('❌ Нет активной сессии');
+            return false;
+        }
+    }
+
+    // ========== ФОРМА ВХОДА ==========
+    function showLoginForm() {
+        // Скрываем основной контент
+        document.querySelector('.stats-grid').style.display = 'none';
+        document.querySelector('.admin-container').style.display = 'none';
+        
+        // Создаем форму входа
+        const loginContainer = document.createElement('div');
+        loginContainer.className = 'login-container';
+        loginContainer.id = 'adminLoginForm';
+        loginContainer.innerHTML = `
+            <div class="login-box">
+                <h2>👑 Вход в админ-панель</h2>
+                <div class="login-form">
+                    <div class="form-group">
+                        <label for="adminUsername">Логин</label>
+                        <input type="text" id="adminUsername" class="login-input" placeholder="Введите логин" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label for="adminPassword">Пароль</label>
+                        <input type="password" id="adminPassword" class="login-input" placeholder="Введите пароль">
+                    </div>
+                    <div class="login-actions">
+                        <button class="login-btn" onclick="window.submitAdminLogin()">🔑 Войти</button>
+                        <button class="login-btn secondary" onclick="window.goToHome()">🏠 На главную</button>
+                    </div>
+                    <div class="login-hint">
+                        <p>Доступ только для администраторов</p>
+                        <p class="hint-small">Логин и пароль выдает администратор</p>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.querySelector('.app').appendChild(loginContainer);
+        
+        // Добавляем стили для формы
+        addLoginStyles();
+    }
+
+    function hideLoginForm() {
+        const form = document.getElementById('adminLoginForm');
+        if (form) form.remove();
+        document.querySelector('.stats-grid').style.display = 'grid';
+        document.querySelector('.admin-container').style.display = 'flex';
+    }
+
+    // Добавляем стили для формы входа
+    function addLoginStyles() {
+        const style = document.createElement('style');
+        style.textContent = `
+            .login-container {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                min-height: 60vh;
+                animation: fadeIn 0.5s ease;
+            }
+            
+            .login-box {
+                background: #1a1f33;
+                border-radius: 40px;
+                padding: 40px;
+                width: 100%;
+                max-width: 400px;
+                border: 2px solid #5f4bb6;
+                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            }
+            
+            .login-box h2 {
+                color: #ffd966;
+                text-align: center;
+                margin-bottom: 30px;
+                font-size: 1.8rem;
+            }
+            
+            .form-group {
+                margin-bottom: 20px;
+            }
+            
+            .form-group label {
+                display: block;
+                color: #a3b7f0;
+                margin-bottom: 8px;
+                font-size: 0.9rem;
+            }
+            
+            .login-input {
+                width: 100%;
+                padding: 12px 20px;
+                background: #0c1020;
+                border: 2px solid #3d435b;
+                border-radius: 30px;
+                color: white;
+                font-size: 1rem;
+                outline: none;
+                transition: all 0.3s;
+            }
+            
+            .login-input:focus {
+                border-color: #5f4bb6;
+                box-shadow: 0 0 0 3px rgba(95, 75, 182, 0.3);
+            }
+            
+            .login-actions {
+                display: flex;
+                gap: 15px;
+                margin-top: 30px;
+            }
+            
+            .login-btn {
+                flex: 1;
+                padding: 12px;
+                background: #5f4bb6;
+                color: white;
+                border: none;
+                border-radius: 30px;
+                font-size: 1rem;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.3s;
+                border-bottom: 4px solid #352b66;
+            }
+            
+            .login-btn:hover {
+                transform: translateY(-2px);
+                background: #6f5bc6;
+            }
+            
+            .login-btn.secondary {
+                background: #283153;
+                border-bottom-color: #0e142b;
+            }
+            
+            .login-btn.secondary:hover {
+                background: #323d62;
+            }
+            
+            .login-hint {
+                margin-top: 25px;
+                text-align: center;
+                color: #a3b7f0;
+                font-size: 0.9rem;
+            }
+            
+            .hint-small {
+                font-size: 0.8rem;
+                opacity: 0.7;
+                margin-top: 5px;
+            }
+            
+            @keyframes fadeIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(-20px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    // ========== ОБРАБОТЧИК ВХОДА ==========
+    window.submitAdminLogin = async function() {
+        const username = document.getElementById('adminUsername')?.value.trim();
+        const password = document.getElementById('adminPassword')?.value;
+        
+        if (!username || !password) {
+            showNotification('❌ Заполните все поля', 'error');
+            return;
+        }
+        
+        showLoading();
+        
+        try {
+            const response = await fetch(`${API_URL}/api/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ username, password })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success && data.user.role === 'admin') {
+                currentUser = data.user;
+                hideLoading();
+                hideLoginForm();
+                showNotification('✅ Добро пожаловать, администратор!');
+                loadDashboard();
+            } else if (data.success && data.user.role !== 'admin') {
+                hideLoading();
+                showNotification('❌ У вас нет прав администратора', 'error');
+                await fetch(`${API_URL}/api/auth/logout`, { method: 'POST', credentials: 'include' });
+            } else {
+                hideLoading();
+                showNotification(data.error || '❌ Ошибка входа', 'error');
+            }
+        } catch (error) {
+            hideLoading();
+            showNotification('❌ Ошибка сети', 'error');
+        }
+    };
+
+    window.goToHome = function() {
+        window.location.href = 'index.html';
+    };
+
+    // ========== ПРОВЕРКА ДОСТУПА АДМИНА ==========
     async function checkAdminAccess() {
         try {
             const response = await fetch(`${API_URL}/api/auth/me`, {
                 credentials: 'include',
-                // Добавляем таймаут, чтобы не ждать вечно
                 signal: AbortSignal.timeout(5000)
             });
             
@@ -55,11 +289,10 @@
         }
     }
 
-    // Редирект на главную
+    // ========== РЕДИРЕКТ НА ГЛАВНУЮ ==========
     function redirectToHome() {
         console.log('🔄 Редирект на главную...');
         
-        // Показываем сообщение перед редиректом
         const message = document.createElement('div');
         message.style.cssText = `
             position: fixed;
@@ -79,7 +312,6 @@
         message.textContent = '⛔ Доступ запрещен. Перенаправление...';
         document.body.appendChild(message);
         
-        // Анимация
         const style = document.createElement('style');
         style.textContent = `
             @keyframes fadeInOut {
@@ -91,13 +323,12 @@
         `;
         document.head.appendChild(style);
         
-        // Редирект через 2 секунды
         setTimeout(() => {
             window.location.href = 'index.html';
         }, 2000);
     }
 
-    // Показать заглушку загрузки
+    // ========== ЗАГРУЗЧИК ==========
     function showLoading() {
         const loader = document.createElement('div');
         loader.id = 'admin-loader';
@@ -126,7 +357,7 @@
                 animation: spin 1s linear infinite;
                 margin-bottom: 20px;
             "></div>
-            <div style="color: white; font-size: 1.2rem;">Проверка доступа...</div>
+            <div style="color: white; font-size: 1.2rem;">Загрузка...</div>
             <style>
                 @keyframes spin {
                     to { transform: rotate(360deg); }
@@ -137,12 +368,9 @@
         document.body.appendChild(loader);
     }
 
-    // Скрыть заглушку загрузки
     function hideLoading() {
         const loader = document.getElementById('admin-loader');
-        if (loader) {
-            loader.remove();
-        }
+        if (loader) loader.remove();
     }
 
     // ========== ЗАГРУЗКА ДАННЫХ ==========
@@ -168,7 +396,6 @@
             
             if (!response.ok) {
                 if (response.status === 403) {
-                    // Если вдруг права потеряны - редирект
                     redirectToHome();
                     return;
                 }
