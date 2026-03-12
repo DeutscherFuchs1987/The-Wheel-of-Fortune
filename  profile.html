@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Личный кабинет 👤</title>
+    <link rel="stylesheet" href="css/profile_style.css">
+</head>
+
+<body>
+    <div class="app">
+        <!-- Шапка -->
+        <div class="header">
+            <h1>👤 ЛИЧНЫЙ КАБИНЕТ</h1>
+            <div class="nav-buttons">
+                <a href="index.html" class="nav-btn">🎡 Колесо</a>
+                <a href="catalog.html" class="nav-btn">📚 Каталог</a>
+                <a href="ratings.html" class="nav-btn">⭐ Оценки</a>
+                <a href="profile.html" class="nav-btn active">👤 Профиль</a>
+            </div>
+        </div>
+
+        <!-- Основной контент -->
+        <div class="profile-container">
+            <!-- Левая колонка - информация о пользователе -->
+            <div class="profile-left">
+                <div class="profile-card">
+                    <div class="profile-avatar">
+                        <span class="avatar-emoji">👤</span>
+                    </div>
+                    <h2 id="profileUsername">Загрузка...</h2>
+                    <div class="profile-badge" id="profileBadge"></div>
+                    <div class="profile-stats">
+                        <div class="stat-item">
+                            <span class="stat-value" id="watchedCount">0</span>
+                            <span class="stat-label">Просмотрено</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" id="inProgressCount">0</span>
+                            <span class="stat-label">В процессе</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" id="plannedCount">0</span>
+                            <span class="stat-label">В планах</span>
+                        </div>
+                    </div>
+                    <div class="profile-info">
+                        <div class="info-row">
+                            <span class="info-label">📅 Регистрация:</span>
+                            <span class="info-value" id="registerDate">—</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">🕐 Последний вход:</span>
+                            <span class="info-value" id="lastLogin">—</span>
+                        </div>
+                    </div>
+                    <button class="profile-logout-btn" onclick="logout()">🔓 Выйти</button>
+                </div>
+            </div>
+
+            <!-- Правая колонка - табы с контентом -->
+            <div class="profile-right">
+                <!-- Табы -->
+                <div class="profile-tabs">
+                    <button class="tab-btn active" onclick="switchTab('progress')">📺 В процессе</button>
+                    <button class="tab-btn" onclick="switchTab('watched')">✅ Просмотрено</button>
+                    <button class="tab-btn" onclick="switchTab('planned')">📋 В планах</button>
+                    <button class="tab-btn" onclick="switchTab('votes')">🗳️ Мои голоса</button>
+                </div>
+
+                <!-- Контент табов -->
+                <div class="tab-content">
+                    <!-- В процессе -->
+                    <div class="tab-pane active" id="tab-progress">
+                        <div class="content-header">
+                            <h3>📺 Смотрю сейчас</h3>
+                            <span class="content-count" id="progressCount">0</span>
+                        </div>
+                        <div class="items-grid" id="progressList">
+                            <!-- Будут загружены через JS -->
+                        </div>
+                    </div>
+
+                    <!-- Просмотрено -->
+                    <div class="tab-pane" id="tab-watched">
+                        <div class="content-header">
+                            <h3>✅ Уже просмотрено</h3>
+                            <span class="content-count" id="watchedListCount">0</span>
+                        </div>
+                        <div class="items-grid" id="watchedList">
+                            <!-- Будут загружены через JS -->
+                        </div>
+                    </div>
+
+                    <!-- В планах -->
+                    <div class="tab-pane" id="tab-planned">
+                        <div class="content-header">
+                            <h3>📋 Хочу посмотреть</h3>
+                            <span class="content-count" id="plannedListCount">0</span>
+                        </div>
+                        <div class="items-grid" id="plannedList">
+                            <!-- Будут загружены через JS -->
+                        </div>
+                    </div>
+
+                    <!-- Мои голоса -->
+                    <div class="tab-pane" id="tab-votes">
+                        <div class="content-header">
+                            <h3>🗳️ Мои голоса в текущем цикле</h3>
+                            <span class="content-count" id="votesCount">0/3</span>
+                        </div>
+                        <div class="votes-container" id="votesList">
+                            <!-- Будут загружены через JS -->
+                        </div>
+                        
+                        <div class="votes-history">
+                            <h4>📊 История голосований</h4>
+                            <div class="history-list" id="votesHistory">
+                                <!-- Будут загружены через JS -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модалка для изменения статуса -->
+    <div class="modal-overlay" id="modalOverlay" style="display: none;"></div>
+    <div class="status-modal" id="statusModal">
+        <div class="status-modal-content">
+            <h3>📌 Изменить статус</h3>
+            <p id="modalProjectTitle"></p>
+            <div class="status-buttons">
+                <button class="status-btn progress" onclick="changeStatus('inProgress')">🔥 В процессе</button>
+                <button class="status-btn watched" onclick="changeStatus('watched')">✅ Просмотрено</button>
+                <button class="status-btn planned" onclick="changeStatus('planned')">📋 В планах</button>
+                <button class="status-btn remove" onclick="changeStatus('remove')">🗑️ Убрать</button>
+            </div>
+            <button class="close-btn" onclick="closeStatusModal()">Закрыть</button>
+        </div>
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script src="js/profile.js"></script>
+</body>
+
+</html>

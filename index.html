@@ -15,12 +15,26 @@
             <h1>🎡 КОЛЕСО ФОРТУНЫ</h1>
             <div class="nav-buttons">
                 <a href="index.html" class="nav-btn active">🎡 Колесо</a>
-                <a href="catalog.html" class="nav-btn ">📚 Каталог</a>
+                <a href="catalog.html" class="nav-btn">📚 Каталог</a>
                 <a href="ratings.html" class="nav-btn">⭐ Оценки</a>
+            </div>
+            
+            <!-- Блок авторизации -->
+            <div class="auth-section">
+                <div class="auth-buttons" id="authButtons">
+                    <button class="auth-btn" onclick="showLoginModal()">🔑 Войти</button>
+                    <button class="auth-btn" onclick="showRegisterModal()">📝 Регистрация</button>
+                </div>
+                <div class="user-info" id="userInfo" style="display: none;">
+                    <span class="user-avatar">👤</span>
+                    <span class="user-name" id="userName"></span>
+                    <span class="user-badge" id="userBadge"></span>
+                    <button class="auth-btn-small" onclick="logout()">Выйти</button>
+                </div>
             </div>
         </div>
 
-        <!-- Панель голосования -->
+        <!-- Панель голосования (без кнопки сброса бустов) -->
         <div class="voting-panel">
             <div class="voting-info">
                 <span class="voting-title">🗳️ Голосование</span>
@@ -28,7 +42,6 @@
             </div>
             <div class="voting-actions">
                 <button class="voting-btn primary" id="openVoteBtn">🗳️ Голосовать</button>
-                <button class="voting-btn secondary" id="resetBoostsBtn">🔄 Сбросить бусты</button>
                 <button class="voting-btn secondary" id="showStatsBtn">📊 Статистика</button>
             </div>
             <!-- Индикатор кто голосовал -->
@@ -57,6 +70,7 @@
         </div>
 
         <div class="success-message" id="successMessage"></div>
+        <div class="error-message" id="errorMessage"></div>
 
         <div class="controls-panel">
             <div class="slider-control">
@@ -77,8 +91,7 @@
 
         <div class="wheel-container">
             <div class="canvas-wrapper">
-                <div class="pointer">
-                </div>
+                <div class="pointer"></div>
                 <canvas id="wheelCanvas" width="600" height="600"></canvas>
                 <div class="wheel-controls">
                     <button id="spinOnceBtn">🎲 Один выбор</button>
@@ -98,8 +111,72 @@
             <h3>📋 Текущие пункты <span class="item-count" id="itemCount">0</span></h3>
             <div class="pool-tags" id="itemPool"></div>
         </div>
+    </div>
 
-        <div class="error-message" id="errorMessage"></div>
+    <!-- Общий overlay для модалок -->
+    <div class="modal-overlay" id="modalOverlay" style="display: none;"></div>
+    
+    <!-- Модалка входа -->
+    <div class="auth-modal" id="loginModal">
+        <div class="auth-modal-content">
+            <h3>🔑 Вход</h3>
+            <input type="text" id="loginUsername" class="auth-input" placeholder="Логин" maxlength="50">
+            <input type="password" id="loginPassword" class="auth-input" placeholder="Пароль">
+            <div class="auth-hint">После входа вы сможете голосовать</div>
+            <div class="auth-buttons">
+                <button class="auth-btn submit" onclick="submitLogin()">Войти</button>
+                <button class="auth-btn cancel" onclick="closeAuthModal()">Отмена</button>
+            </div>
+            <div class="auth-link" onclick="showRegisterModal(); closeAuthModal()">Нет аккаунта? Зарегистрироваться</div>
+        </div>
+    </div>
+
+    <!-- Модалка регистрации -->
+    <div class="auth-modal" id="registerModal">
+        <div class="auth-modal-content">
+            <h3>📝 Регистрация</h3>
+            <input type="text" id="regUsername" class="auth-input" placeholder="Придумайте логин" maxlength="50">
+            <input type="password" id="regPassword" class="auth-input" placeholder="Придумайте пароль" minlength="4">
+            <div class="auth-hint">После регистрации нужно дождаться подтверждения админом</div>
+            <div class="auth-buttons">
+                <button class="auth-btn submit" onclick="submitRegistration()">Зарегистрироваться</button>
+                <button class="auth-btn cancel" onclick="closeAuthModal()">Отмена</button>
+            </div>
+            <div class="auth-link" onclick="showLoginModal(); closeAuthModal()">Уже есть аккаунт? Войти</div>
+        </div>
+    </div>
+
+    <!-- Модалка голосования -->
+    <div class="voting-modal" id="votingModal">
+        <div class="voting-modal-content">
+            <h3>🗳️ Голосование <span id="votingCategory"></span></h3>
+            <p class="voting-user" id="votingUser"></p>
+            
+            <div class="voting-search">
+                <input type="text" id="voteSearchInput" class="vote-search-input" placeholder="🔍 Поиск фильма...">
+            </div>
+            
+            <p class="voting-hint">Выберите 3 фильма, чтобы повысить их шансы</p>
+            
+            <div class="voting-movies" id="votingMoviesList"></div>
+            
+            <div class="voting-footer">
+                <div class="selected-counter" id="selectedCounter">Выбрано: 0/3</div>
+                <div class="voting-buttons">
+                    <button class="voting-btn cancel" onclick="closeVotingModal()">Отмена</button>
+                    <button class="voting-btn submit" id="submitVoteBtn" disabled>Сохранить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модалка статистики -->
+    <div class="stats-modal" id="statsModal">
+        <div class="stats-modal-content">
+            <h3>📊 Статистика бустов <span id="statsCategory"></span></h3>
+            <div class="stats-list" id="statsList"></div>
+            <button class="stats-close cosmic-close" onclick="closeStatsModal()">🌌 ЗАКРЫТЬ 🌌</button>
+        </div>
     </div>
 
     <script src="js/index_script.js"></script>
