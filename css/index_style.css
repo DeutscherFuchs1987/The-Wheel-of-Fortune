@@ -1671,3 +1671,40 @@ canvas {
         padding: 10px 20px;
     }
 }
+
+/* ========== ПРОФИЛЬ ЛИНК ========== */
+.profile-link {
+    background: #5f4bb6;
+    color: white;
+    text-decoration: none;
+    padding: 6px 15px;
+    border-radius: 30px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    display: inline-block;
+    border: 1px solid #ffd966;
+}
+
+.profile-link:hover {
+    background: #6f5bc6;
+    transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(95, 75, 182, 0.4);
+}
+
+/* Адаптация для мобильных */
+@media (max-width: 768px) {
+    .user-info {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+    }
+    
+    .profile-link {
+        order: 2;
+    }
+    
+    .auth-btn-small {
+        order: 3;
+    }
+}

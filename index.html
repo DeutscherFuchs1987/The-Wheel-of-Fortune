@@ -18,7 +18,7 @@
                 <a href="catalog.html" class="nav-btn">📚 Каталог</a>
                 <a href="ratings.html" class="nav-btn">⭐ Оценки</a>
             </div>
-            
+
             <!-- Блок авторизации -->
             <div class="auth-section">
                 <div class="auth-buttons" id="authButtons">
@@ -29,12 +29,13 @@
                     <span class="user-avatar">👤</span>
                     <span class="user-name" id="userName"></span>
                     <span class="user-badge" id="userBadge"></span>
+                    <a href="profile.html" class="profile-link">👤 Профиль</a>
                     <button class="auth-btn-small" onclick="logout()">Выйти</button>
                 </div>
             </div>
         </div>
 
-        <!-- Панель голосования (без кнопки сброса бустов) -->
+        <!-- Панель голосования -->
         <div class="voting-panel">
             <div class="voting-info">
                 <span class="voting-title">🗳️ Голосование</span>
@@ -44,7 +45,6 @@
                 <button class="voting-btn primary" id="openVoteBtn">🗳️ Голосовать</button>
                 <button class="voting-btn secondary" id="showStatsBtn">📊 Статистика</button>
             </div>
-            <!-- Индикатор кто голосовал -->
             <div class="voters-indicator" id="votersIndicator" style="display: none;">
                 <span>Проголосовали:</span>
                 <span class="voters-list" id="votersList"></span>
@@ -57,7 +57,7 @@
                 <span class="filter-title">📌 Тип:</span>
                 <div class="filter-buttons" id="filter-buttons"></div>
             </div>
-            
+
             <div class="mode-toggle-section">
                 <span class="mode-label">🎲 Обычный</span>
                 <div class="mode-toggle" id="modeToggle">
@@ -115,7 +115,7 @@
 
     <!-- Общий overlay для модалок -->
     <div class="modal-overlay" id="modalOverlay" style="display: none;"></div>
-    
+
     <!-- Модалка входа -->
     <div class="auth-modal" id="loginModal">
         <div class="auth-modal-content">
@@ -151,15 +151,15 @@
         <div class="voting-modal-content">
             <h3>🗳️ Голосование <span id="votingCategory"></span></h3>
             <p class="voting-user" id="votingUser"></p>
-            
+
             <div class="voting-search">
                 <input type="text" id="voteSearchInput" class="vote-search-input" placeholder="🔍 Поиск фильма...">
             </div>
-            
+
             <p class="voting-hint">Выберите 3 фильма, чтобы повысить их шансы</p>
-            
+
             <div class="voting-movies" id="votingMoviesList"></div>
-            
+
             <div class="voting-footer">
                 <div class="selected-counter" id="selectedCounter">Выбрано: 0/3</div>
                 <div class="voting-buttons">
@@ -179,6 +179,7 @@
         </div>
     </div>
 
+    <script src="js/auth.js"></script>
     <script src="js/index_script.js"></script>
 </body>
 

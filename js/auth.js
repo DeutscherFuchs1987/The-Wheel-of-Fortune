@@ -1,14 +1,52 @@
-// ========== УПРАВЛЕНИЕ АВТОРИЗАЦИЕЙ ==========
+// ========== УПРАВЛЕНИЕ АВТОРИЗАЦИЕЙ (JWT версия) ==========
 
 const API_URL = 'https://movie-server-deutscherfuchs.amvera.io';
 let currentUser = null;
 
+// Работа с токеном
+function saveToken(token) {
+    if (token) {
+        localStorage.setItem('auth_token', token);
+    } else {
+        localStorage.removeItem('auth_token');
+    }
+}
+
+function getToken() {
+    return localStorage.getItem('auth_token');
+}
+
+// Универсальный fetch с авторизацией
+async function authFetch(url, options = {}) {
+    const token = getToken();
+    const headers = {
+        'Content-Type': 'application/json',
+        ...options.headers
+    };
+    
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+    
+    return fetch(url, {
+        ...options,
+        headers,
+        credentials: 'omit'
+    });
+}
+
 // Загружаем информацию о текущем пользователе
 async function loadCurrentUser() {
+    const token = getToken();
+    
+    if (!token) {
+        currentUser = null;
+        updateAuthUI();
+        return;
+    }
+    
     try {
-        const response = await fetch(`${API_URL}/api/auth/me`, {
-            credentials: 'include'
-        });
+        const response = await authFetch(`${API_URL}/api/auth/me`);
         const data = await response.json();
         
         if (data.authenticated) {
@@ -16,12 +54,14 @@ async function loadCurrentUser() {
             updateAuthUI();
             console.log(`👤 Авторизован как: ${currentUser.username} (${currentUser.role})`);
         } else {
+            saveToken(null);
             currentUser = null;
             updateAuthUI();
         }
     } catch (error) {
         console.error('Ошибка загрузки пользователя:', error);
         currentUser = null;
+        saveToken(null);
         updateAuthUI();
     }
 }
@@ -49,21 +89,29 @@ function updateAuthUI() {
 
 // Показать модалку входа
 function showLoginModal() {
-    document.getElementById('modalOverlay').style.display = 'block';
-    document.getElementById('loginModal').style.display = 'flex';
+    const overlay = document.getElementById('modalOverlay');
+    const modal = document.getElementById('loginModal');
+    if (overlay) overlay.style.display = 'block';
+    if (modal) modal.style.display = 'flex';
 }
 
 // Показать модалку регистрации
 function showRegisterModal() {
-    document.getElementById('modalOverlay').style.display = 'block';
-    document.getElementById('registerModal').style.display = 'flex';
+    const overlay = document.getElementById('modalOverlay');
+    const modal = document.getElementById('registerModal');
+    if (overlay) overlay.style.display = 'block';
+    if (modal) modal.style.display = 'flex';
 }
 
 // Закрыть все модалки авторизации
 function closeAuthModal() {
-    document.getElementById('modalOverlay').style.display = 'none';
-    document.getElementById('loginModal').style.display = 'none';
-    document.getElementById('registerModal').style.display = 'none';
+    const overlay = document.getElementById('modalOverlay');
+    const loginModal = document.getElementById('loginModal');
+    const registerModal = document.getElementById('registerModal');
+    
+    if (overlay) overlay.style.display = 'none';
+    if (loginModal) loginModal.style.display = 'none';
+    if (registerModal) registerModal.style.display = 'none';
 }
 
 // Отправка регистрации
@@ -90,7 +138,6 @@ async function submitRegistration() {
         const response = await fetch(`${API_URL}/api/auth/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
             body: JSON.stringify({ username, password })
         });
         
@@ -121,13 +168,13 @@ async function submitLogin() {
         const response = await fetch(`${API_URL}/api/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
             body: JSON.stringify({ username, password })
         });
         
         const data = await response.json();
         
         if (data.success) {
+            saveToken(data.token);
             currentUser = data.user;
             updateAuthUI();
             closeAuthModal();
@@ -136,6 +183,12 @@ async function submitLogin() {
             // Обновляем страницу, если нужно
             if (typeof loadUserVotes === 'function') loadUserVotes();
             if (typeof updateVotingUI === 'function') updateVotingUI();
+            if (typeof loadDashboard === 'function') loadDashboard();
+            
+            // Если это админка, перезагружаем данные
+            if (window.location.pathname.includes('admin.html')) {
+                setTimeout(() => window.location.reload(), 500);
+            }
         } else {
             showError(data.error || 'Ошибка входа');
         }
@@ -146,25 +199,29 @@ async function submitLogin() {
 
 // Выход
 async function logout() {
-    try {
-        await fetch(`${API_URL}/api/auth/logout`, {
-            method: 'POST',
-            credentials: 'include'
-        });
-        currentUser = null;
-        updateAuthUI();
-        showSuccess('👋 До свидания!');
-        
-        // Обновляем страницу
-        if (typeof loadUserVotes === 'function') loadUserVotes();
-        if (typeof updateVotingUI === 'function') updateVotingUI();
-    } catch (error) {
-        showError('Ошибка при выходе');
+    saveToken(null);
+    currentUser = null;
+    updateAuthUI();
+    showSuccess('👋 До свидания!');
+    
+    // Обновляем страницу, если нужно
+    if (typeof loadUserVotes === 'function') loadUserVotes();
+    if (typeof updateVotingUI === 'function') updateVotingUI();
+    if (typeof loadDashboard === 'function') loadDashboard();
+    
+    // Если это админка или профиль, переходим на главную
+    if (window.location.pathname.includes('admin.html') || window.location.pathname.includes('profile.html')) {
+        setTimeout(() => {
+            window.location.href = 'index.html';
+        }, 500);
+    } else {
+        // Просто перезагружаем текущую страницу
+        setTimeout(() => window.location.reload(), 500);
     }
 }
 
 // Проверка авторизации для действий
-function requireAuth(action) {
+function requireAuth() {
     if (!currentUser) {
         showError('🔒 Требуется авторизация');
         showLoginModal();
@@ -174,7 +231,7 @@ function requireAuth(action) {
 }
 
 // Проверка прав администратора
-function requireAdmin(action) {
+function requireAdmin() {
     if (!currentUser) {
         showError('🔒 Требуется авторизация');
         showLoginModal();
@@ -185,6 +242,30 @@ function requireAdmin(action) {
         return false;
     }
     return true;
+}
+
+// Показать сообщение об ошибке
+function showError(text) {
+    console.error('Ошибка:', text);
+    const errorDiv = document.getElementById('errorMessage');
+    if (errorDiv) {
+        errorDiv.style.display = 'block';
+        errorDiv.textContent = '❌ ' + text;
+        setTimeout(() => errorDiv.style.display = 'none', 3000);
+    } else {
+        alert('❌ ' + text);
+    }
+}
+
+// Показать сообщение об успехе
+function showSuccess(text) {
+    console.log('Успех:', text);
+    const successDiv = document.getElementById('successMessage');
+    if (successDiv) {
+        successDiv.style.display = 'block';
+        successDiv.textContent = '✅ ' + text;
+        setTimeout(() => successDiv.style.display = 'none', 2000);
+    }
 }
 
 // Загружаем пользователя при старте
@@ -199,4 +280,5 @@ window.submitLogin = submitLogin;
 window.logout = logout;
 window.requireAuth = requireAuth;
 window.requireAdmin = requireAdmin;
+window.authFetch = authFetch;
 window.currentUser = currentUser;

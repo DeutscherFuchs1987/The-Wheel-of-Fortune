@@ -14,7 +14,6 @@
 
     // Переменные для голосования
     let filmBoosts = {};
-    let currentUser = null;
     let userVotes = {};
     let isEliminationMode = false;
     let currentCycleId = null;
@@ -50,7 +49,7 @@
     const rotationsSlider = document.getElementById('rotationsSlider');
     const rotationsValue = document.getElementById('rotationsValue');
 
-    // Элементы голосования (без resetBoostsBtn)
+    // Элементы голосования
     const openVoteBtn = document.getElementById('openVoteBtn');
     const showStatsBtn = document.getElementById('showStatsBtn');
     const votingStats = document.getElementById('votingStats');
@@ -75,25 +74,23 @@
         spinEliminateBtn.style.display = 'none';
     }
 
-    // ========== ФУНКЦИИ АВТОРИЗАЦИИ ==========
+    // ========== ФУНКЦИИ АВТОРИЗАЦИИ (JWT версия) ==========
     async function loadCurrentUser() {
         try {
-            const response = await fetch(`${API_URL}/api/auth/me`, {
-                credentials: 'include'
-            });
+            const response = await window.authFetch(`${API_URL}/api/auth/me`);
             const data = await response.json();
             
             if (data.authenticated) {
-                currentUser = data.user;
+                window.currentUser = data.user;
                 updateAuthUI();
-                console.log(`👤 Авторизован как: ${currentUser.username} (${currentUser.role})`);
+                console.log(`👤 Авторизован как: ${window.currentUser.username} (${window.currentUser.role})`);
             } else {
-                currentUser = null;
+                window.currentUser = null;
                 updateAuthUI();
             }
         } catch (error) {
             console.error('Ошибка загрузки пользователя:', error);
-            currentUser = null;
+            window.currentUser = null;
             updateAuthUI();
         }
     }
@@ -101,12 +98,12 @@
     function updateAuthUI() {
         if (!authButtons || !userInfo) return;
         
-        if (currentUser) {
+        if (window.currentUser) {
             authButtons.style.display = 'none';
             userInfo.style.display = 'flex';
-            userName.textContent = currentUser.username;
-            userBadge.textContent = currentUser.role === 'admin' ? 'admin' : '';
-            userBadge.style.display = currentUser.role === 'admin' ? 'inline-block' : 'none';
+            userName.textContent = window.currentUser.username;
+            userBadge.textContent = window.currentUser.role === 'admin' ? 'admin' : '';
+            userBadge.style.display = window.currentUser.role === 'admin' ? 'inline-block' : 'none';
         } else {
             authButtons.style.display = 'flex';
             userInfo.style.display = 'none';
@@ -163,7 +160,6 @@
             const response = await fetch(`${API_URL}/api/auth/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
                 body: JSON.stringify({ username, password })
             });
             
@@ -193,18 +189,21 @@
             const response = await fetch(`${API_URL}/api/auth/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
                 body: JSON.stringify({ username, password })
             });
             
             const data = await response.json();
             
             if (data.success) {
-                currentUser = data.user;
+                // Сохраняем токен
+                localStorage.setItem('auth_token', data.token);
+                window.currentUser = data.user;
                 updateAuthUI();
                 window.closeAuthModal();
-                showSuccess(`✅ Добро пожаловать, ${currentUser.username}!`);
+                showSuccess(`✅ Добро пожаловать, ${window.currentUser.username}!`);
                 await loadAllVotes();
+                await loadFilmBoosts();
+                drawWheel();
             } else {
                 showError(data.error || 'Ошибка входа');
             }
@@ -214,22 +213,17 @@
     };
 
     window.logout = async function() {
-        try {
-            await fetch(`${API_URL}/api/auth/logout`, {
-                method: 'POST',
-                credentials: 'include'
-            });
-            currentUser = null;
-            updateAuthUI();
-            showSuccess('👋 До свидания!');
-            await loadAllVotes();
-        } catch (error) {
-            showError('Ошибка при выходе');
-        }
+        localStorage.removeItem('auth_token');
+        window.currentUser = null;
+        updateAuthUI();
+        showSuccess('👋 До свидания!');
+        await loadAllVotes();
+        await loadFilmBoosts();
+        drawWheel();
     };
 
     function requireAuth() {
-        if (!currentUser) {
+        if (!window.currentUser) {
             showError('🔒 Требуется авторизация');
             window.showLoginModal();
             return false;
@@ -317,12 +311,11 @@
         return idToTitleMap[id] || id;
     }
 
-    // ========== ФУНКЦИИ ГОЛОСОВАНИЯ ==========
+    // ========== ФУНКЦИИ ГОЛОСОВАНИЯ (используем authFetch) ==========
     async function startVotingCycle() {
         try {
-            const response = await fetch(`${API_URL}/api/voting/start`, { 
-                method: 'POST',
-                credentials: 'include'
+            const response = await window.authFetch(`${API_URL}/api/voting/start`, { 
+                method: 'POST'
             });
             const data = await response.json();
             if (data.success) {
@@ -338,9 +331,7 @@
 
     async function loadFilmBoosts() {
         try {
-            const response = await fetch(`${API_URL}/api/film-boosts`, {
-                credentials: 'include'
-            });
+            const response = await window.authFetch(`${API_URL}/api/film-boosts`);
             if (response.ok) {
                 filmBoosts = await response.json();
                 updateVotingUI();
@@ -353,9 +344,7 @@
 
     async function loadAllVotes() {
         try {
-            const response = await fetch(`${API_URL}/api/voting/current-cycle`, {
-                credentials: 'include'
-            });
+            const response = await window.authFetch(`${API_URL}/api/voting/current-cycle`);
             if (response.ok) {
                 const data = await response.json();
                 userVotes = data.votes || {};
@@ -613,10 +602,10 @@
             return;
         }
 
-        const currentUserVotes = userVotes[currentUser?.username] || [];
+        const currentUserVotes = userVotes[window.currentUser?.username] || [];
         
         document.getElementById('votingCategory').textContent = currentCategory === 'Все' ? '(все категории)' : `(${currentCategory})`;
-        document.getElementById('votingUser').textContent = `Игрок: 👤 ${currentUser?.username}`;
+        document.getElementById('votingUser').textContent = `Игрок: 👤 ${window.currentUser?.username}`;
         
         const moviesList = document.getElementById('votingMoviesList');
         moviesList.innerHTML = availableMovies.map(movie => {
@@ -681,13 +670,12 @@
             }
 
             try {
-                const response = await fetch(`${API_URL}/api/voting/cast`, {
+                const response = await window.authFetch(`${API_URL}/api/voting/cast`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
                     body: JSON.stringify({
                         cycle_id: currentCycleId,
-                        user: currentUser?.username,
+                        user: window.currentUser?.username,
                         film_ids: selectedVotes,
                         boost: 0.1
                     })
@@ -745,9 +733,7 @@
     // ========== ЗАГРУЗКА ПРОЕКТОВ ==========
     async function loadProjectsFromServer() {
         try {
-            const response = await fetch(`${API_URL}/projects`, {
-                credentials: 'include'
-            });
+            const response = await fetch(`${API_URL}/projects`);
             if (!response.ok) throw new Error(`Ошибка загрузки: ${response.status}`);
             const allProjects = await response.json();
             const plannedProjects = allProjects.filter(p => !p.watched && !p.inProgress);
@@ -785,9 +771,7 @@
 
     async function fullReload() {
         try {
-            const response = await fetch(`${API_URL}/projects`, {
-                credentials: 'include'
-            });
+            const response = await fetch(`${API_URL}/projects`);
             if (!response.ok) throw new Error(`Ошибка загрузки: ${response.status}`);
             const allProjects = await response.json();
             const plannedProjects = allProjects.filter(p => !p.watched && !p.inProgress);
@@ -882,9 +866,7 @@
 
     window.deleteItem = async function(itemName) {
         try {
-            const response = await fetch(`${API_URL}/projects`, {
-                credentials: 'include'
-            });
+            const response = await fetch(`${API_URL}/projects`);
             const projects = await response.json();
             const projectToDelete = projects.find(p =>
                 (p.title_ru === itemName || p.title === itemName) && !p.watched && !p.inProgress
@@ -892,8 +874,7 @@
 
             if (projectToDelete) {
                 await fetch(`${API_URL}/projects/${projectToDelete.id}`, { 
-                    method: 'DELETE',
-                    credentials: 'include'
+                    method: 'DELETE'
                 });
                 await fullReload();
                 showSuccess(`Удалено: ${itemName}`);
