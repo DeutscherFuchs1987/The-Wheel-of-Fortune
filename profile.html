@@ -55,6 +55,22 @@
                             <span class="info-value" id="lastLogin">—</span>
                         </div>
                     </div>
+                    
+                    <!-- Секция групп -->
+                    <div class="groups-section">
+                        <div class="groups-header">
+                            <h3>👥 Мои группы</h3>
+                            <button class="create-group-btn" onclick="openCreateGroupModal()">➕ Создать</button>
+                        </div>
+                        <div id="groupsList" class="groups-list">
+                            <div class="empty-groups">Загрузка групп...</div>
+                        </div>
+                        <div class="join-group-form">
+                            <input type="text" id="joinCodeInput" class="join-group-input" placeholder="🔑 Код приглашения">
+                            <button class="join-group-btn" onclick="joinGroup()">Вступить</button>
+                        </div>
+                    </div>
+                    
                     <button class="profile-logout-btn" onclick="logout()">🔓 Выйти</button>
                 </div>
             </div>
@@ -67,6 +83,7 @@
                     <button class="tab-btn" onclick="switchTab('watched')">✅ Просмотрено</button>
                     <button class="tab-btn" onclick="switchTab('planned')">📋 В планах</button>
                     <button class="tab-btn" onclick="switchTab('votes')">🗳️ Мои голоса</button>
+                    <button class="tab-btn" onclick="switchTab('groups')">👥 Группы</button>
                 </div>
 
                 <!-- Контент табов -->
@@ -77,9 +94,7 @@
                             <h3>📺 Смотрю сейчас</h3>
                             <span class="content-count" id="progressCount">0</span>
                         </div>
-                        <div class="items-grid" id="progressList">
-                            <!-- Будут загружены через JS -->
-                        </div>
+                        <div class="items-grid" id="progressList"></div>
                     </div>
 
                     <!-- Просмотрено -->
@@ -88,9 +103,7 @@
                             <h3>✅ Уже просмотрено</h3>
                             <span class="content-count" id="watchedListCount">0</span>
                         </div>
-                        <div class="items-grid" id="watchedList">
-                            <!-- Будут загружены через JS -->
-                        </div>
+                        <div class="items-grid" id="watchedList"></div>
                     </div>
 
                     <!-- В планах -->
@@ -99,9 +112,7 @@
                             <h3>📋 Хочу посмотреть</h3>
                             <span class="content-count" id="plannedListCount">0</span>
                         </div>
-                        <div class="items-grid" id="plannedList">
-                            <!-- Будут загружены через JS -->
-                        </div>
+                        <div class="items-grid" id="plannedList"></div>
                     </div>
 
                     <!-- Мои голоса -->
@@ -110,15 +121,21 @@
                             <h3>🗳️ Мои голоса в текущем цикле</h3>
                             <span class="content-count" id="votesCount">0/3</span>
                         </div>
-                        <div class="votes-container" id="votesList">
-                            <!-- Будут загружены через JS -->
-                        </div>
-                        
+                        <div class="votes-container" id="votesList"></div>
                         <div class="votes-history">
                             <h4>📊 История голосований</h4>
-                            <div class="history-list" id="votesHistory">
-                                <!-- Будут загружены через JS -->
-                            </div>
+                            <div class="history-list" id="votesHistory"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Группы -->
+                    <div class="tab-pane" id="tab-groups">
+                        <div class="content-header">
+                            <h3>👥 Мои группы</h3>
+                            <span class="content-count" id="groupsCount">0</span>
+                        </div>
+                        <div class="groups-list-detailed" id="groupsDetailedList">
+                            <div class="empty-state">У вас нет групп</div>
                         </div>
                     </div>
                 </div>
@@ -128,6 +145,7 @@
 
     <!-- Модалка для изменения статуса -->
     <div class="modal-overlay" id="modalOverlay" style="display: none;"></div>
+    
     <div class="status-modal" id="statusModal">
         <div class="status-modal-content">
             <h3>📌 Изменить статус</h3>
@@ -139,6 +157,29 @@
                 <button class="status-btn remove" onclick="changeStatus('remove')">🗑️ Убрать</button>
             </div>
             <button class="close-btn" onclick="closeStatusModal()">Закрыть</button>
+        </div>
+    </div>
+    
+    <!-- Модалка создания группы -->
+    <div class="group-modal" id="createGroupModal">
+        <div class="group-modal-content">
+            <h3>➕ Создать группу</h3>
+            <input type="text" id="groupNameInput" class="group-modal-input" placeholder="Название группы">
+            <div class="group-modal-buttons">
+                <button class="group-modal-btn cancel" onclick="closeCreateGroupModal()">Отмена</button>
+                <button class="group-modal-btn create" onclick="createGroup()">Создать</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Модалка информации о группе -->
+    <div class="group-modal" id="groupInfoModal">
+        <div class="group-modal-content">
+            <h3 id="groupInfoTitle">Группа</h3>
+            <div id="groupInfoContent"></div>
+            <div class="group-modal-buttons">
+                <button class="group-modal-btn cancel" onclick="closeGroupInfoModal()">Закрыть</button>
+            </div>
         </div>
     </div>
 

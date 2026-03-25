@@ -7,6 +7,7 @@
     let searchCache = new Map();
     let seasonsCache = new Map();
     let videoCandidates = new Map();
+    let currentUser = null;
 
     const searchInput = document.getElementById('searchInput');
     const searchResults = document.getElementById('searchResults');
@@ -16,17 +17,28 @@
     const successMessageDiv = document.getElementById('successMessage');
     const filterButtons = document.querySelectorAll('.filter-btn');
 
-    loadUnwatchedProjects();
-
-    filterButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            filterButtons.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            currentFilter = btn.dataset.filter;
-            renderProjects();
-            updateStats();
-        });
-    });
+    // ========== АВТОРИЗАЦИЯ ==========
+    async function loadCurrentUser() {
+        try {
+            if (typeof window.authFetch !== 'function') {
+                console.log('⏳ Ждём загрузку auth.js...');
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+            
+            const response = await window.authFetch(`${API_URL}/api/auth/me`);
+            const data = await response.json();
+            
+            if (data.authenticated) {
+                currentUser = data.user;
+                console.log(`👤 Пользователь: ${currentUser.username}`);
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Ошибка загрузки пользователя:', error);
+            return false;
+        }
+    }
 
     // ========== УТИЛИТЫ ==========
     function showError(text) {
@@ -84,7 +96,6 @@
     // ========== ФУНКЦИИ ДЛЯ ОЧИСТКИ КЭША ==========
     function clearVideoCache(projectId, seasonNum, episodeNum) {
         if (projectId && seasonNum && episodeNum) {
-            // Очищаем кэш для конкретного видео
             const cacheKey = `${projectId}_${seasonNum}_${episodeNum}`;
             if (videoCandidates.has(cacheKey)) {
                 videoCandidates.delete(cacheKey);
@@ -92,7 +103,6 @@
                 showSuccess('Кэш видео очищен');
             }
         } else {
-            // Очищаем весь кэш кандидатов
             videoCandidates.clear();
             console.log('🗑️ Очищен весь кэш видео');
             showSuccess('Весь кэш видео очищен');
@@ -111,11 +121,30 @@
     async function loadUnwatchedProjects() {
         try {
             console.log('📡 Загружаем проекты с сервера...');
-            const response = await fetch(`${API_URL}/projects`);
-            if (!response.ok) throw new Error(`Ошибка загрузки: ${response.status}`);
+            
+            // Используем authFetch для авторизованного запроса
+            const response = await window.authFetch(`${API_URL}/projects`);
+            
+            if (!response.ok) {
+                if (response.status === 401) {
+                    console.log('❌ Требуется авторизация');
+                    projectsGrid.innerHTML = '<div class="empty-state"><span>🔒</span><p>Войдите, чтобы увидеть свой каталог</p></div>';
+                    return;
+                }
+                throw new Error(`Ошибка загрузки: ${response.status}`);
+            }
 
-            const allProjects = await response.json();
+            let allProjects = await response.json();
             console.log(`✅ Загружено ${allProjects.length} проектов`);
+
+            // Если проекты приходят с полем data (новая система), преобразуем
+            if (allProjects.length > 0 && allProjects[0].data) {
+                allProjects = allProjects.map(p => ({
+                    ...p.data,
+                    id: p.project_id,
+                    user_status: p.status
+                }));
+            }
 
             myProjects = allProjects.filter(p => !p.watched);
             console.log(`📊 Непросмотренных: ${myProjects.length}`);
@@ -130,12 +159,12 @@
     // ========== РАБОТА С ПРОЕКТАМИ ==========
     async function refreshProjectDetails(projectId) {
         try {
-            const response = await fetch(`${API_URL}/projects/${projectId}/refresh`, { method: 'POST' });
+            const response = await window.authFetch(`${API_URL}/projects/${projectId}/refresh`, { method: 'POST' });
             if (!response.ok) throw new Error('Ошибка обновления');
 
             const index = myProjects.findIndex(p => p.id === projectId);
             if (index !== -1) {
-                const updatedResponse = await fetch(`${API_URL}/projects`);
+                const updatedResponse = await window.authFetch(`${API_URL}/projects`);
                 const allProjects = await updatedResponse.json();
                 myProjects = allProjects.filter(p => !p.watched);
             }
@@ -154,6 +183,11 @@
     }
 
     async function addProject(film) {
+        if (!currentUser) {
+            showError('Сначала войдите в аккаунт');
+            return;
+        }
+
         const newProject = {
             id: 'kp_' + film.filmId,
             title: film.nameEn || film.nameRu || 'Без названия',
@@ -173,7 +207,7 @@
         };
 
         try {
-            const response = await fetch(`${API_URL}/projects`, {
+            const response = await window.authFetch(`${API_URL}/projects`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newProject)
@@ -183,7 +217,7 @@
                 showError('Этот фильм уже есть в каталоге');
                 return;
             }
-            if (!response.ok) throw new Error(`Ошибка добавления: ${response.status}`);
+            if (!response.ok) throw new Error(`Ошибка添加ления: ${response.status}`);
 
             await loadUnwatchedProjects();
             showSuccess('Фильм добавлен!');
@@ -194,7 +228,7 @@
 
     async function updateProject(projectId, updates) {
         try {
-            const response = await fetch(`${API_URL}/projects/${projectId}`, {
+            const response = await window.authFetch(`${API_URL}/projects/${projectId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updates)
@@ -223,7 +257,7 @@
         if (!confirm('Удалить проект?')) return;
 
         try {
-            const response = await fetch(`${API_URL}/projects/${projectId}`, { method: 'DELETE' });
+            const response = await window.authFetch(`${API_URL}/projects/${projectId}`, { method: 'DELETE' });
             if (!response.ok) throw new Error(`Ошибка удаления: ${response.status}`);
 
             myProjects = myProjects.filter(p => p.id !== projectId);
@@ -320,7 +354,6 @@
         const playerDiv = document.getElementById(`rutube-player-${projectId}`);
         if (!playerDiv) return;
 
-        // 👇 Если нужно пропустить кэш - очищаем его для этого видео
         if (skipCache) {
             clearVideoCache(projectId, seasonNum, episodeNum);
         }
@@ -695,7 +728,6 @@
             </button>
         ` : '';
 
-        // Добавляем кнопку очистки всего кэша
         const cacheButtons = `
             <div style="display: flex; gap: 10px; margin-bottom: 15px; justify-content: flex-end;">
                 <button class="retry-btn" style="padding: 5px 10px; font-size: 12px;" onclick="window.clearAllCache()">
@@ -884,62 +916,68 @@
 
     // ========== ПОИСК НА КИНОПОИСКЕ ==========
     let searchTimeout;
-    searchInput.addEventListener('input', (e) => {
-        clearTimeout(searchTimeout);
-        const query = e.target.value.trim();
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            const query = e.target.value.trim();
 
-        if (query.length < 2) {
-            searchResults.classList.remove('active');
-            return;
-        }
+            if (query.length < 2) {
+                if (searchResults) searchResults.classList.remove('active');
+                return;
+            }
 
-        searchTimeout = setTimeout(async () => {
-            try {
-                searchResults.innerHTML = '<div class="loading">🔍 Поиск на Кинопоиске...</div>';
-                searchResults.classList.add('active');
+            searchTimeout = setTimeout(async () => {
+                try {
+                    if (!searchResults) return;
+                    searchResults.innerHTML = '<div class="loading">🔍 Поиск на Кинопоиске...</div>';
+                    searchResults.classList.add('active');
 
-                const response = await fetch(
-                    `https://kinopoiskapiunofficial.tech/api/v2.1/films/search-by-keyword?keyword=${encodeURIComponent(query)}`,
-                    { headers: { 'X-API-KEY': KINOPOISK_TOKEN } }
-                );
+                    const response = await fetch(
+                        `https://kinopoiskapiunofficial.tech/api/v2.1/films/search-by-keyword?keyword=${encodeURIComponent(query)}`,
+                        { headers: { 'X-API-KEY': KINOPOISK_TOKEN } }
+                    );
 
-                if (!response.ok) throw new Error(`Ошибка ${response.status}`);
+                    if (!response.ok) throw new Error(`Ошибка ${response.status}`);
 
-                const data = await response.json();
+                    const data = await response.json();
 
-                if (!data.films?.length) {
-                    searchResults.innerHTML = '<div style="padding:20px; text-align:center;">Ничего не найдено</div>';
-                    return;
-                }
+                    if (!data.films?.length) {
+                        searchResults.innerHTML = '<div style="padding:20px; text-align:center;">Ничего не найдено</div>';
+                        return;
+                    }
 
-                searchResults.innerHTML = data.films.slice(0, 7).map(film => {
-                    const type = detectTypeByGenres(film);
-                    const poster = film.posterUrlPreview || film.posterUrl;
+                    searchResults.innerHTML = data.films.slice(0, 7).map(film => {
+                        const type = detectTypeByGenres(film);
+                        const poster = film.posterUrlPreview || film.posterUrl;
 
-                    return `
-                        <div class="result-item" onclick="window.addMovieFromKinopoisk('${encodeURIComponent(JSON.stringify(film).replace(/'/g, "\\'"))}')">
-                            <div class="result-poster" style="background-image: url('${poster || ''}');"></div>
-                            <div class="result-info">
-                                <div class="result-title">${film.nameRu || film.nameEn || 'Без названия'}</div>
-                                <div class="result-meta">
-                                    <span>📅 ${film.year || '?'}</span>
-                                    <span class="result-rating">⭐ ${film.rating || '—'}</span>
-                                    <span class="result-type">${type}</span>
+                        return `
+                            <div class="result-item" onclick="window.addMovieFromKinopoisk('${encodeURIComponent(JSON.stringify(film).replace(/'/g, "\\'"))}')">
+                                <div class="result-poster" style="background-image: url('${poster || ''}');"></div>
+                                <div class="result-info">
+                                    <div class="result-title">${film.nameRu || film.nameEn || 'Без названия'}</div>
+                                    <div class="result-meta">
+                                        <span>📅 ${film.year || '?'}</span>
+                                        <span class="result-rating">⭐ ${film.rating || '—'}</span>
+                                        <span class="result-type">${type}</span>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    `;
-                }).join('');
+                        `;
+                    }).join('');
 
-            } catch (error) {
-                console.error('Ошибка поиска:', error);
-                searchResults.innerHTML = `<div style="padding:20px; text-align:center; color:#ff8a8a;">Ошибка: ${error.message}</div>`;
-            }
-        }, 400);
-    });
+                } catch (error) {
+                    console.error('Ошибка поиска:', error);
+                    if (searchResults) {
+                        searchResults.innerHTML = `<div style="padding:20px; text-align:center; color:#ff8a8a;">Ошибка: ${error.message}</div>`;
+                    }
+                }
+            }, 400);
+        });
+    }
 
     document.addEventListener('click', (e) => {
-        if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+        if (searchInput && searchResults &&
+            !searchInput.contains(e.target) && !searchResults.contains(e.target)) {
             searchResults.classList.remove('active');
         }
     });
@@ -948,11 +986,31 @@
         try {
             const film = JSON.parse(decodeURIComponent(encodedFilm));
             addProject(film);
-            searchResults.classList.remove('active');
-            searchInput.value = '';
+            if (searchResults) searchResults.classList.remove('active');
+            if (searchInput) searchInput.value = '';
         } catch (e) {
             console.error('Ошибка парсинга фильма:', e);
             showError('Ошибка при добавлении');
+        }
+    };
+
+    // ========== ДОПОЛНИТЕЛЬНЫЕ ФУНКЦИИ ==========
+    window.toggleAlternatives = function (playerId) {
+        const altDiv = document.getElementById('alt-' + playerId);
+        if (altDiv) {
+            altDiv.style.display = altDiv.style.display === 'none' ? 'block' : 'none';
+        }
+    };
+
+    window.resumeVideo = function (projectId, season, episode, startTime) {
+        const playerDiv = document.getElementById(`rutube-player-${projectId}`);
+        if (!playerDiv) return;
+
+        const iframe = playerDiv.querySelector('iframe');
+        if (iframe && iframe.contentWindow?.player?.api) {
+            iframe.contentWindow.player.api.seek(startTime);
+        } else {
+            showInfo('⏱️ Функция продолжения доступна только при активном плеере');
         }
     };
 
@@ -974,24 +1032,26 @@
     window.clearVideoCache = clearVideoCache;
     window.clearAllCache = clearAllCache;
     window.clearAndRetry = clearAndRetry;
+    window.addMovieFromKinopoisk = addMovieFromKinopoisk;
 
-    // ========== ДОПОЛНИТЕЛЬНЫЕ ФУНКЦИИ ==========
-    function toggleAlternatives(playerId) {
-        const altDiv = document.getElementById('alt-' + playerId);
-        if (altDiv) {
-            altDiv.style.display = altDiv.style.display === 'none' ? 'block' : 'none';
-        }
+    // ========== ФИЛЬТРЫ ==========
+    if (filterButtons) {
+        filterButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                filterButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentFilter = btn.dataset.filter;
+                renderProjects();
+                updateStats();
+            });
+        });
     }
 
-    function resumeVideo(projectId, season, episode, startTime) {
-        const playerDiv = document.getElementById(`rutube-player-${projectId}`);
-        if (!playerDiv) return;
-
-        const iframe = playerDiv.querySelector('iframe');
-        if (iframe && iframe.contentWindow?.player?.api) {
-            iframe.contentWindow.player.api.seek(startTime);
-        } else {
-            showInfo('⏱️ Функция продолжения доступна только при активном плеере');
-        }
+    // ========== ИНИЦИАЛИЗАЦИЯ ==========
+    async function init() {
+        await loadCurrentUser();
+        await loadUnwatchedProjects();
     }
+    
+    init();
 })();
