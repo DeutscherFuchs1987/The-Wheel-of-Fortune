@@ -55,7 +55,25 @@
                             <span class="info-value" id="lastLogin">—</span>
                         </div>
                     </div>
-                    
+
+                    <div class="mode-selector">
+                        <div class="mode-toggle" id="modeToggle">
+                            <div class="toggle-track">
+                                <div class="toggle-thumb" id="modeToggleThumb"></div>
+                            </div>
+                        </div>
+                        <div class="mode-labels">
+                            <span class="mode-label personal active">👤 Личный каталог</span>
+                            <span class="mode-label group">👥 Групповая библиотека</span>
+                        </div>
+                        <div id="groupSelector" class="group-selector" style="display: none;">
+                            <select id="groupSelect" onchange="window.selectGroup(this.value)">
+                                <option value="">-- Выберите группу --</option>
+                            </select>
+                            <button class="refresh-group-btn" onclick="window.refreshGroupProjects()">🔄</button>
+                        </div>
+                    </div>
+
                     <!-- Секция групп -->
                     <div class="groups-section">
                         <div class="groups-header">
@@ -66,11 +84,12 @@
                             <div class="empty-groups">Загрузка групп...</div>
                         </div>
                         <div class="join-group-form">
-                            <input type="text" id="joinCodeInput" class="join-group-input" placeholder="🔑 Код приглашения">
+                            <input type="text" id="joinCodeInput" class="join-group-input"
+                                placeholder="🔑 Код приглашения">
                             <button class="join-group-btn" onclick="joinGroup()">Вступить</button>
                         </div>
                     </div>
-                    
+
                     <button class="profile-logout-btn" onclick="logout()">🔓 Выйти</button>
                 </div>
             </div>
@@ -127,7 +146,7 @@
                             <div class="history-list" id="votesHistory"></div>
                         </div>
                     </div>
-                    
+
                     <!-- Группы -->
                     <div class="tab-pane" id="tab-groups">
                         <div class="content-header">
@@ -145,7 +164,7 @@
 
     <!-- Модалка для изменения статуса -->
     <div class="modal-overlay" id="modalOverlay" style="display: none;"></div>
-    
+
     <div class="status-modal" id="statusModal">
         <div class="status-modal-content">
             <h3>📌 Изменить статус</h3>
@@ -159,7 +178,7 @@
             <button class="close-btn" onclick="closeStatusModal()">Закрыть</button>
         </div>
     </div>
-    
+
     <!-- Модалка создания группы -->
     <div class="group-modal" id="createGroupModal">
         <div class="group-modal-content">
@@ -171,7 +190,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- Модалка информации о группе -->
     <div class="group-modal" id="groupInfoModal">
         <div class="group-modal-content">
