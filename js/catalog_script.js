@@ -17,9 +17,6 @@
     const successMessageDiv = document.getElementById('successMessage');
     const filterButtons = document.querySelectorAll('.filter-btn');
 
-
-    // Добавить в начало файла, после объявления переменных
-
     // ========== ГЛОБАЛЬНАЯ СИНХРОНИЗАЦИЯ РЕЖИМА ==========
     let currentMode = localStorage.getItem('catalog_mode') || 'personal';
     let selectedGroupId = localStorage.getItem('selected_group') || null;
@@ -27,10 +24,7 @@
 
     // Функция для синхронизации режима между страницами
     function syncModeAcrossPages() {
-        // Сохраняем режим в localStorage
         localStorage.setItem('catalog_mode', currentMode);
-
-        // Отправляем событие для других страниц
         window.dispatchEvent(new CustomEvent('modeChanged', {
             detail: { mode: currentMode, groupId: selectedGroupId }
         }));
@@ -75,7 +69,6 @@
         } else if (selectedGroupId) {
             await loadGroupProjects(selectedGroupId);
         } else {
-            // Если нет выбранной группы, показываем сообщение
             projectsGrid.innerHTML = '<div class="empty-state"><span>👥</span><p>Выберите группу для просмотра</p></div>';
         }
     }
@@ -92,9 +85,13 @@
                 })).filter(p => !p.watched);
                 renderProjects();
                 updateStats();
+            } else if (response.status === 404) {
+                // Если эндпоинт не найден, используем старую систему
+                await loadUnwatchedProjects();
             }
         } catch (error) {
             console.error('Ошибка загрузки личных проектов:', error);
+            await loadUnwatchedProjects();
         }
     }
 
@@ -140,16 +137,16 @@
         }
 
         container.innerHTML = `
-        <select id="groupSelect" onchange="window.selectGroup(this.value)">
-            <option value="">-- Выберите группу --</option>
-            ${userGroups.map(group => `
-                <option value="${group.id}" ${selectedGroupId === group.id ? 'selected' : ''}>
-                    ${escapeHtml(group.name)} (${group.role === 'admin' ? 'admin' : 'участник'})
-                </option>
-            `).join('')}
-        </select>
-        <button class="refresh-group-btn" onclick="window.refreshGroupProjects()">🔄</button>
-    `;
+            <select id="groupSelect" onchange="window.selectGroup(this.value)">
+                <option value="">-- Выберите группу --</option>
+                ${userGroups.map(group => `
+                    <option value="${group.id}" ${selectedGroupId === group.id ? 'selected' : ''}>
+                        ${escapeHtml(group.name)} (${group.role === 'admin' ? 'admin' : 'участник'})
+                    </option>
+                `).join('')}
+            </select>
+            <button class="refresh-group-btn" onclick="window.refreshGroupProjects()">🔄</button>
+        `;
     }
 
     window.selectGroup = function (groupId) {
@@ -173,9 +170,13 @@
         const modeToggle = document.getElementById('modeToggle');
         if (!modeToggle) return;
 
-        modeToggle.addEventListener('click', () => {
+        // Убираем старые обработчики, чтобы не дублировать
+        const newToggle = modeToggle.cloneNode(true);
+        modeToggle.parentNode.replaceChild(newToggle, modeToggle);
+
+        newToggle.addEventListener('click', () => {
             currentMode = currentMode === 'personal' ? 'group' : 'personal';
-            modeToggle.classList.toggle('group-mode', currentMode === 'group');
+            newToggle.classList.toggle('group-mode', currentMode === 'group');
             updateModeUI();
 
             if (currentMode === 'personal') {
@@ -188,23 +189,9 @@
 
             syncModeAcrossPages();
         });
-    }
 
-    // В существующую функцию init добавить:
-    async function init() {
-        await loadCurrentUser();
-        await loadUserGroupsForSelector();
-        setupModeToggle();
-        updateModeUI();
-
-        // Восстанавливаем сохранённый режим
-        if (currentMode === 'personal') {
-            await loadPersonalProjects();
-        } else if (selectedGroupId) {
-            await loadGroupProjects(selectedGroupId);
-        } else {
-            await loadUnwatchedProjects(); // fallback
-        }
+        // Применяем текущее состояние
+        newToggle.classList.toggle('group-mode', currentMode === 'group');
     }
 
     // ========== АВТОРИЗАЦИЯ ==========
@@ -221,6 +208,22 @@
             if (data.authenticated) {
                 currentUser = data.user;
                 console.log(`👤 Пользователь: ${currentUser.username}`);
+
+                // Обновляем UI авторизации
+                const authButtons = document.getElementById('authButtons');
+                const userInfo = document.getElementById('userInfo');
+                const userName = document.getElementById('userName');
+                const userBadge = document.getElementById('userBadge');
+
+                if (authButtons && userInfo) {
+                    authButtons.style.display = 'none';
+                    userInfo.style.display = 'flex';
+                    if (userName) userName.textContent = currentUser.username;
+                    if (userBadge) {
+                        userBadge.textContent = currentUser.role === 'admin' ? 'admin' : '';
+                        userBadge.style.display = currentUser.role === 'admin' ? 'inline-block' : 'none';
+                    }
+                }
                 return true;
             }
             return false;
@@ -231,22 +234,36 @@
     }
 
     // ========== УТИЛИТЫ ==========
+    function escapeHtml(unsafe) {
+        if (!unsafe) return '';
+        return unsafe
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
     function showError(text) {
         console.error('❌ Ошибка:', text);
-        errorMessageDiv.style.display = 'block';
-        errorMessageDiv.textContent = '❌ ' + text;
-        setTimeout(() => {
-            errorMessageDiv.style.display = 'none';
-        }, 3000);
+        if (errorMessageDiv) {
+            errorMessageDiv.style.display = 'block';
+            errorMessageDiv.textContent = '❌ ' + text;
+            setTimeout(() => {
+                errorMessageDiv.style.display = 'none';
+            }, 3000);
+        }
     }
 
     function showSuccess(text) {
         console.log('✅ Успех:', text);
-        successMessageDiv.style.display = 'block';
-        successMessageDiv.textContent = '✅ ' + text;
-        setTimeout(() => {
-            successMessageDiv.style.display = 'none';
-        }, 2000);
+        if (successMessageDiv) {
+            successMessageDiv.style.display = 'block';
+            successMessageDiv.textContent = '✅ ' + text;
+            setTimeout(() => {
+                successMessageDiv.style.display = 'none';
+            }, 2000);
+        }
     }
 
     function showInfo(text) {
@@ -312,7 +329,6 @@
         try {
             console.log('📡 Загружаем проекты с сервера...');
 
-            // Используем authFetch для авторизованного запроса
             const response = await window.authFetch(`${API_URL}/projects`);
 
             if (!response.ok) {
@@ -327,7 +343,6 @@
             let allProjects = await response.json();
             console.log(`✅ Загружено ${allProjects.length} проектов`);
 
-            // Если проекты приходят с полем data (новая система), преобразуем
             if (allProjects.length > 0 && allProjects[0].data) {
                 allProjects = allProjects.map(p => ({
                     ...p.data,
@@ -360,6 +375,7 @@
             }
 
             renderProjects();
+            updateStats();
 
             const modal = document.querySelector('.project-modal.active');
             if (modal && modal.dataset.projectId === projectId) {
@@ -397,19 +413,44 @@
         };
 
         try {
-            const response = await window.authFetch(`${API_URL}/projects`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(newProject)
-            });
+            let response;
+
+            // Если в групповом режиме и выбрана группа
+            if (currentMode === 'group' && selectedGroupId) {
+                console.log(`📝 Добавляем фильм в группу ${selectedGroupId}`);
+                response = await window.authFetch(`${API_URL}/api/groups/${selectedGroupId}/projects`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        project_id: newProject.id,
+                        data: newProject
+                    })
+                });
+            } else {
+                // Личный режим - добавляем в личный каталог
+                console.log('📝 Добавляем фильм в личный каталог');
+                response = await window.authFetch(`${API_URL}/projects`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newProject)
+                });
+            }
 
             if (response.status === 409) {
                 showError('Этот фильм уже есть в каталоге');
                 return;
             }
-            if (!response.ok) throw new Error(`Ошибка添加ления: ${response.status}`);
+            if (!response.ok) throw new Error(`Ошибка добавления: ${response.status}`);
 
-            await loadUnwatchedProjects();
+            // Перезагружаем проекты в зависимости от текущего режима
+            if (currentMode === 'personal') {
+                await loadPersonalProjects();
+            } else if (selectedGroupId) {
+                await loadGroupProjects(selectedGroupId);
+            } else {
+                await loadUnwatchedProjects();
+            }
+
             showSuccess('Фильм добавлен!');
         } catch (error) {
             showError('Ошибка при добавлении: ' + error.message);
@@ -447,9 +488,34 @@
         if (!confirm('Удалить проект?')) return;
 
         try {
-            const response = await window.authFetch(`${API_URL}/projects/${projectId}`, { method: 'DELETE' });
+            let response;
+
+            // Если в групповом режиме и выбрана группа
+            if (currentMode === 'group' && selectedGroupId) {
+                // Находим групповой проект по project_id
+                const groupProject = myProjects.find(p => p.id === projectId);
+                const groupProjectId = groupProject?.group_project_id;
+
+                if (groupProjectId) {
+                    console.log(`🗑️ Удаляем проект ${projectId} из группы ${selectedGroupId}`);
+                    response = await window.authFetch(`${API_URL}/api/groups/${selectedGroupId}/projects/${groupProjectId}`, {
+                        method: 'DELETE'
+                    });
+                } else {
+                    showError('Не удалось идентифицировать групповой проект');
+                    return;
+                }
+            } else {
+                // Личный режим - удаляем из личного каталога
+                console.log(`🗑️ Удаляем проект ${projectId} из личного каталога`);
+                response = await window.authFetch(`${API_URL}/projects/${projectId}`, {
+                    method: 'DELETE'
+                });
+            }
+
             if (!response.ok) throw new Error(`Ошибка удаления: ${response.status}`);
 
+            // Обновляем локальный массив
             myProjects = myProjects.filter(p => p.id !== projectId);
             renderProjects();
             updateStats();
@@ -509,7 +575,7 @@
         if (types['Мультфильм']) statsText += ` | 🖍️ Мультфильмов: ${types['Мультфильм']}`;
         if (types['Аниме']) statsText += ` | 🇯🇵 Аниме: ${types['Аниме']}`;
 
-        statsDiv.textContent = statsText;
+        if (statsDiv) statsDiv.textContent = statsText;
     }
 
     function getFilteredProjects() {
@@ -1240,7 +1306,18 @@
     // ========== ИНИЦИАЛИЗАЦИЯ ==========
     async function init() {
         await loadCurrentUser();
-        await loadUnwatchedProjects();
+        await loadUserGroupsForSelector();
+        setupModeToggle();
+        updateModeUI();
+
+        // Восстанавливаем сохранённый режим
+        if (currentMode === 'personal') {
+            await loadPersonalProjects();
+        } else if (selectedGroupId) {
+            await loadGroupProjects(selectedGroupId);
+        } else {
+            await loadUnwatchedProjects();
+        }
     }
 
     init();
