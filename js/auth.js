@@ -268,6 +268,22 @@ function showSuccess(text) {
     }
 }
 
+// Добавить в конец auth.js
+window.setGlobalMode = function(mode, groupId) {
+    localStorage.setItem('catalog_mode', mode);
+    if (groupId) localStorage.setItem('selected_group', groupId);
+    window.dispatchEvent(new CustomEvent('modeChanged', { 
+        detail: { mode: mode, groupId: groupId } 
+    }));
+};
+
+window.getGlobalMode = function() {
+    return {
+        mode: localStorage.getItem('catalog_mode') || 'personal',
+        groupId: localStorage.getItem('selected_group') || null
+    };
+};
+
 // Загружаем пользователя при старте
 document.addEventListener('DOMContentLoaded', loadCurrentUser);
 

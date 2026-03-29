@@ -17,6 +17,196 @@
     const successMessageDiv = document.getElementById('successMessage');
     const filterButtons = document.querySelectorAll('.filter-btn');
 
+
+    // Добавить в начало файла, после объявления переменных
+
+    // ========== ГЛОБАЛЬНАЯ СИНХРОНИЗАЦИЯ РЕЖИМА ==========
+    let currentMode = localStorage.getItem('catalog_mode') || 'personal';
+    let selectedGroupId = localStorage.getItem('selected_group') || null;
+    let userGroups = [];
+
+    // Функция для синхронизации режима между страницами
+    function syncModeAcrossPages() {
+        // Сохраняем режим в localStorage
+        localStorage.setItem('catalog_mode', currentMode);
+
+        // Отправляем событие для других страниц
+        window.dispatchEvent(new CustomEvent('modeChanged', {
+            detail: { mode: currentMode, groupId: selectedGroupId }
+        }));
+    }
+
+    // Подписываемся на события изменения режима из других страниц
+    window.addEventListener('modeChanged', (event) => {
+        if (event.detail.mode !== currentMode) {
+            currentMode = event.detail.mode;
+            selectedGroupId = event.detail.groupId;
+            updateModeUI();
+            loadProjectsByMode();
+        }
+    });
+
+    // Обновление UI переключателя
+    function updateModeUI() {
+        const modeToggle = document.getElementById('modeToggle');
+        const personalLabel = document.querySelector('.mode-label.personal');
+        const groupLabel = document.querySelector('.mode-label.group');
+        const groupSelector = document.getElementById('groupSelector');
+
+        if (!modeToggle) return;
+
+        if (currentMode === 'personal') {
+            modeToggle.classList.remove('group-mode');
+            if (personalLabel) personalLabel.classList.add('active');
+            if (groupLabel) groupLabel.classList.remove('active');
+            if (groupSelector) groupSelector.style.display = 'none';
+        } else {
+            modeToggle.classList.add('group-mode');
+            if (personalLabel) personalLabel.classList.remove('active');
+            if (groupLabel) groupLabel.classList.add('active');
+            if (groupSelector) groupSelector.style.display = 'flex';
+        }
+    }
+
+    // Загрузка проектов в зависимости от режима
+    async function loadProjectsByMode() {
+        if (currentMode === 'personal') {
+            await loadPersonalProjects();
+        } else if (selectedGroupId) {
+            await loadGroupProjects(selectedGroupId);
+        } else {
+            // Если нет выбранной группы, показываем сообщение
+            projectsGrid.innerHTML = '<div class="empty-state"><span>👥</span><p>Выберите группу для просмотра</p></div>';
+        }
+    }
+
+    async function loadPersonalProjects() {
+        try {
+            const response = await window.authFetch(`${API_URL}/api/user/projects/list`);
+            if (response.ok) {
+                let projects = await response.json();
+                myProjects = projects.map(p => ({
+                    ...p.data,
+                    id: p.project_id,
+                    user_status: p.status
+                })).filter(p => !p.watched);
+                renderProjects();
+                updateStats();
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки личных проектов:', error);
+        }
+    }
+
+    async function loadGroupProjects(groupId) {
+        try {
+            const response = await window.authFetch(`${API_URL}/api/groups/${groupId}/projects`);
+            if (response.ok) {
+                let projects = await response.json();
+                myProjects = projects.map(p => ({
+                    ...p.data,
+                    id: p.project_id,
+                    group_project_id: p.id,
+                    added_by: p.added_by
+                })).filter(p => !p.watched);
+                renderProjects();
+                updateStats();
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки групповых проектов:', error);
+        }
+    }
+
+    async function loadUserGroupsForSelector() {
+        try {
+            const response = await window.authFetch(`${API_URL}/api/groups`);
+            if (response.ok) {
+                userGroups = await response.json();
+                renderGroupSelector();
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки групп:', error);
+            userGroups = [];
+        }
+    }
+
+    function renderGroupSelector() {
+        const container = document.getElementById('groupSelector');
+        if (!container) return;
+
+        if (userGroups.length === 0) {
+            container.innerHTML = '<select disabled><option>Нет групп</option></select>';
+            return;
+        }
+
+        container.innerHTML = `
+        <select id="groupSelect" onchange="window.selectGroup(this.value)">
+            <option value="">-- Выберите группу --</option>
+            ${userGroups.map(group => `
+                <option value="${group.id}" ${selectedGroupId === group.id ? 'selected' : ''}>
+                    ${escapeHtml(group.name)} (${group.role === 'admin' ? 'admin' : 'участник'})
+                </option>
+            `).join('')}
+        </select>
+        <button class="refresh-group-btn" onclick="window.refreshGroupProjects()">🔄</button>
+    `;
+    }
+
+    window.selectGroup = function (groupId) {
+        selectedGroupId = groupId;
+        localStorage.setItem('selected_group', groupId);
+        if (currentMode === 'group') {
+            loadGroupProjects(groupId);
+        }
+        syncModeAcrossPages();
+    };
+
+    window.refreshGroupProjects = function () {
+        if (selectedGroupId && currentMode === 'group') {
+            loadGroupProjects(selectedGroupId);
+            showSuccess('Проекты группы обновлены');
+        }
+    };
+
+    // Настройка переключателя режимов
+    function setupModeToggle() {
+        const modeToggle = document.getElementById('modeToggle');
+        if (!modeToggle) return;
+
+        modeToggle.addEventListener('click', () => {
+            currentMode = currentMode === 'personal' ? 'group' : 'personal';
+            modeToggle.classList.toggle('group-mode', currentMode === 'group');
+            updateModeUI();
+
+            if (currentMode === 'personal') {
+                loadPersonalProjects();
+            } else if (selectedGroupId) {
+                loadGroupProjects(selectedGroupId);
+            } else {
+                projectsGrid.innerHTML = '<div class="empty-state"><span>👥</span><p>Выберите группу для просмотра</p></div>';
+            }
+
+            syncModeAcrossPages();
+        });
+    }
+
+    // В существующую функцию init добавить:
+    async function init() {
+        await loadCurrentUser();
+        await loadUserGroupsForSelector();
+        setupModeToggle();
+        updateModeUI();
+
+        // Восстанавливаем сохранённый режим
+        if (currentMode === 'personal') {
+            await loadPersonalProjects();
+        } else if (selectedGroupId) {
+            await loadGroupProjects(selectedGroupId);
+        } else {
+            await loadUnwatchedProjects(); // fallback
+        }
+    }
+
     // ========== АВТОРИЗАЦИЯ ==========
     async function loadCurrentUser() {
         try {
@@ -24,10 +214,10 @@
                 console.log('⏳ Ждём загрузку auth.js...');
                 await new Promise(resolve => setTimeout(resolve, 500));
             }
-            
+
             const response = await window.authFetch(`${API_URL}/api/auth/me`);
             const data = await response.json();
-            
+
             if (data.authenticated) {
                 currentUser = data.user;
                 console.log(`👤 Пользователь: ${currentUser.username}`);
@@ -121,10 +311,10 @@
     async function loadUnwatchedProjects() {
         try {
             console.log('📡 Загружаем проекты с сервера...');
-            
+
             // Используем authFetch для авторизованного запроса
             const response = await window.authFetch(`${API_URL}/projects`);
-            
+
             if (!response.ok) {
                 if (response.status === 401) {
                     console.log('❌ Требуется авторизация');
@@ -1052,6 +1242,6 @@
         await loadCurrentUser();
         await loadUnwatchedProjects();
     }
-    
+
     init();
 })();

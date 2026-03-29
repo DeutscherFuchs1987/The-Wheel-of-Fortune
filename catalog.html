@@ -13,12 +13,45 @@
     <div class="container">
         <div class="header">
             <h1>🎬 НАШ КАТАЛОГ</h1>
-            <div style="display: flex; align-items: center; gap: 15px;">
-                <div class="nav-buttons">
-                    <a href="index.html" class="nav-btn">🎡 Колесо</a>
-                    <a href="catalog.html" class="nav-btn active">📚 Каталог</a>
-                    <a href="ratings.html" class="nav-btn">⭐ Оценки</a>
+            <div class="nav-buttons">
+                <a href="index.html" class="nav-btn">🎡 Колесо</a>
+                <a href="catalog.html" class="nav-btn active">📚 Каталог</a>
+                <a href="ratings.html" class="nav-btn">⭐ Оценки</a>
+                <a href="profile.html" class="nav-btn">👤 Профиль</a>
+            </div>
+
+            <!-- Блок авторизации -->
+            <div class="auth-section">
+                <div class="auth-buttons" id="authButtons">
+                    <button class="auth-btn" onclick="showLoginModal()">🔑 Войти</button>
+                    <button class="auth-btn" onclick="showRegisterModal()">📝 Регистрация</button>
                 </div>
+                <div class="user-info" id="userInfo" style="display: none;">
+                    <span class="user-avatar">👤</span>
+                    <span class="user-name" id="userName"></span>
+                    <span class="user-badge" id="userBadge"></span>
+                    <a href="profile.html" class="profile-link">👤 Профиль</a>
+                    <button class="auth-btn-small" onclick="logout()">Выйти</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Переключатель режимов (личный/групповой) -->
+        <div class="mode-selector">
+            <div class="mode-toggle" id="modeToggle">
+                <div class="toggle-track">
+                    <div class="toggle-thumb" id="modeToggleThumb"></div>
+                </div>
+            </div>
+            <div class="mode-labels">
+                <span class="mode-label personal active">👤 Личный каталог</span>
+                <span class="mode-label group">👥 Групповая библиотека</span>
+            </div>
+            <div class="group-selector" id="groupSelector" style="display: none;">
+                <select id="groupSelect" onchange="window.selectGroup(this.value)">
+                    <option value="">-- Выберите группу --</option>
+                </select>
+                <button class="refresh-group-btn" onclick="window.refreshGroupProjects()">🔄</button>
             </div>
         </div>
 
@@ -48,8 +81,37 @@
         <div class="projects-grid" id="projectsGrid"></div>
     </div>
 
-    <!-- Модальное окно (минимальная структура, контент будет вставляться динамически) -->
-    <div class="modal-overlay" onclick="closeModal()" style="display: none;"></div>
+    <!-- Модальные окна авторизации -->
+    <div class="modal-overlay" id="modalOverlay" style="display: none;"></div>
+
+    <div class="auth-modal" id="loginModal">
+        <div class="auth-modal-content">
+            <h3>🔑 Вход</h3>
+            <input type="text" id="loginUsername" class="auth-input" placeholder="Логин">
+            <input type="password" id="loginPassword" class="auth-input" placeholder="Пароль">
+            <div class="auth-buttons">
+                <button class="auth-btn submit" onclick="submitLogin()">Войти</button>
+                <button class="auth-btn cancel" onclick="closeAuthModal()">Отмена</button>
+            </div>
+            <div class="auth-link" onclick="showRegisterModal(); closeAuthModal()">Нет аккаунта? Зарегистрироваться</div>
+        </div>
+    </div>
+
+    <div class="auth-modal" id="registerModal">
+        <div class="auth-modal-content">
+            <h3>📝 Регистрация</h3>
+            <input type="text" id="regUsername" class="auth-input" placeholder="Логин">
+            <input type="password" id="regPassword" class="auth-input" placeholder="Пароль">
+            <div class="auth-buttons">
+                <button class="auth-btn submit" onclick="submitRegistration()">Зарегистрироваться</button>
+                <button class="auth-btn cancel" onclick="closeAuthModal()">Отмена</button>
+            </div>
+            <div class="auth-link" onclick="showLoginModal(); closeAuthModal()">Уже есть аккаунт? Войти</div>
+        </div>
+    </div>
+
+    <!-- Модальное окно проекта -->
+    <div class="modal-overlay-project" onclick="closeModal()" style="display: none;"></div>
     <div class="modal-container" style="display: none;">
         <div class="project-modal" id="project-modal">
             <!-- Весь контент будет вставлен через JavaScript -->
