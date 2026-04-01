@@ -5,7 +5,10 @@
     let currentFilter = 'all';
     let currentProject = null;
     let currentUser = null;
-    let allUserRatings = {}; // { projectId: { username: rating, notes: ... } }
+    let allUserRatings = {}; // { projectId: { username: { rating, notes } } }
+    let userRatings = {}; // { projectId: { rating, notes } } для текущего пользователя
+    let selectedGroupId = null;
+    let currentMode = 'personal';
 
     const projectsGrid = document.getElementById('projectsGrid');
     const statsDiv = document.getElementById('stats');
@@ -31,7 +34,6 @@
                 currentUser = data.user;
                 console.log(`👤 Пользователь: ${currentUser.username}`);
 
-                // Обновляем UI авторизации
                 const authButtons = document.getElementById('authButtons');
                 const userInfo = document.getElementById('userInfo');
                 const userName = document.getElementById('userName');
@@ -55,10 +57,23 @@
         }
     }
 
-    // ========== ЗАГРУЗКА ВСЕХ ОЦЕНОК ==========
+    // ========== ЗАГРУЗКА ОЦЕНОК ТЕКУЩЕГО ПОЛЬЗОВАТЕЛЯ ==========
+    async function loadUserRatings() {
+        try {
+            const response = await window.authFetch(`${API_URL}/api/user/ratings`);
+            if (response.ok) {
+                userRatings = await response.json();
+                console.log('⭐ Загружены личные оценки:', userRatings);
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки личных оценок:', error);
+            userRatings = {};
+        }
+    }
+
+    // ========== ЗАГРУЗКА ВСЕХ ОЦЕНОК (для страницы оценок) ==========
     async function loadAllRatings() {
         try {
-            // Используем админский эндпоинт для получения всех оценок
             const response = await window.authFetch(`${API_URL}/api/admin/all-ratings`);
             if (response.ok) {
                 allUserRatings = await response.json();
@@ -176,11 +191,13 @@
         // Сортируем по оценке (от высшей к низшей)
         usersWithRatings.sort((a, b) => (b.rating || 0) - (a.rating || 0));
 
+        const currentUserRating = userRatings[projectId];
+
         const ratingsHtml = usersWithRatings.length > 0
             ? usersWithRatings.map(user => `
                 <div class="rating-row">
                     <div class="rating-header">
-                        <span class="rating-name">${escapeHtml(user.username)}</span>
+                        <span class="rating-name">${escapeHtml(user.username)} ${user.username === currentUser?.username ? '(Вы)' : ''}</span>
                         <span class="rating-display ${getRatingClass(user.rating)}">
                             ${formatRating(user.rating)}
                         </span>
@@ -205,6 +222,28 @@
                 ${ratingsHtml}
             </div>
             
+            ${currentUserRating ? `
+                <div class="my-rating">
+                    <h3 style="color: #ffd966; margin-top: 20px; margin-bottom: 10px;">🎯 Ваша оценка</h3>
+                    <div class="rating-row">
+                        <div class="rating-header">
+                            <span class="rating-name">${escapeHtml(currentUser.username)}</span>
+                            <span class="rating-display ${getRatingClass(currentUserRating.rating)}">
+                                ${formatRating(currentUserRating.rating)}
+                            </span>
+                        </div>
+                        ${currentUserRating.notes ? `<div class="rating-notes">📝 ${escapeHtml(currentUserRating.notes)}</div>` : ''}
+                        <div style="margin-top: 10px;">
+                            <button class="edit-my-rating-btn" onclick="editMyRating('${projectId}')">✏️ Изменить оценку</button>
+                        </div>
+                    </div>
+                </div>
+            ` : `
+                <div class="rate-this-film" style="margin-top: 20px;">
+                    <button class="rate-this-film-btn" onclick="rateThisFilm('${projectId}')">⭐ Оценить фильм</button>
+                </div>
+            `}
+            
             <div class="modal-notes">
                 <label>📝 Общие заметки</label>
                 <textarea id="modal-notes" rows="3" placeholder="Общие впечатления о фильме...">${project.notes || ''}</textarea>
@@ -222,6 +261,15 @@
         body.classList.remove('modal-open');
         ratingModal.classList.remove('active');
         currentProject = null;
+    };
+
+    window.rateThisFilm = function (projectId) {
+        // Перенаправляем на профиль для оценки
+        window.location.href = `profile.html?rate=${projectId}`;
+    };
+
+    window.editMyRating = function (projectId) {
+        window.location.href = `profile.html?edit=${projectId}`;
     };
 
     // ========== СТАТИСТИКА ==========
@@ -246,7 +294,7 @@
                     <span>⭐</span>
                     <p>Пока нет просмотренных фильмов</p>
                     <p style="font-size: 1rem; margin-top: 10px; color: #6b729b;">
-                        Отмечайте фильмы галочкой ✅ в каталоге
+                        Отмечайте фильмы галочкой ✅ в каталоге, а затем оценивайте их в профиле
                     </p>
                 </div>
             `;
@@ -270,16 +318,19 @@
                 }
             }
             const averageRating = ratingCount > 0 ? (totalRating / ratingCount).toFixed(1) : null;
+            const userHasRated = userRatings[project.id] !== undefined;
 
             const posterHtml = project.poster
                 ? `<div class="poster" style="background-image: url('${project.poster}');">
                      <div class="rating-badge">${project.rating}</div>
                      ${averageRating ? `<div class="average-rating-badge">⭐ ${averageRating}</div>` : ''}
+                     ${userHasRated ? `<div class="user-rated-badge">✓ Оценено</div>` : ''}
                    </div>`
                 : `<div class="poster">
                      <div class="no-poster">${posterEmoji}</div>
                      <div class="rating-badge">${project.rating}</div>
                      ${averageRating ? `<div class="average-rating-badge">⭐ ${averageRating}</div>` : ''}
+                     ${userHasRated ? `<div class="user-rated-badge">✓ Оценено</div>` : ''}
                    </div>`;
 
             html += `
@@ -334,15 +385,24 @@
         }, 2000);
     }
 
+    // ========== СЛУШАЕМ СОБЫТИЯ ОБНОВЛЕНИЯ ==========
+    window.addEventListener('ratingsUpdated', () => {
+        loadAllRatings();
+        loadUserRatings();
+        renderProjects();
+    });
+
     // ========== ИНИЦИАЛИЗАЦИЯ ==========
     async function init() {
         await loadCurrentUser();
+        await loadUserRatings();
         await loadAllRatings();
         await loadWatchedProjects();
 
         // Обновляем оценки каждые 30 секунд
         setInterval(async () => {
             await loadAllRatings();
+            await loadUserRatings();
             renderProjects();
         }, 30000);
     }
