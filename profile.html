@@ -202,6 +202,45 @@
         </div>
     </div>
 
+    <!-- Модалка для оценки фильма (обновлённая) -->
+    <div class="rating-modal" id="ratingModal" style="display: none;">
+        <div class="rating-modal-content">
+            <button class="close-modal" onclick="closeRatingModal()">✕</button>
+            <div class="rating-modal-header">
+                <div class="rating-modal-poster" id="ratingModalPoster"></div>
+                <div class="rating-modal-info">
+                    <div class="rating-modal-title" id="ratingModalTitle"></div>
+                    <div class="rating-modal-year" id="ratingModalYear"></div>
+                    <div class="rating-modal-kp" id="ratingModalKp"></div>
+                </div>
+            </div>
+
+            <div class="rating-controls-container">
+                <div class="rating-controls-header">
+                    <span class="rating-controls-label">Ваша оценка</span>
+                    <span class="rating-display rating-null" id="ratingDisplay">—</span>
+                </div>
+                <div class="rating-controls">
+                    <input type="range" class="rating-slider" id="ratingSlider" min="1" max="10" step="0.1" value="5"
+                        oninput="updateRatingValue(this.value)">
+                    <input type="number" class="rating-input" id="ratingInput" min="1" max="10" step="0.1" value="5"
+                        oninput="updateRatingFromInput(this.value)">
+                    <button class="rating-clear-btn" onclick="clearRating()">Не оценено</button>
+                </div>
+            </div>
+
+            <div class="rating-modal-notes">
+                <label>📝 Заметки</label>
+                <textarea id="ratingNotes" rows="3" placeholder="Ваши впечатления о фильме..."></textarea>
+            </div>
+
+            <div class="rating-modal-buttons">
+                <button class="rating-modal-btn cancel" onclick="closeRatingModal()">Отмена</button>
+                <button class="rating-modal-btn save" onclick="saveRating()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
     <script src="js/auth.js"></script>
     <script src="js/profile.js"></script>
 </body>

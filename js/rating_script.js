@@ -4,6 +4,8 @@
     let myProjects = [];
     let currentFilter = 'all';
     let currentProject = null;
+    let currentUser = null;
+    let allUserRatings = {}; // { projectId: { username: rating, notes: ... } }
 
     const projectsGrid = document.getElementById('projectsGrid');
     const statsDiv = document.getElementById('stats');
@@ -14,59 +16,107 @@
     const modalContent = document.getElementById('modalContent');
     const body = document.body;
 
-    loadWatchedProjects();
+    // ========== АВТОРИЗАЦИЯ ==========
+    async function loadCurrentUser() {
+        try {
+            if (typeof window.authFetch !== 'function') {
+                console.log('⏳ Ждём загрузку auth.js...');
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
 
-    setInterval(loadWatchedProjects, 10000);
+            const response = await window.authFetch(`${API_URL}/api/auth/me`);
+            const data = await response.json();
 
-    filterButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            filterButtons.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            currentFilter = btn.dataset.filter;
-            renderProjects();
-            updateStats();
-        });
-    });
+            if (data.authenticated) {
+                currentUser = data.user;
+                console.log(`👤 Пользователь: ${currentUser.username}`);
 
-    function showError(text) {
-        errorMessageDiv.style.display = 'block';
-        errorMessageDiv.textContent = '❌ ' + text;
-        setTimeout(() => {
-            errorMessageDiv.style.display = 'none';
-        }, 3000);
+                // Обновляем UI авторизации
+                const authButtons = document.getElementById('authButtons');
+                const userInfo = document.getElementById('userInfo');
+                const userName = document.getElementById('userName');
+                const userBadge = document.getElementById('userBadge');
+
+                if (authButtons && userInfo) {
+                    authButtons.style.display = 'none';
+                    userInfo.style.display = 'flex';
+                    if (userName) userName.textContent = currentUser.username;
+                    if (userBadge) {
+                        userBadge.textContent = currentUser.role === 'admin' ? 'admin' : '';
+                        userBadge.style.display = currentUser.role === 'admin' ? 'inline-block' : 'none';
+                    }
+                }
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Ошибка загрузки пользователя:', error);
+            return false;
+        }
     }
 
-    function showSuccess(text) {
-        successMessageDiv.style.display = 'block';
-        successMessageDiv.textContent = '✅ ' + text;
-        setTimeout(() => {
-            successMessageDiv.style.display = 'none';
-        }, 2000);
+    // ========== ЗАГРУЗКА ВСЕХ ОЦЕНОК ==========
+    async function loadAllRatings() {
+        try {
+            // Используем админский эндпоинт для получения всех оценок
+            const response = await window.authFetch(`${API_URL}/api/admin/all-ratings`);
+            if (response.ok) {
+                allUserRatings = await response.json();
+                console.log('⭐ Загружены оценки всех пользователей:', allUserRatings);
+            } else {
+                console.error('Ошибка загрузки оценок:', response.status);
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки оценок:', error);
+        }
     }
 
+    // ========== ЗАГРУЗКА ПРОСМОТРЕННЫХ ФИЛЬМОВ ==========
     async function loadWatchedProjects() {
         try {
-            const response = await fetch(`${API_URL}/projects`);
-            if (!response.ok) throw new Error(`Ошибка загрузки: ${response.status}`);
+            console.log('📡 Загружаем просмотренные фильмы...');
 
-            const allProjects = await response.json();
+            let allProjects = [];
 
-            myProjects = allProjects.filter(p => p.watched === true);
+            // Пробуем загрузить из новой системы
+            const response = await window.authFetch(`${API_URL}/api/user/projects/list`);
+            if (response.ok) {
+                const projects = await response.json();
+                allProjects = projects.filter(p => p.status === 'watched').map(p => ({
+                    ...p.data,
+                    id: p.project_id,
+                    user_status: p.status
+                }));
+            } else if (response.status === 404) {
+                // Fallback на старую систему
+                const oldResponse = await fetch(`${API_URL}/projects`);
+                if (oldResponse.ok) {
+                    const oldProjects = await oldResponse.json();
+                    allProjects = oldProjects.filter(p => p.watched === true);
+                }
+            }
+
+            myProjects = allProjects;
+            console.log(`✅ Загружено ${myProjects.length} просмотренных фильмов`);
 
             renderProjects();
             updateStats();
 
         } catch (error) {
+            console.error('Ошибка загрузки:', error);
             showError('Ошибка загрузки: ' + error.message);
         }
     }
 
+    // ========== УДАЛЕНИЕ ПРОЕКТА ==========
     const deleteProject = async function (projectId) {
-        if (!confirm('Удалить проект из оценок?')) return;
+        if (!confirm('Удалить проект из просмотренных?')) return;
 
         try {
-            const response = await fetch(`${API_URL}/projects/${projectId}`, {
-                method: 'DELETE'
+            const response = await window.authFetch(`${API_URL}/api/user/projects/${projectId}/status`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'planned' })
             });
 
             if (!response.ok) throw new Error(`Ошибка удаления: ${response.status}`);
@@ -74,42 +124,15 @@
             myProjects = myProjects.filter(p => p.id !== projectId);
             renderProjects();
             updateStats();
-            showSuccess('Проект удалён');
+            showSuccess('Проект удалён из просмотренных');
 
         } catch (error) {
             showError('Ошибка удаления: ' + error.message);
         }
     };
-
     window.deleteProject = deleteProject;
 
-    async function saveRatings(projectId, ratings, notes) {
-        try {
-            const response = await fetch(`${API_URL}/projects/${projectId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    ratings: ratings,
-                    notes: notes
-                })
-            });
-
-            if (!response.ok) throw new Error(`Ошибка сохранения: ${response.status}`);
-
-            const index = myProjects.findIndex(p => p.id === projectId);
-            if (index !== -1) {
-                myProjects[index].ratings = ratings;
-                myProjects[index].notes = notes;
-            }
-
-            showSuccess('Оценки сохранены! ✨');
-            closeRatingModal();
-
-        } catch (error) {
-            showError('Ошибка сохранения: ' + error.message);
-        }
-    }
-
+    // ========== ФУНКЦИИ ДЛЯ ОТОБРАЖЕНИЯ ОЦЕНОК ==========
     function getRatingClass(rating) {
         if (!rating && rating !== 0) return 'rating-null';
         const rounded = Math.round(rating);
@@ -121,21 +144,7 @@
         return rating.toFixed(1);
     }
 
-
-    window.clearRating = function (name) {
-        const slider = document.getElementById(`slider-${name}`);
-        const input = document.getElementById(`input-${name}`);
-        const display = document.getElementById(`display-${name}`);
-
-        if (slider && input && display) {
-
-            slider.value = 5;
-            input.value = 5;
-            display.textContent = '—';
-            display.className = 'rating-display rating-null';
-        }
-    };
-
+    // ========== ОТКРЫТИЕ МОДАЛКИ С ОЦЕНКАМИ ==========
     window.openRatingModal = function (projectId) {
         const project = myProjects.find(p => p.id === projectId);
         if (!project) return;
@@ -152,153 +161,62 @@
             ? `<div class="modal-poster" style="background-image: url('${project.poster}');"></div>`
             : `<div class="modal-poster no-poster">${posterEmoji}</div>`;
 
+        // Получаем всех пользователей, которые оценили этот фильм
+        const usersWithRatings = [];
+        for (const [username, ratings] of Object.entries(allUserRatings)) {
+            if (ratings[projectId]) {
+                usersWithRatings.push({
+                    username: username,
+                    rating: ratings[projectId].rating,
+                    notes: ratings[projectId].notes
+                });
+            }
+        }
+
+        // Сортируем по оценке (от высшей к низшей)
+        usersWithRatings.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+
+        const ratingsHtml = usersWithRatings.length > 0
+            ? usersWithRatings.map(user => `
+                <div class="rating-row">
+                    <div class="rating-header">
+                        <span class="rating-name">${escapeHtml(user.username)}</span>
+                        <span class="rating-display ${getRatingClass(user.rating)}">
+                            ${formatRating(user.rating)}
+                        </span>
+                    </div>
+                    ${user.notes ? `<div class="rating-notes">📝 ${escapeHtml(user.notes)}</div>` : ''}
+                </div>
+            `).join('')
+            : '<div class="rating-row"><div class="rating-header"><span class="rating-name">Пока нет оценок</span></div></div>';
+
         modalContent.innerHTML = `
             <div class="modal-header">
                 ${posterHtml}
                 <div class="modal-info">
-                    <div class="modal-title">${project.title_ru || project.title}</div>
-                    <div class="modal-year">${project.year}</div>
-                    <div class="modal-rating">Кинопоиск: ${project.rating}</div>
+                    <div class="modal-title">${escapeHtml(project.title_ru || project.title)}</div>
+                    <div class="modal-year">${project.year || '—'}</div>
+                    <div class="modal-rating">Кинопоиск: ${project.rating || '—'}</div>
                 </div>
             </div>
             
             <div class="ratings-container">
-                <div class="rating-row">
-                    <div class="rating-header">
-                        <span class="rating-name">Сеня</span>
-                        <span class="rating-display ${getRatingClass(project.ratings?.senya)}" id="display-senya">
-                            ${formatRating(project.ratings?.senya)}
-                        </span>
-                    </div>
-                    <div class="rating-controls">
-                        <input type="range" class="rating-slider" id="slider-senya" 
-                               min="1" max="10" step="0.1" 
-                               value="${project.ratings?.senya !== null ? project.ratings?.senya : 5}">
-                        <input type="number" class="rating-input" id="input-senya" 
-                               min="1" max="10" step="0.1" 
-                               value="${project.ratings?.senya !== null ? project.ratings?.senya : 5}">
-                        <button class="modal-btn clear" onclick="clearRating('senya')" style="background: #4a4f6e; color: white; padding: 8px 15px; border-radius: 30px; border: none; cursor: pointer;">Не смотрел</button>
-                    </div>
-                </div>
-                
-                <div class="rating-row">
-                    <div class="rating-header">
-                        <span class="rating-name">Ваня</span>
-                        <span class="rating-display ${getRatingClass(project.ratings?.vanya)}" id="display-vanya">
-                            ${formatRating(project.ratings?.vanya)}
-                        </span>
-                    </div>
-                    <div class="rating-controls">
-                        <input type="range" class="rating-slider" id="slider-vanya" 
-                               min="1" max="10" step="0.1" 
-                               value="${project.ratings?.vanya !== null ? project.ratings?.vanya : 5}">
-                        <input type="number" class="rating-input" id="input-vanya" 
-                               min="1" max="10" step="0.1" 
-                               value="${project.ratings?.vanya !== null ? project.ratings?.vanya : 5}">
-                        <button class="modal-btn clear" onclick="clearRating('vanya')" style="background: #4a4f6e; color: white; padding: 8px 15px; border-radius: 30px; border: none; cursor: pointer;">Не смотрел</button>
-                    </div>
-                </div>
-                
-                <div class="rating-row">
-                    <div class="rating-header">
-                        <span class="rating-name">Паша</span>
-                        <span class="rating-display ${getRatingClass(project.ratings?.pasha)}" id="display-pasha">
-                            ${formatRating(project.ratings?.pasha)}
-                        </span>
-                    </div>
-                    <div class="rating-controls">
-                        <input type="range" class="rating-slider" id="slider-pasha" 
-                               min="1" max="10" step="0.1" 
-                               value="${project.ratings?.pasha !== null ? project.ratings?.pasha : 5}">
-                        <input type="number" class="rating-input" id="input-pasha" 
-                               min="1" max="10" step="0.1" 
-                               value="${project.ratings?.pasha !== null ? project.ratings?.pasha : 5}">
-                        <button class="modal-btn clear" onclick="clearRating('pasha')" style="background: #4a4f6e; color: white; padding: 8px 15px; border-radius: 30px; border: none; cursor: pointer;">Не смотрел</button>
-                    </div>
-                </div>
-                
-                <div class="rating-row">
-                    <div class="rating-header">
-                        <span class="rating-name">Володя</span>
-                        <span class="rating-display ${getRatingClass(project.ratings?.volodya)}" id="display-volodya">
-                            ${formatRating(project.ratings?.volodya)}
-                        </span>
-                    </div>
-                    <div class="rating-controls">
-                        <input type="range" class="rating-slider" id="slider-volodya" 
-                               min="1" max="10" step="0.1" 
-                               value="${project.ratings?.volodya !== null ? project.ratings?.volodya : 5}">
-                        <input type="number" class="rating-input" id="input-volodya" 
-                               min="1" max="10" step="0.1" 
-                               value="${project.ratings?.volodya !== null ? project.ratings?.volodya : 5}">
-                        <button class="modal-btn clear" onclick="clearRating('volodya')" style="background: #4a4f6e; color: white; padding: 8px 15px; border-radius: 30px; border: none; cursor: pointer;">Не смотрел</button>
-                    </div>
-                </div>
-
-                <div class="rating-row">
-                    <div class="rating-header">
-                        <span class="rating-name">Артем (я тебя люблю)</span>
-                        <span class="rating-display ${getRatingClass(project.ratings?.artem)}" id="display-artem">
-                            ${formatRating(project.ratings?.artem)}
-                        </span>
-                    </div>
-                    <div class="rating-controls">
-                        <input type="range" class="rating-slider" id="slider-artem" 
-                               min="1" max="10" step="0.1" 
-                               value="${project.ratings?.artem !== null ? project.ratings?.artem : 5}">
-                        <input type="number" class="rating-input" id="input-artem" 
-                               min="1" max="10" step="0.1" 
-                               value="${project.ratings?.artem !== null ? project.ratings?.artem : 5}">
-                        <button class="modal-btn clear" onclick="clearRating('artem')" style="background: #4a4f6e; color: white; padding: 8px 15px; border-radius: 30px; border: none; cursor: pointer;">Не смотрел</button>
-                    </div>
-                </div>
+                <h3 style="color: #ffd966; margin-bottom: 15px;">⭐ Оценки участников</h3>
+                ${ratingsHtml}
             </div>
             
             <div class="modal-notes">
-                <label>📝 Заметки</label>
-                <textarea id="modal-notes" rows="3">${project.notes || ''}</textarea>
+                <label>📝 Общие заметки</label>
+                <textarea id="modal-notes" rows="3" placeholder="Общие впечатления о фильме...">${project.notes || ''}</textarea>
             </div>
             
             <div class="modal-buttons">
-                <button class="modal-btn cancel" onclick="closeRatingModal()">Отмена</button>
-                <button class="modal-btn save" onclick="saveCurrentRatings()">Сохранить</button>
+                <button class="modal-btn cancel" onclick="closeRatingModal()">Закрыть</button>
             </div>
         `;
 
-
-        ['senya', 'vanya', 'pasha', 'volodya', 'artem'].forEach(name => {
-            const slider = document.getElementById(`slider-${name}`);
-            const input = document.getElementById(`input-${name}`);
-            const display = document.getElementById(`display-${name}`);
-
-            if (slider && input && display) {
-                slider.addEventListener('input', () => {
-                    input.value = slider.value;
-                    updateRatingDisplay(name, slider.value);
-                });
-
-                input.addEventListener('input', () => {
-                    let value = parseFloat(input.value);
-                    if (isNaN(value)) value = 5;
-                    if (value < 1) value = 1;
-                    if (value > 10) value = 10;
-                    input.value = value;
-                    slider.value = value;
-                    updateRatingDisplay(name, value);
-                });
-            }
-        });
-
         ratingModal.classList.add('active');
     };
-
-    function updateRatingDisplay(name, value) {
-        const display = document.getElementById(`display-${name}`);
-        if (display) {
-            display.textContent = parseFloat(value).toFixed(1);
-            display.className = `rating-display ${getRatingClass(parseFloat(value))}`;
-        }
-    }
 
     window.closeRatingModal = function () {
         body.classList.remove('modal-open');
@@ -306,44 +224,19 @@
         currentProject = null;
     };
 
-    window.saveCurrentRatings = function () {
-        if (!currentProject) return;
-
-        const ratings = {
-            senya: getRatingValue('senya'),
-            vanya: getRatingValue('vanya'),
-            pasha: getRatingValue('pasha'),
-            volodya: getRatingValue('volodya'),
-            volodya: getRatingValue('artem')
-        };
-
-        const notes = document.getElementById('modal-notes')?.value || '';
-
-        saveRatings(currentProject.id, ratings, notes);
-    };
-
-
-    function getRatingValue(name) {
-        const display = document.getElementById(`display-${name}`);
-        if (!display) return null;
-
-
-        if (display.textContent === '—') return null;
-
-        const input = document.getElementById(`input-${name}`);
-        return input ? parseFloat(input.value) || null : null;
-    }
-
+    // ========== СТАТИСТИКА ==========
     function updateStats() {
         const total = myProjects.length;
         statsDiv.textContent = `📊 Всего оценённых фильмов: ${total}`;
     }
 
+    // ========== ФИЛЬТРАЦИЯ ==========
     function getFilteredProjects() {
         if (currentFilter === 'all') return myProjects;
         return myProjects.filter(p => p.type === currentFilter);
     }
 
+    // ========== ОТРИСОВКА КАРТОЧЕК ==========
     function renderProjects() {
         const filtered = getFilteredProjects();
 
@@ -367,13 +260,26 @@
             else if (project.type === 'Сериал') posterEmoji = '📺';
             else if (project.type === 'Мультфильм') posterEmoji = '🖍️';
 
+            // Считаем среднюю оценку
+            let totalRating = 0;
+            let ratingCount = 0;
+            for (const [username, ratings] of Object.entries(allUserRatings)) {
+                if (ratings[project.id] && ratings[project.id].rating) {
+                    totalRating += ratings[project.id].rating;
+                    ratingCount++;
+                }
+            }
+            const averageRating = ratingCount > 0 ? (totalRating / ratingCount).toFixed(1) : null;
+
             const posterHtml = project.poster
                 ? `<div class="poster" style="background-image: url('${project.poster}');">
                      <div class="rating-badge">${project.rating}</div>
+                     ${averageRating ? `<div class="average-rating-badge">⭐ ${averageRating}</div>` : ''}
                    </div>`
                 : `<div class="poster">
                      <div class="no-poster">${posterEmoji}</div>
                      <div class="rating-badge">${project.rating}</div>
+                     ${averageRating ? `<div class="average-rating-badge">⭐ ${averageRating}</div>` : ''}
                    </div>`;
 
             html += `
@@ -381,10 +287,11 @@
                     <button class="delete-card" onclick="event.stopPropagation(); window.deleteProject('${project.id}')" title="Удалить">✕</button>
                     ${posterHtml}
                     <div class="card-content">
-                        <div class="card-title">${project.title_ru || project.title}</div>
+                        <div class="card-title">${escapeHtml(project.title_ru || project.title)}</div>
                         <span class="card-type">${project.type}</span>
                         <div class="card-meta">
                             <span>📅 ${project.year}</span>
+                            <span>👥 ${ratingCount} ${getRatingWord(ratingCount)}</span>
                         </div>
                     </div>
                 </div>
@@ -394,7 +301,62 @@
         projectsGrid.innerHTML = html;
     }
 
+    function getRatingWord(count) {
+        if (count === 0) return 'оценок';
+        if (count === 1) return 'оценка';
+        if (count < 5) return 'оценки';
+        return 'оценок';
+    }
 
-    loadWatchedProjects();
+    function escapeHtml(unsafe) {
+        if (!unsafe) return '';
+        return unsafe
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
 
+    function showError(text) {
+        errorMessageDiv.style.display = 'block';
+        errorMessageDiv.textContent = '❌ ' + text;
+        setTimeout(() => {
+            errorMessageDiv.style.display = 'none';
+        }, 3000);
+    }
+
+    function showSuccess(text) {
+        successMessageDiv.style.display = 'block';
+        successMessageDiv.textContent = '✅ ' + text;
+        setTimeout(() => {
+            successMessageDiv.style.display = 'none';
+        }, 2000);
+    }
+
+    // ========== ИНИЦИАЛИЗАЦИЯ ==========
+    async function init() {
+        await loadCurrentUser();
+        await loadAllRatings();
+        await loadWatchedProjects();
+
+        // Обновляем оценки каждые 30 секунд
+        setInterval(async () => {
+            await loadAllRatings();
+            renderProjects();
+        }, 30000);
+    }
+
+    // ========== ФИЛЬТРЫ ==========
+    filterButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            filterButtons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentFilter = btn.dataset.filter;
+            renderProjects();
+            updateStats();
+        });
+    });
+
+    init();
 })();

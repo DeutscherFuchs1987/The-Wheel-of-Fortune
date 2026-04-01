@@ -63,6 +63,40 @@
         }
     });
 
+    // ========== ФУНКЦИИ ЗАГРУЗКИ ==========
+    function showLoading() {
+        const loader = document.getElementById('catalog-loader');
+        if (loader) loader.remove();
+
+        const newLoader = document.createElement('div');
+        newLoader.id = 'catalog-loader';
+        newLoader.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.9);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 10001;
+        backdrop-filter: blur(5px);
+    `;
+        newLoader.innerHTML = `
+        <div style="width: 60px; height: 60px; border: 4px solid #5f4bb6; border-top-color: #ffd966; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px;"></div>
+        <div style="color: white; font-size: 1.2rem;">Загрузка...</div>
+        <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+    `;
+        document.body.appendChild(newLoader);
+    }
+
+    function hideLoading() {
+        const loader = document.getElementById('catalog-loader');
+        if (loader) loader.remove();
+    }
+
     function updateModeUI() {
         const modeToggle = document.getElementById('modeToggle');
         const personalLabel = document.querySelector('.mode-label.personal');
@@ -539,7 +573,77 @@
     async function markAsWatched(projectId) {
         const project = myProjects.find(p => p.id === projectId);
         if (!project) return;
-        await updateProjectStatus(projectId, 'watched');
+
+        if (!confirm('Отметить фильм как просмотренный? Он появится в вашем личном кабинете для оценки.')) return;
+
+        showLoading();
+
+        try {
+            let response;
+
+            // Если в групповом режиме и выбрана группа
+            if (currentMode === 'group' && selectedGroupId) {
+                // Находим групповой проект
+                const groupProject = myProjects.find(p => p.id === projectId);
+                const groupProjectId = groupProject?.group_project_id;
+
+                if (!groupProjectId) {
+                    showError('Не удалось идентифицировать групповой проект');
+                    hideLoading();
+                    return;
+                }
+
+                console.log(`📊 Отмечаем фильм как просмотренный в группе: проект ${projectId}`);
+
+                // Обновляем общий статус проекта в группе на 'watched'
+                response = await window.authFetch(`${API_URL}/api/groups/${selectedGroupId}/projects/${groupProjectId}/status`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: 'watched' })
+                });
+            } else {
+                // Личный режим - обновляем статус в личном каталоге
+                console.log(`📊 Отмечаем фильм как просмотренный в личном каталоге: проект ${projectId}`);
+                response = await window.authFetch(`${API_URL}/api/user/projects/${projectId}/status`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: 'watched' })
+                });
+            }
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || `Ошибка: ${response.status}`);
+            }
+
+            // Удаляем фильм из текущего списка (непросмотренных)
+            myProjects = myProjects.filter(p => p.id !== projectId);
+
+            // Закрываем модалку если открыта
+            closeModal();
+
+            // Обновляем отображение
+            renderProjects();
+            updateStats();
+
+            // Отправляем событие об обновлении для синхронизации
+            window.dispatchEvent(new CustomEvent('projectWatched', {
+                detail: {
+                    groupId: selectedGroupId,
+                    projectId: projectId,
+                    projectData: project,
+                    mode: currentMode
+                }
+            }));
+
+            showSuccess('Фильм отмечен как просмотренный! Перейдите в личный кабинет для оценки.');
+
+        } catch (error) {
+            console.error('❌ Ошибка при отметке просмотра:', error);
+            showError('Ошибка: ' + error.message);
+        } finally {
+            hideLoading();
+        }
     }
 
     async function changeProjectType(projectId, newType) {
@@ -870,7 +974,7 @@
     window.addMovieFromKinopoisk = addMovieFromKinopoisk;
     window.selectGroup = selectGroup;
     window.refreshGroupProjects = refreshGroupProjects;
-    window.debugCatalog = function() {
+    window.debugCatalog = function () {
         console.log('=== DEBUG CATALOG ===');
         console.log('currentMode:', currentMode);
         console.log('selectedGroupId:', selectedGroupId);

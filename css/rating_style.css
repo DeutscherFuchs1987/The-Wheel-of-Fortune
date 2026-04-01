@@ -601,3 +601,30 @@ body.modal-open .projects-grid:not(.rating-modal-active) {
         width: 100%;
     }
 }
+
+
+.average-rating-badge {
+    position: absolute;
+    bottom: 15px;
+    right: 15px;
+    background: #5f4bb6;
+    color: #ffd966;
+    font-weight: 700;
+    font-size: 1rem;
+    padding: 6px 12px;
+    border-radius: 30px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    border: 2px solid #ffd966;
+}
+
+.rating-notes {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: #0c1020;
+    border-radius: 15px;
+    font-size: 0.85rem;
+    color: #a3b7f0;
+    border-left: 3px solid #5f4bb6;
+}
+
+
