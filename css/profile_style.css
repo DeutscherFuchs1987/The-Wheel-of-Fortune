@@ -1642,3 +1642,125 @@ h1 {
     opacity: 0.5;
     cursor: not-allowed;
 }
+
+
+/* ========== МОДАЛКА ДЕТАЛЕЙ ГОЛОСОВАНИЯ ========== */
+.vote-details-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+    max-width: 500px;
+    background: #1a1f33;
+    border-radius: 40px;
+    border: 2px solid #5f4bb6;
+    z-index: 10002;
+    display: none;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+}
+
+.vote-details-modal.active {
+    display: block;
+}
+
+.vote-details-content {
+    padding: 25px;
+    position: relative;
+}
+
+.vote-details-content h3 {
+    color: #ffd966;
+    text-align: center;
+    margin-bottom: 20px;
+    padding-right: 30px;
+}
+
+.vote-details-list {
+    max-height: 400px;
+    overflow-y: auto;
+    margin: 15px 0;
+}
+
+.vote-detail-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    background: #262d4a;
+    border-radius: 30px;
+    margin-bottom: 8px;
+    border: 1px solid #3d435b;
+}
+
+.vote-detail-film {
+    font-weight: 500;
+    color: white;
+    flex: 1;
+}
+
+.vote-detail-boost {
+    background: #5f4bb6;
+    padding: 4px 12px;
+    border-radius: 20px;
+    color: #ffd966;
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin-left: 10px;
+}
+
+.vote-details-footer {
+    display: flex;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+.vote-details-close {
+    padding: 10px 30px;
+    background: #283153;
+    color: white;
+    border: none;
+    border-radius: 30px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.vote-details-close:hover {
+    background: #323d62;
+    transform: translateY(-2px);
+}
+
+.history-item {
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.history-item:hover {
+    background: #323d62;
+    transform: translateX(5px);
+    border-color: #5f4bb6;
+}
+
+
+.vote-detail-group {
+    margin-bottom: 20px;
+    border-bottom: 1px solid #3d435b;
+    padding-bottom: 15px;
+}
+
+.vote-detail-group:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.vote-detail-user {
+    color: #ffd966;
+    font-weight: 600;
+    margin-bottom: 10px;
+    padding-left: 5px;
+}
+
+.vote-detail-films {
+    padding-left: 15px;
+}

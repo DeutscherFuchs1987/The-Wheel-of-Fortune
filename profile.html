@@ -45,16 +45,7 @@
                             <span class="stat-label">В планах</span>
                         </div>
                     </div>
-                    <div class="profile-info">
-                        <div class="info-row">
-                            <span class="info-label">📅 Регистрация:</span>
-                            <span class="info-value" id="registerDate">—</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">🕐 Последний вход:</span>
-                            <span class="info-value" id="lastLogin">—</span>
-                        </div>
-                    </div>
+                    
 
                     <div class="mode-selector">
                         <div class="mode-toggle" id="modeToggle">
@@ -135,6 +126,7 @@
                     </div>
 
                     <!-- Мои голоса -->
+                    <!-- Мои голоса -->
                     <div class="tab-pane" id="tab-votes">
                         <div class="content-header">
                             <h3>🗳️ Голосование в группе</h3>
@@ -142,12 +134,13 @@
                         </div>
 
                         <!-- Статус голосования для всех -->
-                        <div id="votingStatusMessage" class="voting-status-message"></div>
+                        <div id="votingStatusMessage" class="voting-status-message" style="display: none;"></div>
 
                         <!-- Блок для админа (управление голосованием) -->
                         <div id="adminVotingControls" style="display: none;" class="admin-voting-controls">
                             <div class="voting-controls-panel">
-                                <button id="startVoteBtn" class="voting-action-btn start">🚀 Начать голосование</button>
+                                <button id="startVoteBtn" class="voting-action-btn start"
+                                    onclick="startGroupVoting()">🚀 Начать голосование</button>
                                 <div id="voteProgress" style="display: none;">
                                     <div class="progress-info">
                                         <span>📊 Проголосовало: <span id="votedCount">0</span>/<span
@@ -158,10 +151,10 @@
                                         <div class="vote-progress-fill" id="voteProgressFill"></div>
                                     </div>
                                     <div class="voting-actions-admin">
-                                        <button id="endVoteBtn" class="voting-action-btn end">✅ Завершить
-                                            голосование</button>
-                                        <button id="cancelVoteBtn" class="voting-action-btn cancel">❌ Отменить
-                                            голосование</button>
+                                        <button id="endVoteBtn" class="voting-action-btn end"
+                                            onclick="endGroupVoting()">✅ Завершить голосование</button>
+                                        <button id="cancelVoteBtn" class="voting-action-btn cancel"
+                                            onclick="cancelGroupVoting()">❌ Отменить голосование</button>
                                     </div>
                                 </div>
                             </div>
@@ -172,7 +165,8 @@
                             <div class="voting-info-panel">
                                 <p>🎯 В группе началось голосование! Выберите от 1 до 3 фильмов, которые хотите
                                     поддержать.</p>
-                                <button id="castVoteBtn" class="voting-action-btn vote">🗳️ Проголосовать</button>
+                                <button id="castVoteBtn" class="voting-action-btn vote" onclick="openVoteModal()">🗳️
+                                    Проголосовать</button>
                             </div>
                         </div>
 
@@ -284,17 +278,30 @@
     </div>
 
     <!-- Модалка голосования -->
-    <div class="vote-modal" id="voteModal">
+    <div class="vote-modal" id="voteModal" style="display: none;">
         <div class="vote-modal-content">
             <h3>🗳️ Выберите фильмы (от 1 до 3)</h3>
             <div class="vote-movies-list" id="voteMoviesList"></div>
             <div class="vote-counter" id="voteCounter">Выбрано: 0</div>
             <div class="vote-modal-buttons">
                 <button class="vote-modal-btn cancel" onclick="closeVoteModal()">Отмена</button>
-                <button class="vote-modal-btn submit" id="submitVoteBtn" disabled>Проголосовать</button>
+                <button class="vote-modal-btn submit" id="submitVoteBtn" disabled
+                    onclick="submitVote()">Проголосовать</button>
             </div>
         </div>
     </div>
+
+    <!-- Модалка деталей голосования -->
+<div class="vote-details-modal" id="voteDetailsModal" style="display: none;">
+    <div class="vote-details-content">
+        <button class="close-modal" onclick="closeVoteDetailsModal()">✕</button>
+        <h3 id="voteDetailsTitle">Детали голосования</h3>
+        <div id="voteDetailsContent" class="vote-details-list"></div>
+        <div class="vote-details-footer">
+            <button class="vote-details-close" onclick="closeVoteDetailsModal()">Закрыть</button>
+        </div>
+    </div>
+</div>
 
     <script src="js/auth.js"></script>
     <script src="js/profile.js"></script>

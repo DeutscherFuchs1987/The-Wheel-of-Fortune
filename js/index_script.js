@@ -12,11 +12,9 @@
     let spinSpeed = 2.0;
     let spinRotations = 8;
 
-    // Переменные для голосования
+    // Переменные для голосования (теперь групповые)
     let filmBoosts = {};
-    let userVotes = {};
     let isEliminationMode = false;
-    let currentCycleId = null;
 
     // Карты для поиска
     let titleToIdMap = {};
@@ -54,13 +52,6 @@
     const rotationsSlider = document.getElementById('rotationsSlider');
     const rotationsValue = document.getElementById('rotationsValue');
 
-    // Элементы голосования
-    const openVoteBtn = document.getElementById('openVoteBtn');
-    const showStatsBtn = document.getElementById('showStatsBtn');
-    const votingStats = document.getElementById('votingStats');
-    const votersIndicator = document.getElementById('votersIndicator');
-    const votersList = document.getElementById('votersList');
-
     // Элементы авторизации
     const authButtons = document.getElementById('authButtons');
     const userInfo = document.getElementById('userInfo');
@@ -71,8 +62,6 @@
     const modalOverlay = document.getElementById('modalOverlay');
     const loginModal = document.getElementById('loginModal');
     const registerModal = document.getElementById('registerModal');
-    const votingModal = document.getElementById('votingModal');
-    const statsModal = document.getElementById('statsModal');
 
     // Скрываем вторую кнопку режима исключения
     if (spinEliminateBtn) {
@@ -129,17 +118,6 @@
         modalOverlay.style.display = 'none';
         loginModal.style.display = 'none';
         registerModal.style.display = 'none';
-    };
-
-    window.closeVotingModal = function () {
-        modalOverlay.style.display = 'none';
-        votingModal.style.display = 'none';
-    };
-
-    window.closeStatsModal = function () {
-        modalOverlay.style.display = 'none';
-        statsModal.style.display = 'none';
-        document.querySelectorAll('.temporary-effect').forEach(e => e.remove());
     };
 
     window.submitRegistration = async function () {
@@ -205,8 +183,7 @@
                 updateAuthUI();
                 window.closeAuthModal();
                 showSuccess(`✅ Добро пожаловать, ${window.currentUser.username}!`);
-                await loadAllVotes();
-                await loadFilmBoosts();
+                await loadGroupBoosts();
                 await loadProjectsByMode();
                 drawWheel();
             } else {
@@ -222,8 +199,7 @@
         window.currentUser = null;
         updateAuthUI();
         showSuccess('👋 До свидания!');
-        await loadAllVotes();
-        await loadFilmBoosts();
+        await loadGroupBoosts();
         await loadProjectsByMode();
         drawWheel();
     };
@@ -327,69 +303,33 @@
         return idToTitleMap[id] || id;
     }
 
-    // ========== ФУНКЦИИ ГОЛОСОВАНИЯ ==========
-    async function startVotingCycle() {
-        try {
-            const response = await window.authFetch(`${API_URL}/api/voting/start`, {
-                method: 'POST'
-            });
-            const data = await response.json();
-            if (data.success) {
-                currentCycleId = data.cycle_id;
-                return true;
+    // ========== ЗАГРУЗКА БУСТОВ (ГРУППОВЫХ ИЛИ ЛИЧНЫХ) ==========
+    async function loadGroupBoosts() {
+        if (currentMode === 'group' && selectedGroupId) {
+            try {
+                const response = await window.authFetch(`${API_URL}/api/voting/group/${selectedGroupId}/boosts`);
+                if (response.ok) {
+                    filmBoosts = await response.json();
+                    console.log('📊 Загружены групповые бусты:', filmBoosts);
+                    drawWheel();
+                }
+            } catch (error) {
+                console.error('Ошибка загрузки групповых бустов:', error);
+                filmBoosts = {};
             }
-            return false;
-        } catch (error) {
-            console.error('Ошибка создания цикла:', error);
-            return false;
-        }
-    }
-
-    async function loadFilmBoosts() {
-        try {
-            const response = await window.authFetch(`${API_URL}/api/film-boosts`);
-            if (response.ok) {
-                filmBoosts = await response.json();
-                updateVotingUI();
-                drawWheel();
-            }
-        } catch (error) {
-            console.error('Ошибка загрузки бустов:', error);
-        }
-    }
-
-    async function loadAllVotes() {
-        try {
-            const response = await window.authFetch(`${API_URL}/api/voting/current-cycle`);
-            if (response.ok) {
-                const data = await response.json();
-                userVotes = data.votes || {};
-                currentCycleId = data.cycle_id;
-                updateVotersIndicator();
-            }
-        } catch (error) {
-            console.error('Ошибка загрузки голосов:', error);
-        }
-    }
-
-    function updateVotingUI() {
-        if (votingStats) {
-            const totalVotes = Object.keys(filmBoosts).length;
-            votingStats.textContent = `${totalVotes} фильмов с бустами`;
-        }
-    }
-
-    function updateVotersIndicator() {
-        if (!votersIndicator || !votersList) return;
-        const voters = Object.keys(userVotes);
-        if (voters.length > 0) {
-            votersIndicator.style.display = 'flex';
-            votersList.textContent = voters.map(v => {
-                const names = { senya: 'Сеня', vanya: 'Ваня', pasha: 'Паша', volodya: 'Володя', artem: 'Артем' };
-                return `👤 ${names[v] || v}`;
-            }).join(' • ');
         } else {
-            votersIndicator.style.display = 'none';
+            // Личный режим - загружаем глобальные бусты
+            try {
+                const response = await window.authFetch(`${API_URL}/api/film-boosts`);
+                if (response.ok) {
+                    filmBoosts = await response.json();
+                    console.log('📊 Загружены личные бусты:', filmBoosts);
+                    drawWheel();
+                }
+            } catch (error) {
+                console.error('Ошибка загрузки личных бустов:', error);
+                filmBoosts = {};
+            }
         }
     }
 
@@ -479,6 +419,8 @@
             drawWheel();
             updatePoolView();
         }
+        // После загрузки проектов загружаем бусты
+        await loadGroupBoosts();
     }
 
     async function loadPersonalProjectsForWheel() {
@@ -497,8 +439,6 @@
                 updateMaps();
                 updateFilters();
                 syncWheel();
-                await loadFilmBoosts();
-                await loadAllVotes();
                 drawWheel();
                 updatePoolView();
 
@@ -529,8 +469,6 @@
                 updateMaps();
                 updateFilters();
                 syncWheel();
-                await loadFilmBoosts();
-                await loadAllVotes();
                 drawWheel();
                 updatePoolView();
 
@@ -561,8 +499,6 @@
                 updateMaps();
                 updateFilters();
                 syncWheel();
-                await loadFilmBoosts();
-                await loadAllVotes();
                 drawWheel();
                 updatePoolView();
 
@@ -705,11 +641,17 @@
                 ctx.translate(centerX, centerY);
                 ctx.rotate(startAngle + angle / 2);
                 ctx.fillStyle = '#FFD700';
-                ctx.font = 'bold 14px "Segoe UI", sans-serif';
+                ctx.font = 'bold 12px "Segoe UI", sans-serif';
                 ctx.shadowColor = 'rgba(0,0,0,0.5)';
                 ctx.shadowBlur = 4;
-                const stars = Math.min(3, Math.ceil(boost * 10));
-                ctx.fillText('★'.repeat(stars), radius - 45, -10);
+
+                // Показываем количество голосов числом со звездой
+                const votes = Math.floor(boost);
+                if (votes <= 5) {
+                    ctx.fillText('★'.repeat(votes), radius - 45, -10);
+                } else {
+                    ctx.fillText(`★${votes}`, radius - 45, -10);
+                }
                 ctx.restore();
             }
 
@@ -828,146 +770,6 @@
         requestAnimationFrame(animate);
     }
 
-    // ========== МОДАЛЬНЫЕ ОКНА ==========
-    window.showVotingModal = async function () {
-        if (!requireAuth()) return;
-
-        const filteredItems = currentCategory === 'Все' ? allItems : allItems.filter(item => item.Жанр === currentCategory);
-        const availableMovies = filteredItems.filter(item => item.id);
-
-        if (availableMovies.length === 0) {
-            showError('Нет фильмов в выбранной категории для голосования');
-            return;
-        }
-
-        const currentUserVotes = userVotes[window.currentUser?.username] || [];
-
-        document.getElementById('votingCategory').textContent = currentCategory === 'Все' ? '(все категории)' : `(${currentCategory})`;
-        document.getElementById('votingUser').textContent = `Игрок: 👤 ${window.currentUser?.username}`;
-
-        const moviesList = document.getElementById('votingMoviesList');
-        moviesList.innerHTML = availableMovies.map(movie => {
-            const isSelected = currentUserVotes.includes(movie.id);
-            const boost = filmBoosts[movie.id] || 0;
-            return `
-                <div class="voting-movie-item ${isSelected ? 'selected' : ''}" 
-                     data-film-id="${movie.id}" data-film-title="${movie.Название.toLowerCase()}">
-                    <div class="movie-info">
-                        <span class="movie-title">${escapeHtml(movie.Название)}</span>
-                        ${boost > 0 ? `<span class="movie-boost">+${boost.toFixed(1)}</span>` : ''}
-                    </div>
-                    <span class="movie-check">✓</span>
-                </div>
-            `;
-        }).join('');
-
-        const movieItems = moviesList.querySelectorAll('.voting-movie-item');
-        const submitBtn = document.getElementById('submitVoteBtn');
-        const counter = document.getElementById('selectedCounter');
-        const searchInput = document.getElementById('voteSearchInput');
-        let selectedVotes = [...currentUserVotes];
-
-        function filterMovies(searchTerm) {
-            const term = searchTerm.toLowerCase().trim();
-            movieItems.forEach(item => {
-                item.style.display = term === '' || item.dataset.filmTitle.includes(term) ? 'flex' : 'none';
-            });
-        }
-
-        searchInput.oninput = (e) => filterMovies(e.target.value);
-        searchInput.value = '';
-
-        function updateSelection() {
-            movieItems.forEach(item => {
-                const filmId = item.dataset.filmId;
-                item.classList.toggle('selected', selectedVotes.includes(filmId));
-            });
-            counter.textContent = `Выбрано: ${selectedVotes.length}/3`;
-            submitBtn.disabled = selectedVotes.length !== 3;
-        }
-
-        movieItems.forEach(item => {
-            item.onclick = () => {
-                const filmId = item.dataset.filmId;
-                if (selectedVotes.includes(filmId)) {
-                    selectedVotes = selectedVotes.filter(id => id !== filmId);
-                } else if (selectedVotes.length < 3) {
-                    selectedVotes.push(filmId);
-                } else {
-                    showError('Можно выбрать только 3 фильма');
-                    return;
-                }
-                updateSelection();
-            };
-        });
-
-        submitBtn.onclick = async () => {
-            if (!currentCycleId && !(await startVotingCycle())) {
-                showError('Не удалось создать цикл голосования');
-                return;
-            }
-
-            try {
-                const response = await window.authFetch(`${API_URL}/api/voting/cast`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        cycle_id: currentCycleId,
-                        user: window.currentUser?.username,
-                        film_ids: selectedVotes,
-                        boost: 0.1
-                    })
-                });
-
-                const data = await response.json();
-                if (data.success) {
-                    showSuccess('✓ Голоса сохранены!');
-                    window.closeVotingModal();
-                    await loadFilmBoosts();
-                    await loadAllVotes();
-                    drawWheel();
-                } else {
-                    showError('Ошибка: ' + data.error);
-                }
-            } catch (error) {
-                showError('Ошибка сети: ' + error.message);
-            }
-        };
-
-        updateSelection();
-        modalOverlay.style.display = 'block';
-        votingModal.style.display = 'flex';
-    };
-
-    window.showStatsModal = function () {
-        const filteredItems = currentCategory === 'Все' ? allItems : allItems.filter(item => item.Жанр === currentCategory);
-        const filteredIds = new Set(filteredItems.map(item => item.id));
-
-        const boostEntries = Object.entries(filmBoosts)
-            .filter(([id]) => filteredIds.has(id))
-            .map(([id, boost]) => ({
-                title: getFilmTitleById(id),
-                boost: boost
-            }))
-            .filter(item => item.title)
-            .sort((a, b) => b.boost - a.boost);
-
-        document.getElementById('statsCategory').textContent = currentCategory === 'Все' ? '(все категории)' : `(${currentCategory})`;
-
-        const statsList = document.getElementById('statsList');
-        statsList.innerHTML = boostEntries.length > 0
-            ? boostEntries.map(item => `
-                <div class="stat-item">
-                    <span class="stat-film">${escapeHtml(item.title)}</span>
-                    <span class="stat-boost">+${item.boost.toFixed(1)}</span>
-                </div>
-            `).join('')
-            : '<p class="stats-empty">В этой категории пока нет бустов</p>';
-
-        modalOverlay.style.display = 'block';
-        statsModal.style.display = 'flex';
-    };
-
     // ========== ФИЛЬТРЫ ==========
     function updateFilters() {
         const genres = extractGenres();
@@ -1075,9 +877,6 @@
         spinRotations = parseInt(rotationsSlider.value);
         rotationsValue.textContent = spinRotations;
     });
-
-    if (openVoteBtn) openVoteBtn.addEventListener('click', window.showVotingModal);
-    if (showStatsBtn) showStatsBtn.addEventListener('click', window.showStatsModal);
 
     console.log('🚀 Запуск колеса фортуны...');
 
