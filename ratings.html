@@ -35,6 +35,24 @@
             </div>
         </div>
 
+        <div class="mode-selector">
+            <div class="mode-toggle" id="modeToggle">
+                <div class="toggle-track">
+                    <div class="toggle-thumb" id="modeToggleThumb"></div>
+                </div>
+            </div>
+            <div class="mode-labels">
+                <span class="mode-label personal active">👤 Личный каталог</span>
+                <span class="mode-label group">👥 Групповая библиотека</span>
+            </div>
+            <div class="group-selector" id="groupSelector" style="display: none;">
+                <select id="groupSelect" onchange="window.selectGroup(this.value)">
+                    <option value="">-- Выберите группу --</option>
+                </select>
+                <button class="refresh-group-btn" onclick="window.refreshGroupProjects()">🔄</button>
+            </div>
+        </div>
+
         <div class="filter-bar">
             <span class="filter-title">📌 Фильтр:</span>
             <div class="filter-buttons" id="filterButtons">

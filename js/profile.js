@@ -1,4 +1,4 @@
-(function() {
+(function () {
     const API_URL = 'https://movie-server-deutscherfuchs.amvera.io';
     let currentUser = null;
     let currentProject = null;
@@ -22,7 +22,7 @@
         try {
             const response = await window.authFetch(`${API_URL}/api/auth/me`);
             const data = await response.json();
-            
+
             if (data.authenticated) {
                 currentUser = data.user;
                 document.getElementById('profileUsername').textContent = currentUser.username;
@@ -46,18 +46,18 @@
     async function loadProfileData() {
         try {
             showLoading();
-            
+
             await loadAllProjects();
             await loadUserProgress();
             await loadUserVotes();
             await loadWatchedProjects();
-            
+
             updateStats();
             renderProgressList();
             renderWatchedList();
             renderPlannedList();
             renderVotesList();
-            
+
             hideLoading();
             console.log('✅ Данные профиля загружены');
         } catch (error) {
@@ -121,7 +121,7 @@
     async function loadWatchedProjects() {
         try {
             let projects = [];
-            
+
             if (currentMode === 'group' && selectedGroupId) {
                 const response = await window.authFetch(`${API_URL}/api/groups/${selectedGroupId}/projects`);
                 if (response.ok) {
@@ -151,7 +151,7 @@
                         }));
                 }
             }
-            
+
             watchedProjects = projects;
             console.log(`✅ Загружено ${watchedProjects.length} просмотренных фильмов`);
             return projects;
@@ -172,7 +172,7 @@
                 renderGroupsList();
                 renderGroupsDetailedList();
                 renderGroupSelector();
-                
+
                 const groupsCountEl = document.getElementById('groupsCount');
                 if (groupsCountEl) groupsCountEl.textContent = userGroups.length;
             }
@@ -233,12 +233,12 @@
     function renderGroupSelector() {
         const container = document.getElementById('groupSelector');
         if (!container) return;
-        
+
         if (userGroups.length === 0) {
             container.innerHTML = '<select disabled><option>Нет групп</option></select>';
             return;
         }
-        
+
         container.innerHTML = `
             <select id="groupSelect" onchange="window.selectGroup(this.value)">
                 <option value="">-- Выберите группу --</option>
@@ -252,7 +252,7 @@
         `;
     }
 
-    window.selectGroup = function(groupId) {
+    window.selectGroup = function (groupId) {
         if (!groupId) {
             selectedGroupId = null;
             if (currentMode === 'group') {
@@ -272,7 +272,7 @@
         }
     };
 
-    window.refreshGroupProjects = function() {
+    window.refreshGroupProjects = function () {
         if (selectedGroupId && currentMode === 'group') {
             loadGroupProjects(selectedGroupId);
             loadWatchedProjects().then(() => renderWatchedList());
@@ -280,15 +280,15 @@
         }
     };
 
-    window.leaveGroup = async function(groupId) {
+    window.leaveGroup = async function (groupId) {
         if (!confirm('Вы уверены, что хотите покинуть группу?')) return;
-        
+
         showLoading();
         try {
             const response = await window.authFetch(`${API_URL}/api/groups/${groupId}/leave`, {
                 method: 'POST'
             });
-            
+
             const data = await response.json();
             if (data.success) {
                 showSuccess('Вы покинули группу');
@@ -315,15 +315,15 @@
         }
     };
 
-    window.deleteGroup = async function(groupId) {
+    window.deleteGroup = async function (groupId) {
         if (!confirm('ВНИМАНИЕ! Это действие удалит группу и все её проекты. Восстановить будет невозможно. Продолжить?')) return;
-        
+
         showLoading();
         try {
             const response = await window.authFetch(`${API_URL}/api/groups/${groupId}`, {
                 method: 'DELETE'
             });
-            
+
             const data = await response.json();
             if (data.success) {
                 showSuccess('Группа удалена');
@@ -356,9 +356,9 @@
         const personalLabel = document.querySelector('.mode-label.personal');
         const groupLabel = document.querySelector('.mode-label.group');
         const groupSelector = document.getElementById('groupSelector');
-        
+
         if (!modeToggle) return;
-        
+
         function updateModeUI() {
             if (currentMode === 'personal') {
                 if (personalLabel) personalLabel.classList.add('active');
@@ -376,18 +376,18 @@
                 }
             }
         }
-        
+
         modeToggle.addEventListener('click', () => {
             currentMode = currentMode === 'personal' ? 'group' : 'personal';
             modeToggle.classList.toggle('group-mode', currentMode === 'group');
             updateModeUI();
-            
+
             localStorage.setItem('profile_mode', currentMode);
             if (currentMode === 'group' && selectedGroupId) {
                 localStorage.setItem('selected_group', selectedGroupId);
             }
         });
-        
+
         const savedMode = localStorage.getItem('profile_mode');
         if (savedMode === 'group') {
             currentMode = 'group';
@@ -403,7 +403,7 @@
         const personalLabel = document.querySelector('.mode-label.personal');
         const groupLabel = document.querySelector('.mode-label.group');
         const groupSelector = document.getElementById('groupSelector');
-        
+
         if (currentMode === 'personal') {
             if (personalLabel) personalLabel.classList.add('active');
             if (groupLabel) groupLabel.classList.remove('active');
@@ -424,11 +424,11 @@
         const watched = allProjects.filter(p => p.user_status === 'watched' || p.status === 'watched').length;
         const inProgress = allProjects.filter(p => p.user_status === 'in_progress' || p.status === 'in_progress').length;
         const planned = allProjects.filter(p => p.user_status === 'planned' || p.status === 'planned').length;
-        
+
         document.getElementById('watchedCount').textContent = watched;
         document.getElementById('inProgressCount').textContent = inProgress;
         document.getElementById('plannedCount').textContent = planned;
-        
+
         document.getElementById('registerDate').textContent = formatDate(currentUser.registered_at);
         document.getElementById('lastLogin').textContent = formatDateTime(currentUser.last_login);
     }
@@ -437,21 +437,21 @@
     function renderProgressList() {
         const container = document.getElementById('progressList');
         const countEl = document.getElementById('progressCount');
-        
+
         const progressItems = allProjects.filter(p => p.user_status === 'in_progress' || p.status === 'in_progress');
         countEl.textContent = progressItems.length;
-        
+
         if (progressItems.length === 0) {
             container.innerHTML = '<div class="empty-state"><span>🎬</span><p>Нет проектов в процессе</p></div>';
             return;
         }
-        
+
         container.innerHTML = progressItems.map(project => {
             const poster = project.poster || '';
             const title = project.title_ru || project.title;
             const type = project.type || 'Фильм';
             const year = project.year || '';
-            
+
             return `
                 <div class="item-card" onclick="showStatusModal('${project.id}', '${escapeHtml(title)}')">
                     <div class="item-poster" style="background-image: url('${poster}')">
@@ -473,23 +473,23 @@
     function renderWatchedList() {
         const container = document.getElementById('watchedList');
         const countEl = document.getElementById('watchedListCount');
-        
+
         if (!container) return;
-        
+
         countEl.textContent = watchedProjects.length;
-        
+
         if (watchedProjects.length === 0) {
             container.innerHTML = '<div class="empty-state"><span>✅</span><p>Нет просмотренных фильмов</p><p>Отметьте фильм как просмотренный в каталоге</p></div>';
             return;
         }
-        
+
         container.innerHTML = watchedProjects.map(project => {
             const poster = project.poster || '';
             const title = project.title_ru || project.title;
             const type = project.type || 'Фильм';
             const year = project.year || '';
             const userRating = userRatings[project.id];
-            
+
             return `
                 <div class="item-card watched-card" data-project-id="${project.id}">
                     <div class="item-poster" style="background-image: url('${poster}')">
@@ -524,21 +524,21 @@
     function renderPlannedList() {
         const container = document.getElementById('plannedList');
         const countEl = document.getElementById('plannedListCount');
-        
+
         const plannedItems = allProjects.filter(p => p.user_status === 'planned' || p.status === 'planned');
         countEl.textContent = plannedItems.length;
-        
+
         if (plannedItems.length === 0) {
             container.innerHTML = '<div class="empty-state"><span>📋</span><p>Нет проектов в планах</p></div>';
             return;
         }
-        
+
         container.innerHTML = plannedItems.map(project => {
             const poster = project.poster || '';
             const title = project.title_ru || project.title;
             const type = project.type || 'Фильм';
             const year = project.year || '';
-            
+
             return `
                 <div class="item-card" onclick="showStatusModal('${project.id}', '${escapeHtml(title)}')">
                     <div class="item-poster" style="background-image: url('${poster}')">
@@ -560,10 +560,10 @@
     function renderVotesList() {
         const container = document.getElementById('votesList');
         const countEl = document.getElementById('votesCount');
-        
+
         const currentUserVotes = userVotes[currentUser?.username] || [];
         countEl.textContent = `${currentUserVotes.length}/3`;
-        
+
         if (currentUserVotes.length === 0) {
             container.innerHTML = '<div class="empty-state"><span>🗳️</span><p>Вы ещё не голосовали в этом цикле</p></div>';
         } else {
@@ -572,7 +572,7 @@
                 const boost = window.filmBoosts?.[filmId] || 0;
                 return { project, boost };
             }).filter(item => item.project);
-            
+
             container.innerHTML = `
                 <div class="votes-grid">
                     ${votedMovies.map(item => `
@@ -584,7 +584,7 @@
                 </div>
             `;
         }
-        
+
         const historyContainer = document.getElementById('votesHistory');
         historyContainer.innerHTML = `
             <div class="empty-state">
@@ -598,12 +598,12 @@
     function renderGroupsList() {
         const container = document.getElementById('groupsList');
         if (!container) return;
-        
+
         if (userGroups.length === 0) {
             container.innerHTML = '<div class="empty-groups">У вас нет групп</div>';
             return;
         }
-        
+
         container.innerHTML = userGroups.map(group => `
             <div class="group-card" onclick="openGroupInfo('${group.id}')">
                 <div class="group-info">
@@ -623,12 +623,12 @@
     function renderGroupsDetailedList() {
         const container = document.getElementById('groupsDetailedList');
         if (!container) return;
-        
+
         if (userGroups.length === 0) {
             container.innerHTML = '<div class="empty-state"><span>👥</span><p>У вас нет групп</p><p>Создайте группу или вступите по коду приглашения</p></div>';
             return;
         }
-        
+
         container.innerHTML = userGroups.map(group => `
             <div class="group-card" style="margin-bottom: 10px;">
                 <div class="group-info" onclick="openGroupInfo('${group.id}')">
@@ -656,21 +656,21 @@
         `).join('');
     }
 
-    window.openGroupInfo = async function(groupId) {
+    window.openGroupInfo = async function (groupId) {
         showLoading();
-        
+
         try {
             const infoResponse = await window.authFetch(`${API_URL}/api/groups/${groupId}/info`);
             const groupInfo = await infoResponse.json();
-            
+
             const membersResponse = await window.authFetch(`${API_URL}/api/groups/${groupId}/members`);
             const members = await membersResponse.json();
-            
+
             const projectsResponse = await window.authFetch(`${API_URL}/api/groups/${groupId}/projects`);
             const projects = await projectsResponse.json();
-            
+
             const isAdmin = members.find(m => m.user_id === currentUser.id)?.role === 'admin';
-            
+
             document.getElementById('groupInfoTitle').textContent = groupInfo.name;
             document.getElementById('groupInfoContent').innerHTML = `
                 <div class="invite-code">
@@ -691,15 +691,15 @@
                 
                 <div class="group-projects-list">
                     <strong>🎬 Проекты группы (${projects.length})</strong>
-                    ${projects.length === 0 ? '<p style="color: #a3b7f0; padding: 10px;">Нет проектов</p>' : 
-                        projects.slice(0, 5).map(p => {
-                            const data = p.data || {};
-                            return `
+                    ${projects.length === 0 ? '<p style="color: #a3b7f0; padding: 10px;">Нет проектов</p>' :
+                    projects.slice(0, 5).map(p => {
+                        const data = p.data || {};
+                        return `
                                 <div class="member-item">
                                     <span class="member-name">${escapeHtml(data.title_ru || data.title || p.project_id)}</span>
                                 </div>
                             `;
-                        }).join('')}
+                    }).join('')}
                     ${projects.length > 5 ? `<p style="color: #a3b7f0; padding: 10px;">... и ещё ${projects.length - 5} проектов</p>` : ''}
                 </div>
                 
@@ -715,10 +715,10 @@
                     `}
                 </div>
             `;
-            
+
             document.getElementById('groupInfoModal').style.display = 'flex';
             document.getElementById('modalOverlay').style.display = 'block';
-            
+
         } catch (error) {
             console.error('Ошибка загрузки группы:', error);
             showError('Ошибка загрузки информации о группе');
@@ -728,7 +728,7 @@
     };
 
     // ========== УПРАВЛЕНИЕ СТАТУСОМ ==========
-    window.showStatusModal = function(projectId, title) {
+    window.showStatusModal = function (projectId, title) {
         if (!currentUser) {
             showError('Требуется авторизация');
             return;
@@ -739,23 +739,23 @@
         document.getElementById('statusModal').style.display = 'flex';
     };
 
-    window.closeStatusModal = function() {
+    window.closeStatusModal = function () {
         document.getElementById('modalOverlay').style.display = 'none';
         document.getElementById('statusModal').style.display = 'none';
         currentProject = null;
     };
 
-    window.changeStatus = async function(status) {
+    window.changeStatus = async function (status) {
         if (!currentProject) return;
-        
+
         showLoading();
-        
+
         try {
             let newStatus = status;
             if (status === 'remove') {
                 newStatus = 'planned';
             }
-            
+
             const response = await window.authFetch(`${API_URL}/api/user/progress`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -767,7 +767,7 @@
                     timecode: status === 'watched' ? 0 : null
                 })
             });
-            
+
             if (response.ok) {
                 showSuccess(`Статус изменен на ${getStatusText(status)}`);
                 await loadProfileData();
@@ -807,15 +807,15 @@
         }
     }
 
-    window.openRatingModal = function(projectId, title, currentRating = null, currentNotes = '') {
+    window.openRatingModal = function (projectId, title, currentRating = null, currentNotes = '') {
         const project = watchedProjects.find(p => p.id === projectId);
         if (!project) {
             console.error('Проект не найден:', projectId);
             return;
         }
-        
+
         currentRatingProject = { id: projectId, title: title, notes: currentNotes };
-        
+
         const modal = document.getElementById('ratingModal');
         const modalTitle = document.getElementById('ratingModalTitle');
         const modalYear = document.getElementById('ratingModalYear');
@@ -824,16 +824,16 @@
         const ratingSlider = document.getElementById('ratingSlider');
         const ratingInput = document.getElementById('ratingInput');
         const ratingNotes = document.getElementById('ratingNotes');
-        
+
         if (!modal || !modalTitle) {
             console.error('Элементы модалки не найдены');
             return;
         }
-        
+
         modalTitle.textContent = title;
         if (modalYear) modalYear.textContent = project.year || '—';
         if (modalKp) modalKp.textContent = `Кинопоиск: ${project.rating || '—'}`;
-        
+
         // Устанавливаем постер
         if (modalPoster) {
             if (project.poster) {
@@ -847,11 +847,11 @@
                 modalPoster.classList.add('no-poster');
                 const posterEmoji = project.type === 'Аниме' ? '🇯🇵' :
                     project.type === 'Сериал' ? '📺' :
-                    project.type === 'Мультфильм' ? '🖍️' : '🎬';
+                        project.type === 'Мультфильм' ? '🖍️' : '🎬';
                 modalPoster.textContent = posterEmoji;
             }
         }
-        
+
         // Устанавливаем текущую оценку
         if (ratingSlider && ratingInput) {
             if (currentRating) {
@@ -864,18 +864,18 @@
                 updateRatingDisplay(null);
             }
         }
-        
+
         // Устанавливаем заметки
         if (ratingNotes) {
             ratingNotes.value = currentNotes || '';
         }
-        
+
         if (modal) modal.style.display = 'flex';
         const overlay = document.getElementById('modalOverlay');
         if (overlay) overlay.style.display = 'block';
     };
 
-    window.closeRatingModal = function() {
+    window.closeRatingModal = function () {
         const modal = document.getElementById('ratingModal');
         const overlay = document.getElementById('modalOverlay');
         if (modal) modal.style.display = 'none';
@@ -883,19 +883,19 @@
         currentRatingProject = null;
     };
 
-    window.updateRatingValue = function(value) {
+    window.updateRatingValue = function (value) {
         const ratingInput = document.getElementById('ratingInput');
         if (ratingInput) ratingInput.value = value;
         updateRatingDisplay(value);
     };
 
-    window.updateRatingFromInput = function(value) {
+    window.updateRatingFromInput = function (value) {
         const ratingSlider = document.getElementById('ratingSlider');
         if (ratingSlider) ratingSlider.value = value;
         updateRatingDisplay(value);
     };
 
-    window.clearRating = function() {
+    window.clearRating = function () {
         const ratingSlider = document.getElementById('ratingSlider');
         const ratingInput = document.getElementById('ratingInput');
         if (ratingSlider) ratingSlider.value = 5;
@@ -903,23 +903,24 @@
         updateRatingDisplay(null);
     };
 
-    window.saveRating = async function() {
+    window.saveRating = async function () {
         if (!currentRatingProject) return;
-        
+
         const ratingSlider = document.getElementById('ratingSlider');
         const ratingNotes = document.getElementById('ratingNotes');
-        
+
         let rating = null;
         const ratingDisplay = document.getElementById('ratingDisplay');
         if (ratingDisplay && ratingDisplay.textContent !== '—' && ratingSlider) {
             rating = parseFloat(ratingSlider.value);
         }
-        
+
         const notes = ratingNotes ? ratingNotes.value : '';
-        
+
         showLoading();
-        
+
         try {
+            // 1. Сохраняем оценку
             const response = await window.authFetch(`${API_URL}/api/user/ratings`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -929,36 +930,91 @@
                     notes: notes
                 })
             });
-            
-            if (response.ok) {
-                showSuccess(rating ? `Оценка ${rating}/10 сохранена!` : 'Заметки сохранены!');
-                closeRatingModal();
-                await loadUserRatings();
-                renderWatchedList();
-            } else {
+
+            if (!response.ok) {
                 const error = await response.json();
-                showError(error.error || 'Ошибка сохранения оценки');
+                throw new Error(error.error || 'Ошибка сохранения оценки');
             }
+
+            // 2. ОБЯЗАТЕЛЬНО: создаём/обновляем запись в user_projects со статусом 'watched'
+            try {
+                // Получаем данные фильма из watchedProjects или загружаем
+                let projectData = watchedProjects.find(p => p.id === currentRatingProject.id);
+
+                if (!projectData) {
+                    // Пробуем загрузить данные фильма из старой системы или через API
+                    const projectResponse = await fetch(`${API_URL}/projects/${currentRatingProject.id}`);
+                    if (projectResponse.ok) {
+                        projectData = await projectResponse.json();
+                    }
+                }
+
+                if (projectData) {
+                    // Проверяем, есть ли уже проект в user_projects
+                    const listResponse = await window.authFetch(`${API_URL}/api/user/projects/list`);
+                    const userProjects = await listResponse.json();
+                    const existingProject = userProjects.find(p => p.project_id === currentRatingProject.id);
+
+                    if (!existingProject) {
+                        // Создаём новую запись
+                        await window.authFetch(`${API_URL}/api/user/projects/list`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                project_id: currentRatingProject.id,
+                                data: projectData,
+                                status: 'watched'
+                            })
+                        });
+                        console.log('✅ Проект добавлен в user_projects со статусом watched');
+                    } else if (existingProject.status !== 'watched') {
+                        // Обновляем статус существующей записи
+                        await window.authFetch(`${API_URL}/api/user/projects/${currentRatingProject.id}/status`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ status: 'watched' })
+                        });
+                        console.log('✅ Статус проекта обновлён на watched');
+                    }
+                } else {
+                    console.warn('⚠️ Не удалось получить данные фильма, запись в user_projects не создана');
+                }
+            } catch (statusError) {
+                console.error('Ошибка при работе с user_projects:', statusError);
+                // Не прерываем выполнение — оценка уже сохранена
+            }
+
+            showSuccess(rating ? `Оценка ${rating}/10 сохранена!` : 'Заметки сохранены!');
+            closeRatingModal();
+
+            // 3. Перезагружаем все данные
+            await loadUserRatings();
+            await loadWatchedProjects();  // Обновляем список просмотренных
+            renderWatchedList();           // Обновляем отображение в профиле
+
+            // 4. Оповещаем страницу оценок об обновлении
+            window.dispatchEvent(new CustomEvent('ratingsUpdated'));
+
         } catch (error) {
             console.error('Ошибка:', error);
-            showError('Ошибка сети');
+            showError(error.message || 'Ошибка сохранения');
         } finally {
             hideLoading();
         }
     };
 
-    window.removeFromWatched = async function(projectId) {
+    window.removeFromWatched = async function (projectId) {
         if (!confirm('Удалить фильм из просмотренных? Он будет перемещён обратно в каталог.')) return;
-        
+
         showLoading();
-        
+
         try {
             let response;
-            
+
             if (currentMode === 'group' && selectedGroupId) {
                 const watchedProject = watchedProjects.find(p => p.id === projectId);
                 const groupProjectId = watchedProject?.group_project_id;
-                
+
                 if (groupProjectId) {
                     response = await window.authFetch(`${API_URL}/api/groups/${selectedGroupId}/projects/${groupProjectId}/status`, {
                         method: 'PUT',
@@ -977,7 +1033,7 @@
                     body: JSON.stringify({ status: 'planned' })
                 });
             }
-            
+
             if (response.ok) {
                 showSuccess('Фильм удалён из просмотренных');
                 await loadWatchedProjects();
@@ -1000,36 +1056,36 @@
     };
 
     // ========== СОЗДАНИЕ ГРУППЫ ==========
-    window.openCreateGroupModal = function() {
+    window.openCreateGroupModal = function () {
         document.getElementById('createGroupModal').style.display = 'flex';
         document.getElementById('modalOverlay').style.display = 'block';
     };
 
-    window.closeCreateGroupModal = function() {
+    window.closeCreateGroupModal = function () {
         document.getElementById('createGroupModal').style.display = 'none';
         document.getElementById('modalOverlay').style.display = 'none';
         document.getElementById('groupNameInput').value = '';
     };
 
-    window.createGroup = async function() {
+    window.createGroup = async function () {
         const name = document.getElementById('groupNameInput').value.trim();
-        
+
         if (!name) {
             showError('Введите название группы');
             return;
         }
-        
+
         showLoading();
-        
+
         try {
             const response = await window.authFetch(`${API_URL}/api/groups`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name })
             });
-            
+
             const data = await response.json();
-            
+
             if (data.success) {
                 showSuccess('Группа создана!');
                 closeCreateGroupModal();
@@ -1045,25 +1101,25 @@
         }
     };
 
-    window.joinGroup = async function() {
+    window.joinGroup = async function () {
         const inviteCode = document.getElementById('joinCodeInput').value.trim().toUpperCase();
-        
+
         if (!inviteCode) {
             showError('Введите код приглашения');
             return;
         }
-        
+
         showLoading();
-        
+
         try {
             const response = await window.authFetch(`${API_URL}/api/groups/join`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ invite_code: inviteCode })
             });
-            
+
             const data = await response.json();
-            
+
             if (data.success) {
                 showSuccess('Вы вступили в группу!');
                 document.getElementById('joinCodeInput').value = '';
@@ -1079,27 +1135,27 @@
         }
     };
 
-    window.copyToClipboard = function(text) {
+    window.copyToClipboard = function (text) {
         navigator.clipboard.writeText(text);
         showSuccess('Код скопирован!');
     };
 
-    window.closeGroupInfoModal = function() {
+    window.closeGroupInfoModal = function () {
         document.getElementById('groupInfoModal').style.display = 'none';
         document.getElementById('modalOverlay').style.display = 'none';
     };
 
     // ========== ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК ==========
-    window.switchTab = function(tab) {
+    window.switchTab = function (tab) {
         document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
         document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
-        
+
         event.target.classList.add('active');
         document.getElementById(`tab-${tab}`).classList.add('active');
     };
 
     // ========== ВЫХОД ==========
-    window.logout = async function() {
+    window.logout = async function () {
         localStorage.removeItem('auth_token');
         window.location.href = 'index.html';
     };
@@ -1158,7 +1214,7 @@
     function showLoading() {
         const loader = document.getElementById('profile-loader');
         if (loader) loader.remove();
-        
+
         const newLoader = document.createElement('div');
         newLoader.id = 'profile-loader';
         newLoader.style.cssText = `

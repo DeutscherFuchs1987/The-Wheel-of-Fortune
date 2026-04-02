@@ -2,13 +2,17 @@
     const API_URL = 'https://movie-server-deutscherfuchs.amvera.io';
 
     let myProjects = [];
+    let groupRatings = {}; // Оценки внутри текущей группы
     let currentFilter = 'all';
     let currentProject = null;
     let currentUser = null;
     let allUserRatings = {}; // { projectId: { username: { rating, notes } } }
     let userRatings = {}; // { projectId: { rating, notes } } для текущего пользователя
-    let selectedGroupId = null;
-    let currentMode = 'personal';
+
+    // ========== ПЕРЕМЕННЫЕ ДЛЯ ГРУППОВОГО РЕЖИМА ==========
+    let currentMode = localStorage.getItem('ratings_mode') || 'personal';
+    let selectedGroupId = localStorage.getItem('selected_group') || null;
+    let userGroups = [];
 
     const projectsGrid = document.getElementById('projectsGrid');
     const statsDiv = document.getElementById('stats');
@@ -71,10 +75,49 @@
         }
     }
 
-    // ========== ЗАГРУЗКА ВСЕХ ОЦЕНОК (для страницы оценок) ==========
+    // ========== ЗАГРУЗКА ОЦЕНОК ВНУТРИ ГРУППЫ ==========
+    async function loadGroupRatings() {
+        if (currentMode !== 'group' || !selectedGroupId) {
+            groupRatings = {};
+            return;
+        }
+
+        try {
+            console.log(`👥 Загружаем оценки группы ${selectedGroupId}...`);
+            const response = await window.authFetch(`${API_URL}/api/groups/${selectedGroupId}/ratings`);
+            if (response.ok) {
+                groupRatings = await response.json();
+                console.log('⭐ Загружены оценки группы:', groupRatings);
+            } else if (response.status === 403) {
+                console.warn('Нет доступа к оценкам группы');
+                groupRatings = {};
+            } else {
+                console.error('Ошибка загрузки оценок группы:', response.status);
+                groupRatings = {};
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки оценок группы:', error);
+            groupRatings = {};
+        }
+    }
+
+    // ========== ЗАГРУЗКА ВСЕХ ОЦЕНОК ==========
     async function loadAllRatings() {
         try {
+            if (currentMode === 'group' && selectedGroupId) {
+                await loadGroupRatings();
+                if (Object.keys(groupRatings).length > 0) {
+                    console.log('⭐ Используем оценки группы для отображения');
+                }
+                return;
+            }
+
             const response = await window.authFetch(`${API_URL}/api/admin/all-ratings`);
+            if (response.status === 403) {
+                console.log('🔒 Нет прав администратора, оценки других пользователей не загружены');
+                allUserRatings = {};
+                return;
+            }
             if (response.ok) {
                 allUserRatings = await response.json();
                 console.log('⭐ Загружены оценки всех пользователей:', allUserRatings);
@@ -83,36 +126,56 @@
             }
         } catch (error) {
             console.error('Ошибка загрузки оценок:', error);
+            allUserRatings = {};
         }
     }
 
     // ========== ЗАГРУЗКА ПРОСМОТРЕННЫХ ФИЛЬМОВ ==========
     async function loadWatchedProjects() {
         try {
-            console.log('📡 Загружаем просмотренные фильмы...');
+            console.log(`📡 Загружаем просмотренные фильмы (режим: ${currentMode})...`);
 
-            let allProjects = [];
+            let projects = [];
 
-            // Пробуем загрузить из новой системы
-            const response = await window.authFetch(`${API_URL}/api/user/projects/list`);
-            if (response.ok) {
-                const projects = await response.json();
-                allProjects = projects.filter(p => p.status === 'watched').map(p => ({
-                    ...p.data,
-                    id: p.project_id,
-                    user_status: p.status
-                }));
-            } else if (response.status === 404) {
-                // Fallback на старую систему
-                const oldResponse = await fetch(`${API_URL}/projects`);
-                if (oldResponse.ok) {
-                    const oldProjects = await oldResponse.json();
-                    allProjects = oldProjects.filter(p => p.watched === true);
+            if (currentMode === 'personal') {
+                const response = await window.authFetch(`${API_URL}/api/user/projects/list`);
+                if (response.ok) {
+                    const userProjects = await response.json();
+                    projects = userProjects
+                        .filter(p => p.status === 'watched')
+                        .map(p => ({
+                            ...p.data,
+                            id: p.project_id,
+                            user_status: p.status
+                        }));
+                    console.log(`✅ Загружено ${projects.length} фильмов из личного каталога`);
+                } else {
+                    console.error('Ошибка загрузки личных проектов:', response.status);
                 }
+            } else if (selectedGroupId) {
+                const response = await window.authFetch(`${API_URL}/api/groups/${selectedGroupId}/projects`);
+                if (response.ok) {
+                    const groupProjects = await response.json();
+                    console.log('🔍 Первый проект из группы:', groupProjects[0]);
+                    projects = groupProjects
+                        .filter(p => p.status === 'watched')
+                        .map(p => ({
+                            ...p.data,
+                            id: p.project_id,
+                            group_project_id: p.id,
+                            user_status: p.status
+                        }));
+                    console.log(`✅ Загружено ${projects.length} фильмов из группы`);
+                } else {
+                    console.error('Ошибка загрузки групповых проектов:', response.status);
+                }
+            } else {
+                console.log('⚠️ Групповой режим выбран, но группа не выбрана');
             }
 
-            myProjects = allProjects;
-            console.log(`✅ Загружено ${myProjects.length} просмотренных фильмов`);
+            myProjects = projects;
+            console.log(`✅ Итого просмотренных фильмов: ${myProjects.length}`);
+            console.log('📋 myProjects:', myProjects);
 
             renderProjects();
             updateStats();
@@ -120,7 +183,113 @@
         } catch (error) {
             console.error('Ошибка загрузки:', error);
             showError('Ошибка загрузки: ' + error.message);
+            myProjects = [];
+            renderProjects();
         }
+    }
+
+    // ========== УПРАВЛЕНИЕ ГРУППАМИ ==========
+    async function loadUserGroups() {
+        try {
+            const response = await window.authFetch(`${API_URL}/api/groups`);
+            if (response.ok) {
+                userGroups = await response.json();
+                console.log(`👥 Загружено групп: ${userGroups.length}`);
+                renderGroupSelector();
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки групп:', error);
+            userGroups = [];
+        }
+    }
+
+    function renderGroupSelector() {
+        const container = document.getElementById('groupSelector');
+        if (!container) return;
+
+        if (userGroups.length === 0) {
+            container.innerHTML = '<select disabled><option>Нет групп</option></select>';
+            return;
+        }
+
+        container.innerHTML = `
+            <select id="groupSelect" onchange="window.selectGroup(this.value)">
+                <option value="">-- Выберите группу --</option>
+                ${userGroups.map(group => `
+                    <option value="${group.id}" ${selectedGroupId === group.id ? 'selected' : ''}>
+                        ${escapeHtml(group.name)} (${group.role === 'admin' ? 'admin' : 'участник'})
+                    </option>
+                `).join('')}
+            </select>
+            <button class="refresh-group-btn" onclick="window.refreshGroupProjects()">🔄</button>
+        `;
+    }
+
+    window.selectGroup = function (groupId) {
+        selectedGroupId = groupId || null;
+        if (groupId) {
+            localStorage.setItem('selected_group', groupId);
+        } else {
+            localStorage.removeItem('selected_group');
+        }
+        if (currentMode === 'group') {
+            loadAllRatings().then(() => loadWatchedProjects());
+        }
+    };
+
+    window.refreshGroupProjects = function () {
+        if (selectedGroupId && currentMode === 'group') {
+            loadAllRatings().then(() => loadWatchedProjects());
+            showSuccess('Проекты группы обновлены');
+        }
+    };
+
+    // ========== ПЕРЕКЛЮЧАТЕЛЬ РЕЖИМОВ ==========
+    function setupModeToggle() {
+        const modeToggle = document.getElementById('modeToggle');
+        const personalLabel = document.querySelector('.mode-label.personal');
+        const groupLabel = document.querySelector('.mode-label.group');
+        const groupSelector = document.getElementById('groupSelector');
+
+        if (!modeToggle) {
+            console.warn('⚠️ modeToggle не найден на странице');
+            return;
+        }
+
+        function updateModeUI() {
+            console.log('🔄 Обновляем UI режима:', currentMode);
+
+            if (currentMode === 'personal') {
+                if (personalLabel) personalLabel.classList.add('active');
+                if (groupLabel) groupLabel.classList.remove('active');
+                if (groupSelector) groupSelector.style.display = 'none';
+                modeToggle.classList.remove('group-mode');
+            } else {
+                if (personalLabel) personalLabel.classList.remove('active');
+                if (groupLabel) groupLabel.classList.add('active');
+                if (groupSelector) groupSelector.style.display = 'flex';
+                modeToggle.classList.add('group-mode');
+            }
+        }
+
+        const newToggle = modeToggle.cloneNode(true);
+        modeToggle.parentNode.replaceChild(newToggle, modeToggle);
+
+        newToggle.addEventListener('click', (e) => {
+            console.log('🖱️ Клик по переключателю');
+            currentMode = currentMode === 'personal' ? 'group' : 'personal';
+            localStorage.setItem('ratings_mode', currentMode);
+            console.log('📌 Режим изменён на:', currentMode);
+            updateModeUI();
+
+            loadAllRatings().then(() => loadWatchedProjects());
+
+            window.dispatchEvent(new CustomEvent('modeChanged', {
+                detail: { mode: currentMode, groupId: selectedGroupId }
+            }));
+        });
+
+        updateModeUI();
     }
 
     // ========== УДАЛЕНИЕ ПРОЕКТА ==========
@@ -128,11 +297,27 @@
         if (!confirm('Удалить проект из просмотренных?')) return;
 
         try {
-            const response = await window.authFetch(`${API_URL}/api/user/projects/${projectId}/status`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: 'planned' })
-            });
+            let response;
+
+            if (currentMode === 'group' && selectedGroupId) {
+                const project = myProjects.find(p => p.id === projectId);
+                const groupProjectId = project?.group_project_id;
+                if (!groupProjectId) {
+                    showError('Не удалось идентифицировать групповой проект');
+                    return;
+                }
+                response = await window.authFetch(`${API_URL}/api/groups/${selectedGroupId}/projects/${groupProjectId}/status`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: 'planned' })
+                });
+            } else {
+                response = await window.authFetch(`${API_URL}/api/user/projects/${projectId}/status`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: 'planned' })
+                });
+            }
 
             if (!response.ok) throw new Error(`Ошибка удаления: ${response.status}`);
 
@@ -165,7 +350,6 @@
         if (!project) return;
 
         currentProject = project;
-
         body.classList.add('modal-open');
 
         const posterEmoji = project.type === 'Аниме' ? '🇯🇵' :
@@ -176,9 +360,10 @@
             ? `<div class="modal-poster" style="background-image: url('${project.poster}');"></div>`
             : `<div class="modal-poster no-poster">${posterEmoji}</div>`;
 
-        // Получаем всех пользователей, которые оценили этот фильм
+        const ratingsSource = (currentMode === 'group' && selectedGroupId) ? groupRatings : allUserRatings;
+
         const usersWithRatings = [];
-        for (const [username, ratings] of Object.entries(allUserRatings)) {
+        for (const [username, ratings] of Object.entries(ratingsSource)) {
             if (ratings[projectId]) {
                 usersWithRatings.push({
                     username: username,
@@ -188,7 +373,6 @@
             }
         }
 
-        // Сортируем по оценке (от высшей к низшей)
         usersWithRatings.sort((a, b) => (b.rating || 0) - (a.rating || 0));
 
         const currentUserRating = userRatings[projectId];
@@ -244,11 +428,6 @@
                 </div>
             `}
             
-            <div class="modal-notes">
-                <label>📝 Общие заметки</label>
-                <textarea id="modal-notes" rows="3" placeholder="Общие впечатления о фильме...">${project.notes || ''}</textarea>
-            </div>
-            
             <div class="modal-buttons">
                 <button class="modal-btn cancel" onclick="closeRatingModal()">Закрыть</button>
             </div>
@@ -264,7 +443,6 @@
     };
 
     window.rateThisFilm = function (projectId) {
-        // Перенаправляем на профиль для оценки
         window.location.href = `profile.html?rate=${projectId}`;
     };
 
@@ -275,18 +453,21 @@
     // ========== СТАТИСТИКА ==========
     function updateStats() {
         const total = myProjects.length;
-        statsDiv.textContent = `📊 Всего оценённых фильмов: ${total}`;
+        if (statsDiv) statsDiv.textContent = `📊 Всего оценённых фильмов: ${total}`;
     }
 
     // ========== ФИЛЬТРАЦИЯ ==========
     function getFilteredProjects() {
         if (currentFilter === 'all') return myProjects;
-        return myProjects.filter(p => p.type === currentFilter);
+        return myProjects.filter(p => (p.type || 'Фильм') === currentFilter);
     }
 
     // ========== ОТРИСОВКА КАРТОЧЕК ==========
     function renderProjects() {
+        console.log('🎨 renderProjects() вызван, myProjects.length:', myProjects.length);
+        
         const filtered = getFilteredProjects();
+        console.log('🎨 filtered.length:', filtered.length);
 
         if (filtered.length === 0) {
             projectsGrid.innerHTML = `
@@ -294,7 +475,9 @@
                     <span>⭐</span>
                     <p>Пока нет просмотренных фильмов</p>
                     <p style="font-size: 1rem; margin-top: 10px; color: #6b729b;">
-                        Отмечайте фильмы галочкой ✅ в каталоге, а затем оценивайте их в профиле
+                        ${currentMode === 'group' && !selectedGroupId
+                            ? 'Выберите группу в переключателе режимов'
+                            : 'Отмечайте фильмы галочкой ✅ в каталоге, а затем оценивайте их в профиле'}
                     </p>
                 </div>
             `;
@@ -308,10 +491,11 @@
             else if (project.type === 'Сериал') posterEmoji = '📺';
             else if (project.type === 'Мультфильм') posterEmoji = '🖍️';
 
-            // Считаем среднюю оценку
+            const ratingsSource = (currentMode === 'group' && selectedGroupId) ? groupRatings : allUserRatings;
+
             let totalRating = 0;
             let ratingCount = 0;
-            for (const [username, ratings] of Object.entries(allUserRatings)) {
+            for (const [username, ratings] of Object.entries(ratingsSource)) {
                 if (ratings[project.id] && ratings[project.id].rating) {
                     totalRating += ratings[project.id].rating;
                     ratingCount++;
@@ -322,13 +506,13 @@
 
             const posterHtml = project.poster
                 ? `<div class="poster" style="background-image: url('${project.poster}');">
-                     <div class="rating-badge">${project.rating}</div>
+                     <div class="rating-badge">${project.rating || '—'}</div>
                      ${averageRating ? `<div class="average-rating-badge">⭐ ${averageRating}</div>` : ''}
                      ${userHasRated ? `<div class="user-rated-badge">✓ Оценено</div>` : ''}
                    </div>`
                 : `<div class="poster">
                      <div class="no-poster">${posterEmoji}</div>
-                     <div class="rating-badge">${project.rating}</div>
+                     <div class="rating-badge">${project.rating || '—'}</div>
                      ${averageRating ? `<div class="average-rating-badge">⭐ ${averageRating}</div>` : ''}
                      ${userHasRated ? `<div class="user-rated-badge">✓ Оценено</div>` : ''}
                    </div>`;
@@ -339,9 +523,9 @@
                     ${posterHtml}
                     <div class="card-content">
                         <div class="card-title">${escapeHtml(project.title_ru || project.title)}</div>
-                        <span class="card-type">${project.type}</span>
+                        <span class="card-type">${project.type || 'Фильм'}</span>
                         <div class="card-meta">
-                            <span>📅 ${project.year}</span>
+                            <span>📅 ${project.year || '—'}</span>
                             <span>👥 ${ratingCount} ${getRatingWord(ratingCount)}</span>
                         </div>
                     </div>
@@ -385,11 +569,22 @@
         }, 2000);
     }
 
-    // ========== СЛУШАЕМ СОБЫТИЯ ОБНОВЛЕНИЯ ==========
+    // ========== СЛУШАЕМ СОБЫТИЯ ==========
     window.addEventListener('ratingsUpdated', () => {
         loadAllRatings();
         loadUserRatings();
-        renderProjects();
+        loadWatchedProjects();
+    });
+
+    window.addEventListener('modeChanged', (event) => {
+        if (event.detail.mode !== currentMode) {
+            currentMode = event.detail.mode;
+            selectedGroupId = event.detail.groupId;
+            localStorage.setItem('ratings_mode', currentMode);
+            if (selectedGroupId) localStorage.setItem('selected_group', selectedGroupId);
+            setupModeToggle();
+            loadAllRatings().then(() => loadWatchedProjects());
+        }
     });
 
     // ========== ИНИЦИАЛИЗАЦИЯ ==========
@@ -397,9 +592,10 @@
         await loadCurrentUser();
         await loadUserRatings();
         await loadAllRatings();
+        await loadUserGroups();
+        setupModeToggle();
         await loadWatchedProjects();
 
-        // Обновляем оценки каждые 30 секунд
         setInterval(async () => {
             await loadAllRatings();
             await loadUserRatings();
@@ -408,15 +604,17 @@
     }
 
     // ========== ФИЛЬТРЫ ==========
-    filterButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            filterButtons.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            currentFilter = btn.dataset.filter;
-            renderProjects();
-            updateStats();
+    if (filterButtons) {
+        filterButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                filterButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentFilter = btn.dataset.filter;
+                renderProjects();
+                updateStats();
+            });
         });
-    });
+    }
 
     init();
 })();

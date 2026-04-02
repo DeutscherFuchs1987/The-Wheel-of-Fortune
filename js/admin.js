@@ -16,6 +16,8 @@
         }, 100);
     });
 
+
+    
     async function checkAndInit() {
         const token = localStorage.getItem('auth_token');
         

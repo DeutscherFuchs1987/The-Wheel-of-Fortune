@@ -298,3 +298,4 @@ window.requireAuth = requireAuth;
 window.requireAdmin = requireAdmin;
 window.authFetch = authFetch;
 window.currentUser = currentUser;
+
