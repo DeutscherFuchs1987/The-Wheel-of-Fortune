@@ -5,12 +5,16 @@
     let currentRatingProject = null;
     let allProjects = [];
     let userProgress = [];
-    let userVotes = {};
     let userGroups = [];
     let userRatings = {};
     let watchedProjects = [];
     let currentMode = 'personal';
     let selectedGroupId = null;
+
+    // Переменные для голосования
+    let currentVotingCycle = null;
+    let groupMembers = [];
+    let currentVoteSelections = [];
 
     // ========== ЗАГРУЗКА ДАННЫХ ПРИ СТАРТЕ ==========
     document.addEventListener('DOMContentLoaded', async () => {
@@ -33,6 +37,7 @@
                 await loadUserGroups();
                 await loadUserRatings();
                 setupModeToggle();
+                setupVotingSystem();
             } else {
                 console.log('❌ Не авторизован, редирект на главную');
                 window.location.href = 'index.html';
@@ -46,18 +51,13 @@
     async function loadProfileData() {
         try {
             showLoading();
-
             await loadAllProjects();
             await loadUserProgress();
-            await loadUserVotes();
             await loadWatchedProjects();
-
             updateStats();
             renderProgressList();
             renderWatchedList();
             renderPlannedList();
-            renderVotesList();
-
             hideLoading();
             console.log('✅ Данные профиля загружены');
         } catch (error) {
@@ -88,20 +88,6 @@
         } catch (error) {
             console.error('Ошибка загрузки прогресса:', error);
             userProgress = [];
-        }
-    }
-
-    async function loadUserVotes() {
-        try {
-            const response = await window.authFetch(`${API_URL}/api/voting/current-cycle`);
-            if (response.ok) {
-                const data = await response.json();
-                userVotes = data.votes || {};
-                console.log(`🗳️ Загружены голоса:`, userVotes);
-            }
-        } catch (error) {
-            console.error('Ошибка загрузки голосов:', error);
-            userVotes = {};
         }
     }
 
@@ -162,6 +148,442 @@
         }
     }
 
+    // ========== НОВАЯ СИСТЕМА ГОЛОСОВАНИЯ ==========
+    async function setupVotingSystem() {
+        // Загружаем информацию о группе при её выборе
+        if (currentMode === 'group' && selectedGroupId) {
+            await loadGroupVotingInfo();
+        }
+    }
+
+    async function loadGroupVotingInfo() {
+        if (!selectedGroupId) return;
+
+        try {
+            // Загружаем участников группы
+            const membersResponse = await window.authFetch(`${API_URL}/api/groups/${selectedGroupId}/members`);
+            if (membersResponse.ok) {
+                groupMembers = await membersResponse.json();
+                console.log('👥 Участники группы:', groupMembers);
+            }
+
+            // Загружаем активный цикл голосования
+            const cycleResponse = await window.authFetch(`${API_URL}/api/voting/group/${selectedGroupId}/current`);
+            if (cycleResponse.ok) {
+                currentVotingCycle = await cycleResponse.json();
+                console.log('🔄 Активный цикл голосования:', currentVotingCycle);
+                updateVotingUI();
+            } else {
+                currentVotingCycle = null;
+                updateVotingUI();
+            }
+
+            // Загружаем историю голосований
+            await loadVotingHistory();
+
+        } catch (error) {
+            console.error('Ошибка загрузки информации о голосовании:', error);
+        }
+    }
+
+    async function loadVotingHistory() {
+        try {
+            const response = await window.authFetch(`${API_URL}/api/voting/group/${selectedGroupId}/history`);
+            if (response.ok) {
+                const history = await response.json();
+                renderVotingHistory(history);
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки истории:', error);
+        }
+    }
+
+    function updateVotingUI() {
+        const adminControls = document.getElementById('adminVotingControls');
+        const userPanel = document.getElementById('userVotingPanel');
+        const statusBadge = document.getElementById('votingStatusBadge');
+        const statusMessage = document.getElementById('votingStatusMessage');
+        const currentResults = document.getElementById('currentVotingResults');
+
+        const isAdmin = groupMembers.find(m => m.user_id === currentUser.id)?.role === 'admin';
+
+        if (!currentVotingCycle || currentVotingCycle.status === 'completed' || currentVotingCycle.status === 'cancelled') {
+            // Голосование не активно
+            statusBadge.textContent = '⚪ Не активно';
+            statusBadge.style.color = '#a3b7f0';
+            if (statusMessage) {
+                statusMessage.innerHTML = '';
+                statusMessage.className = 'voting-status-message inactive';
+            }
+            if (adminControls) adminControls.style.display = 'none';
+            if (userPanel) userPanel.style.display = 'none';
+            if (currentResults) currentResults.style.display = 'none';
+
+            // Показываем кнопку начала голосования только админу
+            if (isAdmin && adminControls) {
+                adminControls.style.display = 'block';
+                document.getElementById('voteProgress').style.display = 'none';
+                document.getElementById('startVoteBtn').style.display = 'block';
+            }
+            return;
+        }
+
+        // Голосование активно
+        statusBadge.textContent = '🟢 Активно';
+        statusBadge.style.color = '#4CAF50';
+        if (statusMessage) {
+            statusMessage.innerHTML = `🎯 Голосование активно! Выберите от 1 до 3 фильмов. Осталось времени: <span id="voteTimer"></span>`;
+            statusMessage.className = 'voting-status-message active';
+        }
+
+        // Проверял, голосовал ли текущий пользователь
+        const hasVoted = currentVotingCycle.votes && currentVotingCycle.votes[currentUser?.username];
+
+        if (hasVoted) {
+            if (userPanel) {
+                userPanel.style.display = 'block';
+                const voteBtn = document.getElementById('castVoteBtn');
+                if (voteBtn) {
+                    voteBtn.textContent = '✏️ Изменить голос';
+                    voteBtn.style.background = '#ffd966';
+                }
+            }
+        } else {
+            if (userPanel) {
+                userPanel.style.display = 'block';
+                const voteBtn = document.getElementById('castVoteBtn');
+                if (voteBtn) {
+                    voteBtn.textContent = '🗳️ Проголосовать';
+                    voteBtn.style.background = '#5f4bb6';
+                }
+            }
+        }
+
+        // Админская панель
+        if (isAdmin && adminControls) {
+            adminControls.style.display = 'block';
+            document.getElementById('startVoteBtn').style.display = 'none';
+            document.getElementById('voteProgress').style.display = 'block';
+
+            const votedCount = Object.keys(currentVotingCycle.votes || {}).length;
+            const totalMembers = groupMembers.length;
+            const votedUsers = Object.keys(currentVotingCycle.votes || {});
+
+            document.getElementById('votedCount').textContent = votedCount;
+            document.getElementById('totalMembers').textContent = totalMembers;
+            const percent = (votedCount / totalMembers) * 100;
+            document.getElementById('voteProgressFill').style.width = `${percent}%`;
+
+            const votedUsersList = document.getElementById('votedUsersList');
+            if (votedUsersList) {
+                votedUsersList.innerHTML = `Проголосовали: ${votedUsers.map(u => `👤 ${u}`).join(' • ') || '—'}`;
+            }
+        }
+
+        // Показываем текущие результаты
+        if (currentResults && currentVotingCycle.results) {
+            currentResults.style.display = 'block';
+            renderCurrentVotingResults(currentVotingCycle.results);
+        }
+
+        // Запускаем таймер
+        if (currentVotingCycle.expires_at) {
+            startVoteTimer(currentVotingCycle.expires_at);
+        }
+    }
+
+    function renderCurrentVotingResults(results) {
+        const container = document.getElementById('currentVotingList');
+        if (!container) return;
+
+        const sortedResults = Object.entries(results).sort((a, b) => b[1] - a[1]).slice(0, 10);
+
+        if (sortedResults.length === 0) {
+            container.innerHTML = '<div class="empty-state">Пока нет голосов</div>';
+            return;
+        }
+
+        container.innerHTML = sortedResults.map(([filmId, votes]) => {
+            const project = allProjects.find(p => p.id === filmId);
+            const title = project?.title_ru || project?.title || filmId;
+            return `
+                <div class="leader-item">
+                    <span class="leader-title">${escapeHtml(title)}</span>
+                    <span class="leader-votes">🎯 ${votes} голосов</span>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function renderVotingHistory(history) {
+        const container = document.getElementById('votesHistory');
+        if (!container) return;
+
+        if (!history || history.length === 0) {
+            container.innerHTML = '<div class="empty-state"><span>📊</span><p>История голосований пуста</p></div>';
+            return;
+        }
+
+        container.innerHTML = history.map(cycle => `
+            <div class="history-item">
+                <div class="history-date">${formatDate(cycle.created_at)}</div>
+                <div class="history-status ${cycle.status}">${cycle.status === 'completed' ? '✅ Завершено' : '❌ Отменено'}</div>
+            </div>
+        `).join('');
+    }
+
+    function startVoteTimer(expiresAt) {
+        const timerElement = document.getElementById('voteTimer');
+        if (!timerElement) return;
+
+        const updateTimer = () => {
+            const now = new Date();
+            const expires = new Date(expiresAt);
+            const diff = expires - now;
+
+            if (diff <= 0) {
+                timerElement.textContent = '0:00';
+                clearInterval(timerInterval);
+                loadGroupVotingInfo(); // Обновляем статус
+                return;
+            }
+
+            const minutes = Math.floor(diff / 60000);
+            const seconds = Math.floor((diff % 60000) / 1000);
+            timerElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        };
+
+        updateTimer();
+        const timerInterval = setInterval(updateTimer, 1000);
+        window.voteTimerInterval = timerInterval;
+    }
+
+    // Запуск голосования (только для админа)
+    window.startGroupVoting = async function () {
+        if (!selectedGroupId) {
+            showError('Сначала выберите группу');
+            return;
+        }
+
+        const isAdmin = groupMembers.find(m => m.user_id === currentUser.id)?.role === 'admin';
+        if (!isAdmin) {
+            showError('Только администратор группы может начать голосование');
+            return;
+        }
+
+        showLoading();
+
+        try {
+            const response = await window.authFetch(`${API_URL}/api/voting/group/${selectedGroupId}/start`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ duration_minutes: 1440 }) // 24 часа
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                showSuccess('Голосование начато!');
+                await loadGroupVotingInfo();
+            } else {
+                showError(data.error || 'Ошибка начала голосования');
+            }
+        } catch (error) {
+            console.error('Ошибка:', error);
+            showError('Ошибка сети');
+        } finally {
+            hideLoading();
+        }
+    };
+
+    // Завершение голосования (только для админа)
+    window.endGroupVoting = async function () {
+        if (!selectedGroupId || !currentVotingCycle) {
+            showError('Нет активного голосования');
+            return;
+        }
+
+        const isAdmin = groupMembers.find(m => m.user_id === currentUser.id)?.role === 'admin';
+        if (!isAdmin) {
+            showError('Только администратор может завершить голосование');
+            return;
+        }
+
+        if (!confirm('Завершить голосование и сохранить бусты?')) return;
+
+        showLoading();
+
+        try {
+            const response = await window.authFetch(`${API_URL}/api/voting/group/${selectedGroupId}/end`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                showSuccess('Голосование завершено! Бусты добавлены.');
+                await loadGroupVotingInfo();
+                // Оповещаем другие страницы об обновлении бустов
+                window.dispatchEvent(new CustomEvent('ratingsUpdated'));
+            } else {
+                showError(data.error || 'Ошибка завершения голосования');
+            }
+        } catch (error) {
+            console.error('Ошибка:', error);
+            showError('Ошибка сети');
+        } finally {
+            hideLoading();
+        }
+    };
+
+    // Отмена голосования (только для админа)
+    window.cancelGroupVoting = async function () {
+        if (!selectedGroupId || !currentVotingCycle) {
+            showError('Нет активного голосования');
+            return;
+        }
+
+        const isAdmin = groupMembers.find(m => m.user_id === currentUser.id)?.role === 'admin';
+        if (!isAdmin) {
+            showError('Только администратор может отменить голосование');
+            return;
+        }
+
+        if (!confirm('Отменить голосование? Бусты НЕ будут добавлены.')) return;
+
+        showLoading();
+
+        try {
+            const response = await window.authFetch(`${API_URL}/api/voting/group/${selectedGroupId}/cancel`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                showSuccess('Голосование отменено');
+                await loadGroupVotingInfo();
+            } else {
+                showError(data.error || 'Ошибка отмены голосования');
+            }
+        } catch (error) {
+            console.error('Ошибка:', error);
+            showError('Ошибка сети');
+        } finally {
+            hideLoading();
+        }
+    };
+
+    // Открытие модалки голосования
+    window.openVoteModal = async function () {
+        if (!selectedGroupId || !currentVotingCycle) {
+            showError('Нет активного голосования');
+            return;
+        }
+
+        // Загружаем список фильмов группы (только planned)
+        const response = await window.authFetch(`${API_URL}/api/groups/${selectedGroupId}/projects`);
+        if (!response.ok) {
+            showError('Не удалось загрузить фильмы');
+            return;
+        }
+
+        const projects = await response.json();
+        const plannedProjects = projects.filter(p => p.status === 'planned');
+
+        if (plannedProjects.length === 0) {
+            showError('В группе нет фильмов в планах для голосования');
+            return;
+        }
+
+        // Текущие голоса пользователя
+        const currentUserVotes = currentVotingCycle.votes?.[currentUser?.username] || [];
+
+        const modal = document.getElementById('voteModal');
+        const moviesList = document.getElementById('voteMoviesList');
+        const counter = document.getElementById('voteCounter');
+        const submitBtn = document.getElementById('submitVoteBtn');
+
+        currentVoteSelections = [...currentUserVotes];
+
+        moviesList.innerHTML = plannedProjects.map(project => {
+            const isSelected = currentVoteSelections.includes(project.project_id);
+            return `
+                <div class="vote-movie-item ${isSelected ? 'selected' : ''}" data-film-id="${project.project_id}">
+                    <div class="vote-movie-check">${isSelected ? '✓' : '○'}</div>
+                    <div class="vote-movie-title">${escapeHtml(project.data?.title_ru || project.data?.title || 'Без названия')}</div>
+                </div>
+            `;
+        }).join('');
+
+        function updateVoteCounter() {
+            counter.textContent = `Выбрано: ${currentVoteSelections.length} (от 1 до 3)`;
+            submitBtn.disabled = currentVoteSelections.length < 1 || currentVoteSelections.length > 3;
+        }
+
+        document.querySelectorAll('.vote-movie-item').forEach(item => {
+            item.onclick = () => {
+                const filmId = item.dataset.filmId;
+                const index = currentVoteSelections.indexOf(filmId);
+
+                if (index !== -1) {
+                    currentVoteSelections.splice(index, 1);
+                    item.classList.remove('selected');
+                    item.querySelector('.vote-movie-check').textContent = '○';
+                } else if (currentVoteSelections.length < 3) {
+                    currentVoteSelections.push(filmId);
+                    item.classList.add('selected');
+                    item.querySelector('.vote-movie-check').textContent = '✓';
+                } else {
+                    showError('Можно выбрать не более 3 фильмов');
+                }
+                updateVoteCounter();
+            };
+        });
+
+        updateVoteCounter();
+        modal.style.display = 'flex';
+        document.getElementById('modalOverlay').style.display = 'block';
+    };
+
+    window.closeVoteModal = function () {
+        document.getElementById('voteModal').style.display = 'none';
+        document.getElementById('modalOverlay').style.display = 'none';
+        currentVoteSelections = [];
+    };
+
+    window.submitVote = async function () {
+        if (currentVoteSelections.length < 1 || currentVoteSelections.length > 3) {
+            showError('Выберите от 1 до 3 фильмов');
+            return;
+        }
+
+        showLoading();
+
+        try {
+            const response = await window.authFetch(`${API_URL}/api/voting/group/${selectedGroupId}/vote`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    film_ids: currentVoteSelections
+                })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                showSuccess('Ваш голос сохранён!');
+                closeVoteModal();
+                await loadGroupVotingInfo();
+            } else {
+                showError(data.error || 'Ошибка сохранения голоса');
+            }
+        } catch (error) {
+            console.error('Ошибка:', error);
+            showError('Ошибка сети');
+        } finally {
+            hideLoading();
+        }
+    };
+
     // ========== ФУНКЦИИ ДЛЯ ГРУПП ==========
     async function loadUserGroups() {
         try {
@@ -198,7 +620,6 @@
                 renderProgressList();
                 renderWatchedList();
                 renderPlannedList();
-                renderVotesList();
             }
         } catch (error) {
             console.error('Ошибка загрузки личных проектов:', error);
@@ -222,7 +643,6 @@
                 renderProgressList();
                 renderWatchedList();
                 renderPlannedList();
-                renderVotesList();
             }
         } catch (error) {
             console.error('Ошибка загрузки групповых проектов:', error);
@@ -269,6 +689,7 @@
         if (currentMode === 'group') {
             loadGroupProjects(groupId);
             loadWatchedProjects().then(() => renderWatchedList());
+            loadGroupVotingInfo();
         }
     };
 
@@ -276,6 +697,7 @@
         if (selectedGroupId && currentMode === 'group') {
             loadGroupProjects(selectedGroupId);
             loadWatchedProjects().then(() => renderWatchedList());
+            loadGroupVotingInfo();
             showSuccess('Проекты группы обновлены');
         }
     };
@@ -373,6 +795,7 @@
                 if (selectedGroupId) {
                     loadGroupProjects(selectedGroupId);
                     loadWatchedProjects().then(() => renderWatchedList());
+                    loadGroupVotingInfo();
                 }
             }
         }
@@ -555,43 +978,6 @@
                 </div>
             `;
         }).join('');
-    }
-
-    function renderVotesList() {
-        const container = document.getElementById('votesList');
-        const countEl = document.getElementById('votesCount');
-
-        const currentUserVotes = userVotes[currentUser?.username] || [];
-        countEl.textContent = `${currentUserVotes.length}/3`;
-
-        if (currentUserVotes.length === 0) {
-            container.innerHTML = '<div class="empty-state"><span>🗳️</span><p>Вы ещё не голосовали в этом цикле</p></div>';
-        } else {
-            const votedMovies = currentUserVotes.map(filmId => {
-                const project = allProjects.find(p => p.id === filmId);
-                const boost = window.filmBoosts?.[filmId] || 0;
-                return { project, boost };
-            }).filter(item => item.project);
-
-            container.innerHTML = `
-                <div class="votes-grid">
-                    ${votedMovies.map(item => `
-                        <div class="vote-item">
-                            <div class="item-title">${escapeHtml(item.project.title_ru || item.project.title)}</div>
-                            <div class="vote-boost">+${item.boost.toFixed(1)}</div>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-        }
-
-        const historyContainer = document.getElementById('votesHistory');
-        historyContainer.innerHTML = `
-            <div class="empty-state">
-                <span>📊</span>
-                <p>История голосований будет доступна позже</p>
-            </div>
-        `;
     }
 
     // ========== ОТРИСОВКА ГРУПП ==========
@@ -834,7 +1220,6 @@
         if (modalYear) modalYear.textContent = project.year || '—';
         if (modalKp) modalKp.textContent = `Кинопоиск: ${project.rating || '—'}`;
 
-        // Устанавливаем постер
         if (modalPoster) {
             if (project.poster) {
                 modalPoster.style.backgroundImage = `url('${project.poster}')`;
@@ -852,7 +1237,6 @@
             }
         }
 
-        // Устанавливаем текущую оценку
         if (ratingSlider && ratingInput) {
             if (currentRating) {
                 ratingSlider.value = currentRating;
@@ -865,7 +1249,6 @@
             }
         }
 
-        // Устанавливаем заметки
         if (ratingNotes) {
             ratingNotes.value = currentNotes || '';
         }
@@ -920,7 +1303,6 @@
         showLoading();
 
         try {
-            // 1. Сохраняем оценку
             const response = await window.authFetch(`${API_URL}/api/user/ratings`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -936,13 +1318,10 @@
                 throw new Error(error.error || 'Ошибка сохранения оценки');
             }
 
-            // 2. ОБЯЗАТЕЛЬНО: создаём/обновляем запись в user_projects со статусом 'watched'
             try {
-                // Получаем данные фильма из watchedProjects или загружаем
                 let projectData = watchedProjects.find(p => p.id === currentRatingProject.id);
 
                 if (!projectData) {
-                    // Пробуем загрузить данные фильма из старой системы или через API
                     const projectResponse = await fetch(`${API_URL}/projects/${currentRatingProject.id}`);
                     if (projectResponse.ok) {
                         projectData = await projectResponse.json();
@@ -950,13 +1329,11 @@
                 }
 
                 if (projectData) {
-                    // Проверяем, есть ли уже проект в user_projects
                     const listResponse = await window.authFetch(`${API_URL}/api/user/projects/list`);
                     const userProjects = await listResponse.json();
                     const existingProject = userProjects.find(p => p.project_id === currentRatingProject.id);
 
                     if (!existingProject) {
-                        // Создаём новую запись
                         await window.authFetch(`${API_URL}/api/user/projects/list`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -968,7 +1345,6 @@
                         });
                         console.log('✅ Проект добавлен в user_projects со статусом watched');
                     } else if (existingProject.status !== 'watched') {
-                        // Обновляем статус существующей записи
                         await window.authFetch(`${API_URL}/api/user/projects/${currentRatingProject.id}/status`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
@@ -976,23 +1352,18 @@
                         });
                         console.log('✅ Статус проекта обновлён на watched');
                     }
-                } else {
-                    console.warn('⚠️ Не удалось получить данные фильма, запись в user_projects не создана');
                 }
             } catch (statusError) {
                 console.error('Ошибка при работе с user_projects:', statusError);
-                // Не прерываем выполнение — оценка уже сохранена
             }
 
             showSuccess(rating ? `Оценка ${rating}/10 сохранена!` : 'Заметки сохранены!');
             closeRatingModal();
 
-            // 3. Перезагружаем все данные
             await loadUserRatings();
-            await loadWatchedProjects();  // Обновляем список просмотренных
-            renderWatchedList();           // Обновляем отображение в профиле
+            await loadWatchedProjects();
+            renderWatchedList();
 
-            // 4. Оповещаем страницу оценок об обновлении
             window.dispatchEvent(new CustomEvent('ratingsUpdated'));
 
         } catch (error) {
@@ -1306,4 +1677,12 @@
     window.clearRating = clearRating;
     window.saveRating = saveRating;
     window.removeFromWatched = removeFromWatched;
+
+    // Экспорт функций голосования
+    window.startGroupVoting = startGroupVoting;
+    window.endGroupVoting = endGroupVoting;
+    window.cancelGroupVoting = cancelGroupVoting;
+    window.openVoteModal = openVoteModal;
+    window.closeVoteModal = closeVoteModal;
+    window.submitVote = submitVote;
 })();

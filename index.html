@@ -35,19 +35,22 @@
             </div>
         </div>
 
-        <!-- Панель голосования -->
-        <div class="voting-panel">
-            <div class="voting-info">
-                <span class="voting-title">🗳️ Голосование</span>
-                <span class="voting-stats" id="votingStats">0 активных голосов</span>
+        <!-- Переключатель режимов (личный/групповой) -->
+        <div class="mode-selector">
+            <div class="catalog-mode-toggle" id="catalogModeToggle">
+                <div class="toggle-track">
+                    <div class="toggle-thumb" id="catalogModeThumb"></div>
+                </div>
             </div>
-            <div class="voting-actions">
-                <button class="voting-btn primary" id="openVoteBtn">🗳️ Голосовать</button>
-                <button class="voting-btn secondary" id="showStatsBtn">📊 Статистика</button>
+            <div class="mode-labels">
+                <span class="mode-label personal active">👤 Личный каталог</span>
+                <span class="mode-label group">👥 Групповая библиотека</span>
             </div>
-            <div class="voters-indicator" id="votersIndicator" style="display: none;">
-                <span>Проголосовали:</span>
-                <span class="voters-list" id="votersList"></span>
+            <div class="group-selector" id="groupSelector" style="display: none;">
+                <select id="groupSelect" onchange="window.selectGroup(this.value)">
+                    <option value="">-- Выберите группу --</option>
+                </select>
+                <button class="refresh-group-btn" onclick="window.refreshGroupProjects()">🔄</button>
             </div>
         </div>
 
@@ -127,7 +130,8 @@
                 <button class="auth-btn submit" onclick="submitLogin()">Войти</button>
                 <button class="auth-btn cancel" onclick="closeAuthModal()">Отмена</button>
             </div>
-            <div class="auth-link" onclick="showRegisterModal(); closeAuthModal()">Нет аккаунта? Зарегистрироваться</div>
+            <div class="auth-link" onclick="showRegisterModal(); closeAuthModal()">Нет аккаунта? Зарегистрироваться
+            </div>
         </div>
     </div>
 

@@ -917,3 +917,127 @@ body.modal-open .projects-grid:not(.rating-modal-active) {
     background: #6f5bc6;
     transform: translateY(-2px);
 }
+
+
+/* ========== МОДАЛЬНЫЕ ОКНА АВТОРИЗАЦИИ ========== */
+
+/* Общий overlay */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(8px);
+    z-index: 9999;
+    display: none;
+}
+
+/* Модалки авторизации */
+.auth-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+.auth-modal-content {
+    background: #1a1f33;
+    border-radius: 40px;
+    padding: 30px;
+    width: 90%;
+    max-width: 400px;
+    border: 2px solid #5f4bb6;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+    animation: modalAppear 0.3s ease;
+}
+
+@keyframes modalAppear {
+    from {
+        opacity: 0;
+        transform: translateY(-30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.auth-modal h3 {
+    color: #ffd966;
+    font-size: 1.5rem;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.auth-input {
+    width: 100%;
+    padding: 12px 20px;
+    margin-bottom: 15px;
+    background: #0c1020;
+    border: 2px solid #3d435b;
+    border-radius: 30px;
+    color: white;
+    font-size: 1rem;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.auth-input:focus {
+    border-color: #5f4bb6;
+    box-shadow: 0 0 0 3px rgba(95, 75, 182, 0.3);
+}
+
+.auth-hint {
+    color: #a3b7f0;
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+    text-align: center;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 8px;
+    border-radius: 20px;
+}
+
+.auth-buttons {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 10px;
+}
+
+.auth-link {
+    text-align: center;
+    margin-top: 20px;
+    color: #ffd966;
+    font-size: 0.9rem;
+    cursor: pointer;
+    text-decoration: underline;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+}
+
+.auth-link:hover {
+    opacity: 1;
+}
+
+/* Адаптация для мобильных */
+@media (max-width: 768px) {
+    .auth-modal-content {
+        width: 95%;
+        padding: 20px;
+    }
+    
+    .auth-buttons {
+        flex-direction: column;
+    }
+    
+    .auth-btn {
+        width: 100%;
+        text-align: center;
+    }
+}

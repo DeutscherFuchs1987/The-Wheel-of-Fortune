@@ -35,6 +35,7 @@
             </div>
         </div>
 
+        <!-- Переключатель режимов (личный/групповой) -->
         <div class="mode-selector">
             <div class="mode-toggle" id="modeToggle">
                 <div class="toggle-track">
@@ -72,9 +73,45 @@
         <div class="projects-grid" id="projectsGrid"></div>
     </div>
 
+    <!-- Модалка с оценками -->
     <div class="rating-modal" id="ratingModal">
         <button class="close-modal" onclick="closeRatingModal()">✕</button>
         <div id="modalContent"></div>
+    </div>
+
+    <!-- ========== МОДАЛЬНЫЕ ОКНА АВТОРИЗАЦИИ ========== -->
+    
+    <!-- Общий overlay -->
+    <div class="modal-overlay" id="modalOverlay" style="display: none;"></div>
+
+    <!-- Модалка входа -->
+    <div class="auth-modal" id="loginModal">
+        <div class="auth-modal-content">
+            <h3>🔑 Вход</h3>
+            <input type="text" id="loginUsername" class="auth-input" placeholder="Логин" maxlength="50">
+            <input type="password" id="loginPassword" class="auth-input" placeholder="Пароль">
+            <div class="auth-hint">После входа вы сможете видеть оценки участников</div>
+            <div class="auth-buttons">
+                <button class="auth-btn submit" onclick="submitLogin()">Войти</button>
+                <button class="auth-btn cancel" onclick="closeAuthModal()">Отмена</button>
+            </div>
+            <div class="auth-link" onclick="showRegisterModal(); closeAuthModal()">Нет аккаунта? Зарегистрироваться</div>
+        </div>
+    </div>
+
+    <!-- Модалка регистрации -->
+    <div class="auth-modal" id="registerModal">
+        <div class="auth-modal-content">
+            <h3>📝 Регистрация</h3>
+            <input type="text" id="regUsername" class="auth-input" placeholder="Придумайте логин" maxlength="50">
+            <input type="password" id="regPassword" class="auth-input" placeholder="Придумайте пароль" minlength="4">
+            <div class="auth-hint">После регистрации нужно дождаться подтверждения админом</div>
+            <div class="auth-buttons">
+                <button class="auth-btn submit" onclick="submitRegistration()">Зарегистрироваться</button>
+                <button class="auth-btn cancel" onclick="closeAuthModal()">Отмена</button>
+            </div>
+            <div class="auth-link" onclick="showLoginModal(); closeAuthModal()">Уже есть аккаунт? Войти</div>
+        </div>
     </div>
 
     <script src="js/auth.js"></script>

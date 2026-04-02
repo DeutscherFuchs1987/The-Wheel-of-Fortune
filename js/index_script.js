@@ -22,6 +22,11 @@
     let titleToIdMap = {};
     let idToTitleMap = {};
 
+    // ========== ПЕРЕМЕННЫЕ ДЛЯ РЕЖИМА ==========
+    let currentMode = localStorage.getItem('catalog_mode') || 'personal';
+    let selectedGroupId = localStorage.getItem('selected_group') || null;
+    let userGroups = [];
+
     const colorPalette = [
         '#FF6B8B', '#5F9EA0', '#FFD166', '#B185DB', '#FFB347', '#6A8D92', '#E5989B',
         '#6D6875', '#FF9AA2', '#B5838D', '#7B9C9E', '#F4A261', '#A7C4B5', '#CD9777',
@@ -74,12 +79,12 @@
         spinEliminateBtn.style.display = 'none';
     }
 
-    // ========== ФУНКЦИИ АВТОРИЗАЦИИ (JWT версия) ==========
+    // ========== ФУНКЦИИ АВТОРИЗАЦИИ ==========
     async function loadCurrentUser() {
         try {
             const response = await window.authFetch(`${API_URL}/api/auth/me`);
             const data = await response.json();
-            
+
             if (data.authenticated) {
                 window.currentUser = data.user;
                 updateAuthUI();
@@ -97,7 +102,7 @@
 
     function updateAuthUI() {
         if (!authButtons || !userInfo) return;
-        
+
         if (window.currentUser) {
             authButtons.style.display = 'none';
             userInfo.style.display = 'flex';
@@ -110,61 +115,61 @@
         }
     }
 
-    window.showLoginModal = function() {
+    window.showLoginModal = function () {
         modalOverlay.style.display = 'block';
         loginModal.style.display = 'flex';
     };
 
-    window.showRegisterModal = function() {
+    window.showRegisterModal = function () {
         modalOverlay.style.display = 'block';
         registerModal.style.display = 'flex';
     };
 
-    window.closeAuthModal = function() {
+    window.closeAuthModal = function () {
         modalOverlay.style.display = 'none';
         loginModal.style.display = 'none';
         registerModal.style.display = 'none';
     };
 
-    window.closeVotingModal = function() {
+    window.closeVotingModal = function () {
         modalOverlay.style.display = 'none';
         votingModal.style.display = 'none';
     };
 
-    window.closeStatsModal = function() {
+    window.closeStatsModal = function () {
         modalOverlay.style.display = 'none';
         statsModal.style.display = 'none';
         document.querySelectorAll('.temporary-effect').forEach(e => e.remove());
     };
 
-    window.submitRegistration = async function() {
+    window.submitRegistration = async function () {
         const username = document.getElementById('regUsername')?.value.trim();
         const password = document.getElementById('regPassword')?.value;
-        
+
         if (!username || !password) {
             showError('Заполните все поля');
             return;
         }
-        
+
         if (username.length < 3) {
             showError('Логин должен быть минимум 3 символа');
             return;
         }
-        
+
         if (password.length < 4) {
             showError('Пароль должен быть минимум 4 символа');
             return;
         }
-        
+
         try {
             const response = await fetch(`${API_URL}/api/auth/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password })
             });
-            
+
             const data = await response.json();
-            
+
             if (data.success) {
                 showSuccess('✅ Заявка отправлена! Ждите подтверждения админа.');
                 window.closeAuthModal();
@@ -176,26 +181,25 @@
         }
     };
 
-    window.submitLogin = async function() {
+    window.submitLogin = async function () {
         const username = document.getElementById('loginUsername')?.value.trim();
         const password = document.getElementById('loginPassword')?.value;
-        
+
         if (!username || !password) {
             showError('Заполните все поля');
             return;
         }
-        
+
         try {
             const response = await fetch(`${API_URL}/api/auth/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password })
             });
-            
+
             const data = await response.json();
-            
+
             if (data.success) {
-                // Сохраняем токен
                 localStorage.setItem('auth_token', data.token);
                 window.currentUser = data.user;
                 updateAuthUI();
@@ -203,6 +207,7 @@
                 showSuccess(`✅ Добро пожаловать, ${window.currentUser.username}!`);
                 await loadAllVotes();
                 await loadFilmBoosts();
+                await loadProjectsByMode();
                 drawWheel();
             } else {
                 showError(data.error || 'Ошибка входа');
@@ -212,13 +217,14 @@
         }
     };
 
-    window.logout = async function() {
+    window.logout = async function () {
         localStorage.removeItem('auth_token');
         window.currentUser = null;
         updateAuthUI();
         showSuccess('👋 До свидания!');
         await loadAllVotes();
         await loadFilmBoosts();
+        await loadProjectsByMode();
         drawWheel();
     };
 
@@ -232,6 +238,16 @@
     }
 
     // ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
+    function escapeHtml(unsafe) {
+        if (!unsafe) return '';
+        return unsafe
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
     function showError(text) {
         console.error('Ошибка:', text);
         errorMessageDiv.style.display = 'block';
@@ -250,7 +266,7 @@
         }, 2000);
     }
 
-    // ========== ПЕРЕКЛЮЧАТЕЛЬ РЕЖИМОВ ==========
+    // ========== ПЕРЕКЛЮЧАТЕЛЬ РЕЖИМОВ ИСКЛЮЧЕНИЯ ==========
     function initModeToggle() {
         const modeToggle = document.getElementById('modeToggle');
         const normalLabel = document.querySelector('.mode-label:first-child');
@@ -311,10 +327,10 @@
         return idToTitleMap[id] || id;
     }
 
-    // ========== ФУНКЦИИ ГОЛОСОВАНИЯ (используем authFetch) ==========
+    // ========== ФУНКЦИИ ГОЛОСОВАНИЯ ==========
     async function startVotingCycle() {
         try {
-            const response = await window.authFetch(`${API_URL}/api/voting/start`, { 
+            const response = await window.authFetch(`${API_URL}/api/voting/start`, {
                 method: 'POST'
             });
             const data = await response.json();
@@ -375,6 +391,228 @@
         } else {
             votersIndicator.style.display = 'none';
         }
+    }
+
+    // ========== УПРАВЛЕНИЕ РЕЖИМАМИ (ЛИЧНЫЙ/ГРУППОВОЙ) ==========
+    function syncModeAcrossPages() {
+        localStorage.setItem('catalog_mode', currentMode);
+        window.dispatchEvent(new CustomEvent('modeChanged', {
+            detail: { mode: currentMode, groupId: selectedGroupId }
+        }));
+    }
+
+    window.addEventListener('modeChanged', (event) => {
+        if (event.detail.mode !== currentMode) {
+            currentMode = event.detail.mode;
+            selectedGroupId = event.detail.groupId;
+            updateModeUI();
+            loadProjectsByMode();
+        }
+    });
+
+    async function loadUserGroupsForSelector() {
+        try {
+            const response = await window.authFetch(`${API_URL}/api/groups`);
+            if (response.ok) {
+                userGroups = await response.json();
+                console.log('👥 Загружены группы:', userGroups);
+                renderGroupSelector();
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки групп:', error);
+            userGroups = [];
+        }
+    }
+
+    function renderGroupSelector() {
+        const container = document.getElementById('groupSelector');
+        if (!container) return;
+
+        if (userGroups.length === 0) {
+            container.innerHTML = '<select disabled><option>Нет групп</option></select>';
+            return;
+        }
+
+        container.innerHTML = `
+            <select id="groupSelect" onchange="window.selectGroup(this.value)">
+                <option value="">-- Выберите группу --</option>
+                ${userGroups.map(group => `
+                    <option value="${group.id}" ${selectedGroupId === group.id ? 'selected' : ''}>
+                        ${escapeHtml(group.name)} (${group.role === 'admin' ? 'admin' : 'участник'})
+                    </option>
+                `).join('')}
+            </select>
+            <button class="refresh-group-btn" onclick="window.refreshGroupProjects()">🔄</button>
+        `;
+    }
+
+    window.selectGroup = function (groupId) {
+        selectedGroupId = groupId || null;
+        if (groupId) {
+            localStorage.setItem('selected_group', groupId);
+        } else {
+            localStorage.removeItem('selected_group');
+        }
+        if (currentMode === 'group') {
+            loadProjectsByMode();
+        }
+        syncModeAcrossPages();
+    };
+
+    window.refreshGroupProjects = function () {
+        if (selectedGroupId && currentMode === 'group') {
+            loadProjectsByMode();
+            showSuccess('Проекты группы обновлены');
+        }
+    };
+
+    async function loadProjectsByMode() {
+        if (currentMode === 'personal') {
+            await loadPersonalProjectsForWheel();
+        } else if (selectedGroupId) {
+            await loadGroupProjectsForWheel(selectedGroupId);
+        } else {
+            showError('Выберите группу для просмотра');
+            allItems = [];
+            wheelItems = [];
+            updateFilters();
+            drawWheel();
+            updatePoolView();
+        }
+    }
+
+    async function loadPersonalProjectsForWheel() {
+        try {
+            const response = await window.authFetch(`${API_URL}/api/user/projects/list`);
+            if (response.ok) {
+                const projects = await response.json();
+                const plannedProjects = projects.filter(p => p.status === 'planned');
+
+                allItems = plannedProjects.map(p => ({
+                    Название: p.data?.title_ru || p.data?.title || 'Без названия',
+                    Жанр: p.data?.type || 'Фильм',
+                    id: p.project_id
+                }));
+
+                updateMaps();
+                updateFilters();
+                syncWheel();
+                await loadFilmBoosts();
+                await loadAllVotes();
+                drawWheel();
+                updatePoolView();
+
+                console.log(`📚 Загружено ${allItems.length} проектов в планах (личный режим)`);
+            } else {
+                console.error('Ошибка загрузки личных проектов:', response.status);
+                fallbackToOldSystem();
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки личных проектов:', error);
+            fallbackToOldSystem();
+        }
+    }
+
+    async function loadGroupProjectsForWheel(groupId) {
+        try {
+            const response = await window.authFetch(`${API_URL}/api/groups/${groupId}/projects`);
+            if (response.ok) {
+                const projects = await response.json();
+                const plannedProjects = projects.filter(p => p.status === 'planned');
+
+                allItems = plannedProjects.map(p => ({
+                    Название: p.data?.title_ru || p.data?.title || 'Без названия',
+                    Жанр: p.data?.type || 'Фильм',
+                    id: p.project_id
+                }));
+
+                updateMaps();
+                updateFilters();
+                syncWheel();
+                await loadFilmBoosts();
+                await loadAllVotes();
+                drawWheel();
+                updatePoolView();
+
+                console.log(`📚 Загружено ${allItems.length} проектов в планах (групповой режим, группа: ${groupId})`);
+            } else {
+                console.error('Ошибка загрузки групповых проектов:', response.status);
+                fallbackToOldSystem();
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки групповых проектов:', error);
+            fallbackToOldSystem();
+        }
+    }
+
+    async function fallbackToOldSystem() {
+        try {
+            const response = await fetch(`${API_URL}/projects`);
+            if (response.ok) {
+                const allProjects = await response.json();
+                const plannedProjects = allProjects.filter(p => !p.watched && !p.inProgress);
+
+                allItems = plannedProjects.map(p => ({
+                    Название: p.title_ru || p.title,
+                    Жанр: p.type || 'Фильм',
+                    id: p.id
+                }));
+
+                updateMaps();
+                updateFilters();
+                syncWheel();
+                await loadFilmBoosts();
+                await loadAllVotes();
+                drawWheel();
+                updatePoolView();
+
+                console.log(`📚 Загружено ${allItems.length} проектов из старой системы`);
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки из старой системы:', error);
+        }
+    }
+
+    function updateModeUI() {
+        const catalogModeToggle = document.getElementById('catalogModeToggle');
+        const personalLabel = document.querySelector('.mode-label.personal');
+        const groupLabel = document.querySelector('.mode-label.group');
+        const groupSelector = document.getElementById('groupSelector');
+
+        if (!catalogModeToggle) return;
+
+        if (currentMode === 'personal') {
+            if (personalLabel) personalLabel.classList.add('active');
+            if (groupLabel) groupLabel.classList.remove('active');
+            if (groupSelector) groupSelector.style.display = 'none';
+            catalogModeToggle.classList.remove('group-mode');
+        } else {
+            if (personalLabel) personalLabel.classList.remove('active');
+            if (groupLabel) groupLabel.classList.add('active');
+            if (groupSelector) groupSelector.style.display = 'flex';
+            catalogModeToggle.classList.add('group-mode');
+        }
+    }
+
+    function setupModeToggle() {
+        const catalogModeToggle = document.getElementById('catalogModeToggle');
+        if (!catalogModeToggle) {
+            console.warn('⚠️ catalogModeToggle не найден на странице');
+            return;
+        }
+
+        const newToggle = catalogModeToggle.cloneNode(true);
+        catalogModeToggle.parentNode.replaceChild(newToggle, catalogModeToggle);
+
+        newToggle.addEventListener('click', () => {
+            currentMode = currentMode === 'personal' ? 'group' : 'personal';
+            localStorage.setItem('catalog_mode', currentMode);
+            updateModeUI();
+            loadProjectsByMode();
+            syncModeAcrossPages();
+        });
+
+        updateModeUI();
     }
 
     // ========== ФУНКЦИИ КОЛЕСА ==========
@@ -591,7 +829,7 @@
     }
 
     // ========== МОДАЛЬНЫЕ ОКНА ==========
-    window.showVotingModal = async function() {
+    window.showVotingModal = async function () {
         if (!requireAuth()) return;
 
         const filteredItems = currentCategory === 'Все' ? allItems : allItems.filter(item => item.Жанр === currentCategory);
@@ -603,10 +841,10 @@
         }
 
         const currentUserVotes = userVotes[window.currentUser?.username] || [];
-        
+
         document.getElementById('votingCategory').textContent = currentCategory === 'Все' ? '(все категории)' : `(${currentCategory})`;
         document.getElementById('votingUser').textContent = `Игрок: 👤 ${window.currentUser?.username}`;
-        
+
         const moviesList = document.getElementById('votingMoviesList');
         moviesList.innerHTML = availableMovies.map(movie => {
             const isSelected = currentUserVotes.includes(movie.id);
@@ -615,7 +853,7 @@
                 <div class="voting-movie-item ${isSelected ? 'selected' : ''}" 
                      data-film-id="${movie.id}" data-film-title="${movie.Название.toLowerCase()}">
                     <div class="movie-info">
-                        <span class="movie-title">${movie.Название}</span>
+                        <span class="movie-title">${escapeHtml(movie.Название)}</span>
                         ${boost > 0 ? `<span class="movie-boost">+${boost.toFixed(1)}</span>` : ''}
                     </div>
                     <span class="movie-check">✓</span>
@@ -701,7 +939,7 @@
         votingModal.style.display = 'flex';
     };
 
-    window.showStatsModal = function() {
+    window.showStatsModal = function () {
         const filteredItems = currentCategory === 'Все' ? allItems : allItems.filter(item => item.Жанр === currentCategory);
         const filteredIds = new Set(filteredItems.map(item => item.id));
 
@@ -715,12 +953,12 @@
             .sort((a, b) => b.boost - a.boost);
 
         document.getElementById('statsCategory').textContent = currentCategory === 'Все' ? '(все категории)' : `(${currentCategory})`;
-        
+
         const statsList = document.getElementById('statsList');
-        statsList.innerHTML = boostEntries.length > 0 
+        statsList.innerHTML = boostEntries.length > 0
             ? boostEntries.map(item => `
                 <div class="stat-item">
-                    <span class="stat-film">${item.title}</span>
+                    <span class="stat-film">${escapeHtml(item.title)}</span>
                     <span class="stat-boost">+${item.boost.toFixed(1)}</span>
                 </div>
             `).join('')
@@ -729,72 +967,6 @@
         modalOverlay.style.display = 'block';
         statsModal.style.display = 'flex';
     };
-
-    // ========== ЗАГРУЗКА ПРОЕКТОВ ==========
-    async function loadProjectsFromServer() {
-        try {
-            const response = await fetch(`${API_URL}/projects`);
-            if (!response.ok) throw new Error(`Ошибка загрузки: ${response.status}`);
-            const allProjects = await response.json();
-            const plannedProjects = allProjects.filter(p => !p.watched && !p.inProgress);
-
-            const newItems = plannedProjects.map(p => ({
-                Название: p.title_ru || p.title,
-                Жанр: p.type || 'Фильм',
-                id: p.id
-            }));
-
-            const currentTitles = new Set(allItems.map(item => item.Название));
-            const newTitles = newItems.filter(item => !currentTitles.has(item.Название));
-
-            if (newTitles.length > 0) {
-                allItems = [...allItems, ...newTitles];
-                updateMaps();
-                showSuccess(`Добавлено ${newTitles.length} новых проектов`);
-                updateFilters();
-
-                if (currentCategory === 'Все') {
-                    wheelItems = [...wheelItems, ...newTitles.map(item => item.Название)];
-                } else {
-                    const newInCategory = newTitles.filter(item => item.Жанр === currentCategory).map(item => item.Название);
-                    wheelItems = [...wheelItems, ...newInCategory];
-                }
-
-                drawWheel();
-                updatePoolView();
-                updateEliminatedView();
-            }
-        } catch (error) {
-            console.error('Ошибка загрузки:', error);
-        }
-    }
-
-    async function fullReload() {
-        try {
-            const response = await fetch(`${API_URL}/projects`);
-            if (!response.ok) throw new Error(`Ошибка загрузки: ${response.status}`);
-            const allProjects = await response.json();
-            const plannedProjects = allProjects.filter(p => !p.watched && !p.inProgress);
-
-            allItems = plannedProjects.map(p => ({
-                Название: p.title_ru || p.title,
-                Жанр: p.type || 'Фильм',
-                id: p.id
-            }));
-
-            updateMaps();
-            showSuccess(`Загружено ${allItems.length} проектов в планах`);
-            updateFilters();
-            syncWheel();
-            await loadFilmBoosts();
-            await loadAllVotes();
-        } catch (error) {
-            console.error('Ошибка загрузки:', error);
-            allItems = [];
-            updateFilters();
-            syncWheel();
-        }
-    }
 
     // ========== ФИЛЬТРЫ ==========
     function updateFilters() {
@@ -858,13 +1030,13 @@
         wheelItems.forEach(item => {
             const container = document.createElement('span');
             container.className = 'tag';
-            container.innerHTML = `<span>${item}</span><button class="delete-item" onclick="deleteItem('${item}')">✕</button>`;
+            container.innerHTML = `<span>${escapeHtml(item)}</span><button class="delete-item" onclick="deleteItem('${escapeHtml(item)}')">✕</button>`;
             itemPoolDiv.appendChild(container);
         });
         itemCountSpan.textContent = wheelItems.length;
     }
 
-    window.deleteItem = async function(itemName) {
+    window.deleteItem = async function (itemName) {
         try {
             const response = await fetch(`${API_URL}/projects`);
             const projects = await response.json();
@@ -873,10 +1045,10 @@
             );
 
             if (projectToDelete) {
-                await fetch(`${API_URL}/projects/${projectToDelete.id}`, { 
+                await fetch(`${API_URL}/projects/${projectToDelete.id}`, {
                     method: 'DELETE'
                 });
-                await fullReload();
+                await loadProjectsByMode();
                 showSuccess(`Удалено: ${itemName}`);
             }
         } catch (error) {
@@ -887,7 +1059,7 @@
     function updateEliminatedView() {
         eliminatedDiv.innerHTML = eliminatedLog.length === 0
             ? '<span>✖️ пока никого</span>'
-            : eliminatedLog.map((name, idx) => `<span>❌ ${idx + 1}. ${name}</span>`).join('');
+            : eliminatedLog.map((name, idx) => `<span>❌ ${idx + 1}. ${escapeHtml(name)}</span>`).join('');
     }
 
     // ========== ИНИЦИАЛИЗАЦИЯ ==========
@@ -911,8 +1083,10 @@
 
     initModeToggle();
     loadCurrentUser();
-    fullReload();
-    setInterval(loadProjectsFromServer, 30000);
+    loadUserGroupsForSelector();
+    setupModeToggle();
+    loadProjectsByMode();
+    setInterval(loadProjectsByMode, 30000);
     drawWheel();
     updatePoolView();
     updateEliminatedView();
