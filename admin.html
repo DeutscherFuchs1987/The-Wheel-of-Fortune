@@ -62,22 +62,14 @@
                     <h2>📝 ЗАЯВКИ НА РЕГИСТРАЦИЮ</h2>
                     <span class="section-count" id="pendingCount">0</span>
                 </div>
-                
+
+                <!-- Кнопка массового отклонения -->
+                <button class="reject-all-btn" id="rejectAllBtn" onclick="rejectAllPending()" style="display: none;">
+                    🗑️ Отклонить все заявки
+                </button>
+
                 <div class="requests-list" id="requestsList">
-                    <!-- Шаблон заявки -->
-                    <div class="request-card pending">
-                        <div class="request-info">
-                            <div class="request-avatar">👤</div>
-                            <div class="request-details">
-                                <span class="request-username">Загрузка...</span>
-                                <span class="request-date">—</span>
-                            </div>
-                        </div>
-                        <div class="request-actions">
-                            <button class="action-btn approve" onclick="approveUser(1)">✅</button>
-                            <button class="action-btn reject" onclick="rejectUser(1)">❌</button>
-                        </div>
-                    </div>
+                    <!-- Данные через JS -->
                 </div>
             </div>
 

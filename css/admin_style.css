@@ -675,3 +675,67 @@ h1 {
         overflow-x: auto;
     }
 }
+
+
+/* ========== КНОПКА МАССОВОГО ОТКЛОНЕНИЯ ========== */
+.reject-all-btn {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 20px;
+    background: linear-gradient(145deg, #ff6b8b, #ff4757);
+    color: white;
+    border: none;
+    border-radius: 40px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border-bottom: 4px solid #cc3b4f;
+}
+
+.reject-all-btn:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.1);
+    box-shadow: 0 5px 15px rgba(255, 71, 87, 0.4);
+}
+
+.reject-all-btn:active {
+    transform: translateY(2px);
+    border-bottom-width: 2px;
+}
+
+
+/* ========== КНОПКА МАССОВОГО ОТКЛОНЕНИЯ ========== */
+.reject-all-btn {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 20px;
+    background: linear-gradient(145deg, #ff6b8b, #ff4757);
+    color: white;
+    border: none;
+    border-radius: 40px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border-bottom: 4px solid #cc3b4f;
+}
+
+.reject-all-btn:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.1);
+    box-shadow: 0 5px 15px rgba(255, 71, 87, 0.4);
+}
+
+.reject-all-btn:active {
+    transform: translateY(2px);
+    border-bottom-width: 2px;
+}

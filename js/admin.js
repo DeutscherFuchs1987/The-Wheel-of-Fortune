@@ -16,8 +16,6 @@
         }, 100);
     });
 
-
-    
     async function checkAndInit() {
         const token = localStorage.getItem('auth_token');
         
@@ -51,7 +49,7 @@
         }
     }
 
-    // ========== ФОРМА ВХОДА (та же, что и была) ==========
+    // ========== ФОРМА ВХОДА ==========
     function showLoginForm() {
         console.log('🔐 Показываем форму входа');
         
@@ -365,10 +363,15 @@
             
             const data = await response.json();
             
-            document.getElementById('totalUsers').textContent = data.users?.total || 0;
-            document.getElementById('pendingUsers').textContent = data.users?.pending || 0;
-            document.getElementById('activeUsers').textContent = data.users?.active || 0;
-            document.getElementById('totalProjects').textContent = data.projects || 0;
+            const totalUsersEl = document.getElementById('totalUsers');
+            const pendingUsersEl = document.getElementById('pendingUsers');
+            const activeUsersEl = document.getElementById('activeUsers');
+            const totalProjectsEl = document.getElementById('totalProjects');
+            
+            if (totalUsersEl) totalUsersEl.textContent = data.users?.total || 0;
+            if (pendingUsersEl) pendingUsersEl.textContent = data.users?.pending || 0;
+            if (activeUsersEl) activeUsersEl.textContent = data.users?.active || 0;
+            if (totalProjectsEl) totalProjectsEl.textContent = data.projects || 0;
             
         } catch (error) {
             console.error('❌ Ошибка загрузки статистики:', error);
@@ -405,27 +408,35 @@
             }
             
             allUsers = await response.json();
-            console.log('👥 Загружено пользователей:', allUsers.length);
-            renderUsersTable();
+            // Фильтруем: показываем только active и pending (rejected удалены из БД)
+            const filteredUsers = allUsers.filter(user => user.status !== 'rejected');
+            console.log('👥 Загружено пользователей (активные и ожидающие):', filteredUsers.length);
+            renderUsersTable(filteredUsers);
             
             const usersCountEl = document.getElementById('usersCount');
-            if (usersCountEl) usersCountEl.textContent = allUsers.length;
+            if (usersCountEl) usersCountEl.textContent = filteredUsers.length;
             
         } catch (error) {
             console.error('❌ Ошибка загрузки пользователей:', error);
             showNotification('Ошибка загрузки пользователей', 'error');
             allUsers = [];
-            renderUsersTable();
+            renderUsersTable([]);
         }
     }
 
     function renderPendingUsers() {
         const container = document.getElementById('requestsList');
         const pendingCountEl = document.getElementById('pendingCount');
+        const rejectAllBtn = document.getElementById('rejectAllBtn');
         
         if (!container) return;
         
         if (pendingCountEl) pendingCountEl.textContent = pendingUsers.length;
+        
+        // Показываем/скрываем кнопку массового отклонения
+        if (rejectAllBtn) {
+            rejectAllBtn.style.display = pendingUsers.length > 0 ? 'flex' : 'none';
+        }
         
         if (pendingUsers.length === 0) {
             container.innerHTML = `
@@ -448,24 +459,22 @@
                 </div>
                 <div class="request-actions">
                     <button class="action-btn approve" onclick="window.approveUser(${user.id})" title="Подтвердить">✅</button>
-                    <button class="action-btn reject" onclick="window.rejectUser(${user.id})" title="Отклонить">❌</button>
+                    <button class="action-btn reject" onclick="window.rejectUser(${user.id})" title="Отклонить и удалить">❌</button>
                 </div>
             </div>
         `).join('');
     }
 
-    function renderUsersTable(filteredUsers = null) {
+    function renderUsersTable(usersToShow) {
         const tbody = document.getElementById('usersTableBody');
         if (!tbody) return;
-        
-        const usersToShow = filteredUsers || allUsers;
         
         if (!usersToShow || usersToShow.length === 0) {
             tbody.innerHTML = `
                 <tr>
                     <td colspan="8" style="text-align: center; padding: 40px;">
                         Нет пользователей
-                    <td>
+                    </td>
                 </tr>
             `;
             return;
@@ -491,16 +500,65 @@
                 <td class="table-actions">
                     ${user.status === 'pending' ? `
                         <button class="table-btn approve" onclick="window.approveUser(${user.id})" title="Подтвердить">✅</button>
-                        <button class="table-btn reject" onclick="window.rejectUser(${user.id})" title="Отклонить">❌</button>
+                        <button class="table-btn reject" onclick="window.rejectUser(${user.id})" title="Отклонить и удалить">❌</button>
                     ` : user.status === 'active' && user.role !== 'admin' ? `
-                        <button class="table-btn reject" onclick="window.rejectUser(${user.id})" title="Заблокировать">🔒</button>
-                    ` : user.status === 'rejected' ? `
-                        <button class="table-btn approve" onclick="window.approveUser(${user.id})" title="Активировать">✅</button>
+                        <button class="table-btn reject" onclick="window.rejectUser(${user.id})" title="Заблокировать и удалить">🔒</button>
                     ` : ''}
                 </td>
             </tr>
         `).join('');
     }
+
+    // ========== МАССОВОЕ ОТКЛОНЕНИЕ ВСЕХ ЗАЯВОК ==========
+    window.rejectAllPending = async function() {
+        if (pendingUsers.length === 0) {
+            showNotification('Нет ожидающих заявок', 'error');
+            return;
+        }
+        
+        if (!confirm(`Отклонить и УДАЛИТЬ ВСЕ заявки на регистрацию (${pendingUsers.length} шт.)? Это действие нельзя отменить.`)) {
+            return;
+        }
+        
+        showLoading();
+        
+        let successCount = 0;
+        let errorCount = 0;
+        
+        for (const user of pendingUsers) {
+            try {
+                const response = await window.authFetch(`${API_URL}/api/admin/users/${user.id}/reject`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    successCount++;
+                    console.log(`✅ Пользователь ${user.username} удалён`);
+                } else {
+                    errorCount++;
+                    console.error(`Ошибка удаления пользователя ${user.username}:`, data.error);
+                }
+            } catch (error) {
+                errorCount++;
+                console.error(`Ошибка удаления пользователя ${user.username}:`, error);
+            }
+        }
+        
+        hideLoading();
+        
+        // Обновляем все данные
+        await loadPendingUsers();
+        await loadAllUsers();
+        await loadStats();
+        
+        if (successCount > 0) {
+            showNotification(`✅ Удалено ${successCount} заявок${errorCount > 0 ? `, ошибок: ${errorCount}` : ''}`);
+        } else {
+            showNotification(`❌ Ошибок: ${errorCount}`, 'error');
+        }
+    };
 
     function escapeHtml(unsafe) {
         if (!unsafe) return '';
@@ -517,8 +575,9 @@
         if (searchInput) {
             searchInput.addEventListener('input', (e) => {
                 const search = e.target.value.toLowerCase();
+                // Фильтруем по логину (rejected уже отфильтрованы в allUsers)
                 const filtered = allUsers.filter(user => 
-                    user.username.toLowerCase().includes(search)
+                    user.status !== 'rejected' && user.username.toLowerCase().includes(search)
                 );
                 renderUsersTable(filtered);
             });
@@ -544,7 +603,6 @@
             
             if (response.ok && data.success) {
                 showNotification('✅ Пользователь успешно подтвержден');
-                // Обновляем все данные
                 await loadPendingUsers();
                 await loadAllUsers();
                 await loadStats();
@@ -564,7 +622,7 @@
     window.rejectUser = async function(userId) {
         console.log('❌ Отклонение пользователя:', userId);
         
-        if (!confirm('Отклонить регистрацию пользователя?')) {
+        if (!confirm('Отклонить регистрацию и УДАЛИТЬ пользователя? Это действие нельзя отменить.')) {
             return;
         }
         
@@ -578,13 +636,12 @@
             const data = await response.json();
             
             if (response.ok && data.success) {
-                showNotification('✅ Пользователь отклонен');
-                // Обновляем все данные
+                showNotification('✅ Пользователь удалён');
                 await loadPendingUsers();
                 await loadAllUsers();
                 await loadStats();
             } else {
-                showNotification(data.error || '❌ Ошибка отклонения', 'error');
+                showNotification(data.error || '❌ Ошибка удаления', 'error');
             }
         } catch (error) {
             console.error('❌ Ошибка:', error);
@@ -703,5 +760,6 @@
         }, 3000);
     }
 
+    // Запускаем поиск после загрузки
     setTimeout(setupSearch, 1000);
 })();
