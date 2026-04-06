@@ -10,13 +10,16 @@
 
 <body>
     <div class="container">
+        <!-- ========== НОВЫЙ ХЕДЕР (как на index и catalog) ========== -->
         <div class="header">
-            <h1>⭐ НАШИ ОЦЕНКИ</h1>
-            <div class="nav-buttons">
-                <a href="index.html" class="nav-btn">🎡 Колесо</a>
-                <a href="catalog.html" class="nav-btn">📚 Каталог</a>
-                <a href="ratings.html" class="nav-btn active">⭐ Оценки</a>
-                <a href="profile.html" class="nav-btn">👤 Профиль</a>
+            <div class="header-left">
+                <h1>⭐ НАШИ ОЦЕНКИ</h1>
+                <div class="nav-buttons">
+                    <a href="index.html" class="nav-btn">🎡 Колесо</a>
+                    <a href="catalog.html" class="nav-btn">📚 Каталог</a>
+                    <a href="ratings.html" class="nav-btn active">⭐ Оценки</a>
+                    <a href="profile.html" class="nav-btn">👤 Профиль</a>
+                </div>
             </div>
 
             <!-- Блок авторизации -->
@@ -29,17 +32,16 @@
                     <span class="user-avatar">👤</span>
                     <span class="user-name" id="userName"></span>
                     <span class="user-badge" id="userBadge"></span>
-                    <a href="profile.html" class="profile-link">👤 Профиль</a>
-                    <button class="auth-btn-small" onclick="logout()">Выйти</button>
+                    <button class="auth-btn-small" onclick="logout()">🚪 Выйти</button>
                 </div>
             </div>
         </div>
 
         <!-- Переключатель режимов (личный/групповой) -->
         <div class="mode-selector">
-            <div class="mode-toggle" id="modeToggle">
+            <div class="catalog-mode-toggle" id="catalogModeToggle">
                 <div class="toggle-track">
-                    <div class="toggle-thumb" id="modeToggleThumb"></div>
+                    <div class="toggle-thumb" id="catalogModeThumb"></div>
                 </div>
             </div>
             <div class="mode-labels">
@@ -80,7 +82,7 @@
     </div>
 
     <!-- ========== МОДАЛЬНЫЕ ОКНА АВТОРИЗАЦИИ ========== -->
-    
+
     <!-- Общий overlay -->
     <div class="modal-overlay" id="modalOverlay" style="display: none;"></div>
 

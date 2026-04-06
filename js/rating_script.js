@@ -6,7 +6,6 @@
     let currentFilter = 'all';
     let currentProject = null;
     let currentUser = null;
-    let allUserRatings = {}; // { projectId: { username: { rating, notes } } }
     let userRatings = {}; // { projectId: { rating, notes } } для текущего пользователя
 
     // ========== ПЕРЕМЕННЫЕ ДЛЯ ГРУППОВОГО РЕЖИМА ==========
@@ -112,21 +111,13 @@
                 return;
             }
 
-            const response = await window.authFetch(`${API_URL}/api/admin/all-ratings`);
-            if (response.status === 403) {
-                console.log('🔒 Нет прав администратора, оценки других пользователей не загружены');
-                allUserRatings = {};
-                return;
-            }
-            if (response.ok) {
-                allUserRatings = await response.json();
-                console.log('⭐ Загружены оценки всех пользователей:', allUserRatings);
-            } else {
-                console.error('Ошибка загрузки оценок:', response.status);
-            }
+            // В личном режиме используем только свои оценки
+            console.log('👤 Личный режим: показываем только свои оценки');
+            allUserRatings = {};
+            return;
         } catch (error) {
             console.error('Ошибка загрузки оценок:', error);
-            allUserRatings = {};
+            groupRatings = {};
         }
     }
 
@@ -156,7 +147,6 @@
                 const response = await window.authFetch(`${API_URL}/api/groups/${selectedGroupId}/projects`);
                 if (response.ok) {
                     const groupProjects = await response.json();
-                    console.log('🔍 Первый проект из группы:', groupProjects[0]);
                     projects = groupProjects
                         .filter(p => p.status === 'watched')
                         .map(p => ({
@@ -175,7 +165,6 @@
 
             myProjects = projects;
             console.log(`✅ Итого просмотренных фильмов: ${myProjects.length}`);
-            console.log('📋 myProjects:', myProjects);
 
             renderProjects();
             updateStats();
@@ -246,13 +235,13 @@
 
     // ========== ПЕРЕКЛЮЧАТЕЛЬ РЕЖИМОВ ==========
     function setupModeToggle() {
-        const modeToggle = document.getElementById('modeToggle');
+        const catalogModeToggle = document.getElementById('catalogModeToggle');
         const personalLabel = document.querySelector('.mode-label.personal');
         const groupLabel = document.querySelector('.mode-label.group');
         const groupSelector = document.getElementById('groupSelector');
 
-        if (!modeToggle) {
-            console.warn('⚠️ modeToggle не найден на странице');
+        if (!catalogModeToggle) {
+            console.warn('⚠️ catalogModeToggle не найден на странице');
             return;
         }
 
@@ -263,21 +252,29 @@
                 if (personalLabel) personalLabel.classList.add('active');
                 if (groupLabel) groupLabel.classList.remove('active');
                 if (groupSelector) groupSelector.style.display = 'none';
-                modeToggle.classList.remove('group-mode');
+                catalogModeToggle.classList.remove('group-mode');
             } else {
                 if (personalLabel) personalLabel.classList.remove('active');
                 if (groupLabel) groupLabel.classList.add('active');
                 if (groupSelector) groupSelector.style.display = 'flex';
-                modeToggle.classList.add('group-mode');
+                catalogModeToggle.classList.add('group-mode');
             }
         }
 
-        const newToggle = modeToggle.cloneNode(true);
-        modeToggle.parentNode.replaceChild(newToggle, modeToggle);
+        const newToggle = catalogModeToggle.cloneNode(true);
+        catalogModeToggle.parentNode.replaceChild(newToggle, catalogModeToggle);
 
         newToggle.addEventListener('click', (e) => {
             console.log('🖱️ Клик по переключателю');
-            currentMode = currentMode === 'personal' ? 'group' : 'personal';
+            
+            const newMode = currentMode === 'personal' ? 'group' : 'personal';
+            
+            if (newMode === 'group' && !selectedGroupId) {
+                showError('Сначала выберите группу из списка');
+                return;
+            }
+            
+            currentMode = newMode;
             localStorage.setItem('ratings_mode', currentMode);
             console.log('📌 Режим изменён на:', currentMode);
             updateModeUI();
@@ -360,8 +357,10 @@
             ? `<div class="modal-poster" style="background-image: url('${project.poster}');"></div>`
             : `<div class="modal-poster no-poster">${posterEmoji}</div>`;
 
-        const ratingsSource = (currentMode === 'group' && selectedGroupId) ? groupRatings : allUserRatings;
+        // ВЫБИРАЕМ ПРАВИЛЬНЫЙ ИСТОЧНИК ОЦЕНОК
+        const ratingsSource = (currentMode === 'group' && selectedGroupId) ? groupRatings : { [currentUser?.username]: userRatings };
 
+        // Получаем всех пользователей, которые оценили этот фильм
         const usersWithRatings = [];
         for (const [username, ratings] of Object.entries(ratingsSource)) {
             if (ratings[projectId]) {
@@ -373,6 +372,7 @@
             }
         }
 
+        // Сортируем по оценке (от высшей к низшей)
         usersWithRatings.sort((a, b) => (b.rating || 0) - (a.rating || 0));
 
         const currentUserRating = userRatings[projectId];
@@ -491,8 +491,10 @@
             else if (project.type === 'Сериал') posterEmoji = '📺';
             else if (project.type === 'Мультфильм') posterEmoji = '🖍️';
 
-            const ratingsSource = (currentMode === 'group' && selectedGroupId) ? groupRatings : allUserRatings;
+            // ВЫБИРАЕМ ПРАВИЛЬНЫЙ ИСТОЧНИК ДЛЯ ПОДСЧЁТА СРЕДНЕЙ ОЦЕНКИ
+            const ratingsSource = (currentMode === 'group' && selectedGroupId) ? groupRatings : { [currentUser?.username]: userRatings };
 
+            // Считаем среднюю оценку
             let totalRating = 0;
             let ratingCount = 0;
             for (const [username, ratings] of Object.entries(ratingsSource)) {

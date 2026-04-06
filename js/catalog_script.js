@@ -71,24 +71,24 @@
         const newLoader = document.createElement('div');
         newLoader.id = 'catalog-loader';
         newLoader.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.9);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        z-index: 10001;
-        backdrop-filter: blur(5px);
-    `;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10001;
+            backdrop-filter: blur(5px);
+        `;
         newLoader.innerHTML = `
-        <div style="width: 60px; height: 60px; border: 4px solid #5f4bb6; border-top-color: #ffd966; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px;"></div>
-        <div style="color: white; font-size: 1.2rem;">Загрузка...</div>
-        <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
-    `;
+            <div style="width: 60px; height: 60px; border: 4px solid #5f4bb6; border-top-color: #ffd966; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px;"></div>
+            <div style="color: white; font-size: 1.2rem;">Загрузка...</div>
+            <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+        `;
         document.body.appendChild(newLoader);
     }
 
@@ -98,21 +98,23 @@
     }
 
     function updateModeUI() {
-        const modeToggle = document.getElementById('modeToggle');
+        const catalogModeToggle = document.getElementById('catalogModeToggle');
         const personalLabel = document.querySelector('.mode-label.personal');
         const groupLabel = document.querySelector('.mode-label.group');
         const groupSelector = document.getElementById('groupSelector');
-        if (!modeToggle) return;
+
+        if (!catalogModeToggle) return;
+
         if (currentMode === 'personal') {
-            modeToggle.classList.remove('group-mode');
             if (personalLabel) personalLabel.classList.add('active');
             if (groupLabel) groupLabel.classList.remove('active');
             if (groupSelector) groupSelector.style.display = 'none';
+            catalogModeToggle.classList.remove('group-mode');
         } else {
-            modeToggle.classList.add('group-mode');
             if (personalLabel) personalLabel.classList.remove('active');
             if (groupLabel) groupLabel.classList.add('active');
             if (groupSelector) groupSelector.style.display = 'flex';
+            catalogModeToggle.classList.add('group-mode');
         }
     }
 
@@ -146,11 +148,15 @@
                 updateStats();
             } else {
                 console.error('❌ Ошибка загрузки личных проектов:', response.status);
-                await loadUnwatchedProjects();
+                myProjects = [];
+                renderProjects();
+                updateStats();
             }
         } catch (error) {
             console.error('❌ Ошибка загрузки личных проектов:', error);
-            await loadUnwatchedProjects();
+            myProjects = [];
+            renderProjects();
+            updateStats();
         }
     }
 
@@ -177,10 +183,12 @@
                 const errorText = await response.text();
                 console.error('❌ Ошибка загрузки проектов группы:', response.status, errorText);
                 projectsGrid.innerHTML = '<div class="empty-state"><span>❌</span><p>Ошибка загрузки проектов группы</p></div>';
+                myProjects = [];
             }
         } catch (error) {
             console.error('❌ Ошибка загрузки групповых проектов:', error);
             projectsGrid.innerHTML = '<div class="empty-state"><span>❌</span><p>Ошибка загрузки проектов группы</p></div>';
+            myProjects = [];
         }
     }
 
@@ -235,10 +243,12 @@
     };
 
     function setupModeToggle() {
-        const modeToggle = document.getElementById('modeToggle');
-        if (!modeToggle) return;
-        const newToggle = modeToggle.cloneNode(true);
-        modeToggle.parentNode.replaceChild(newToggle, modeToggle);
+        const catalogModeToggle = document.getElementById('catalogModeToggle');
+        if (!catalogModeToggle) return;
+
+        const newToggle = catalogModeToggle.cloneNode(true);
+        catalogModeToggle.parentNode.replaceChild(newToggle, catalogModeToggle);
+
         newToggle.addEventListener('click', () => {
             currentMode = currentMode === 'personal' ? 'group' : 'personal';
             newToggle.classList.toggle('group-mode', currentMode === 'group');
@@ -360,31 +370,7 @@
         showSuccess('Весь кэш очищен');
     }
 
-    async function loadUnwatchedProjects() {
-        try {
-            console.log('📡 Загружаем проекты с сервера...');
-            const response = await window.authFetch(`${API_URL}/projects`);
-            if (!response.ok) {
-                if (response.status === 401) {
-                    projectsGrid.innerHTML = '<div class="empty-state"><span>🔒</span><p>Войдите, чтобы увидеть свой каталог</p></div>';
-                    return;
-                }
-                throw new Error(`Ошибка загрузки: ${response.status}`);
-            }
-            let allProjects = await response.json();
-            console.log(`✅ Загружено ${allProjects.length} проектов`);
-            if (allProjects.length > 0 && allProjects[0].data) {
-                allProjects = allProjects.map(p => ({ ...p.data, id: p.project_id, user_status: p.status }));
-            }
-            myProjects = allProjects.filter(p => !p.watched);
-            renderProjects();
-            updateStats();
-        } catch (error) {
-            showError('Не удалось загрузить проекты: ' + error.message);
-        }
-    }
-
-    // ========== ОСНОВНАЯ ФУНКЦИЯ ДОБАВЛЕНИЯ ==========
+    // ========== ОСНОВНАЯ ФУНКЦИЯ ДОБАВЛЕНИЯ (НОВАЯ СИСТЕМА) ==========
     async function addProject(film) {
         if (!currentUser) {
             showError('Сначала войдите в аккаунт');
@@ -402,7 +388,6 @@
             inProgress: false,
             watched: false,
             watchedDate: null,
-            ratings: { senya: null, vanya: null, pasha: null, volodya: null, artem: null },
             notes: '',
             genres: film.genres || [],
             description: film.description || 'Описание будет добавлено позже',
@@ -413,14 +398,12 @@
             let response;
             if (currentMode === 'group' && selectedGroupId) {
                 console.log(`📝 Добавляем фильм в группу ${selectedGroupId}`);
-                console.log('📦 Данные проекта:', newProject);
                 response = await window.authFetch(`${API_URL}/api/groups/${selectedGroupId}/projects`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ project_id: newProject.id, data: newProject })
                 });
                 const responseData = await response.json();
-                console.log('📥 Ответ сервера:', response.status, responseData);
                 if (response.ok) {
                     showSuccess('Фильм добавлен в группу!');
                     await loadGroupProjects(selectedGroupId);
@@ -430,18 +413,17 @@
                 }
             } else {
                 console.log('📝 Добавляем фильм в личный каталог');
-                response = await window.authFetch(`${API_URL}/projects`, {
+                response = await window.authFetch(`${API_URL}/api/user/projects/list`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(newProject)
+                    body: JSON.stringify({ project_id: newProject.id, data: newProject, status: 'planned' })
                 });
                 const responseData = await response.json();
-                console.log('📥 Ответ сервера:', response.status, responseData);
                 if (response.status === 409) {
                     showError('Этот фильм уже есть в каталоге');
                     return;
                 }
-                if (!response.ok) throw new Error(`Ошибка добавления: ${response.status}`);
+                if (!response.ok) throw new Error(responseData.error || `Ошибка: ${response.status}`);
                 showSuccess('Фильм добавлен в личный каталог!');
                 await loadPersonalProjects();
             }
@@ -451,35 +433,41 @@
         }
     }
 
-    // ========== ОСТАЛЬНЫЕ ФУНКЦИИ (сохраняем все из предыдущей версии) ==========
+    // ========== ОСТАЛЬНЫЕ ФУНКЦИИ ==========
     async function updateProjectStatus(projectId, newStatus) {
+        showLoading();
+
         try {
             let response;
+
             if (currentMode === 'group' && selectedGroupId) {
                 const groupProject = myProjects.find(p => p.id === projectId);
                 const groupProjectId = groupProject?.group_project_id;
+
                 if (!groupProjectId) {
                     showError('Не удалось идентифицировать групповой проект');
+                    hideLoading();
                     return false;
                 }
-                console.log(`📊 Обновляем статус в группе: проект ${projectId}, статус ${newStatus}`);
+
                 response = await window.authFetch(`${API_URL}/api/groups/${selectedGroupId}/projects/${groupProjectId}/status`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ status: newStatus })
                 });
             } else {
-                console.log(`📊 Обновляем статус в личном каталоге: проект ${projectId}, статус ${newStatus}`);
                 response = await window.authFetch(`${API_URL}/api/user/projects/${projectId}/status`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ status: newStatus })
                 });
             }
+
             if (!response.ok) {
                 const error = await response.json();
                 throw new Error(error.error || `Ошибка: ${response.status}`);
             }
+
             const projectIndex = myProjects.findIndex(p => p.id === projectId);
             if (projectIndex !== -1) {
                 myProjects[projectIndex] = {
@@ -489,6 +477,7 @@
                     inProgress: newStatus === 'in_progress',
                     watched: newStatus === 'watched'
                 };
+
                 if (newStatus === 'watched') {
                     myProjects = myProjects.filter(p => p.id !== projectId);
                     closeModal();
@@ -502,35 +491,49 @@
                     }
                 }
             }
+
             window.dispatchEvent(new CustomEvent('groupProjectStatusChanged', {
                 detail: { groupId: selectedGroupId, projectId: projectId, status: newStatus }
             }));
+
             showSuccess(`Статус изменён на ${getStatusText(newStatus)}`);
             return true;
+
         } catch (error) {
             console.error('❌ Ошибка обновления статуса:', error);
             showError('Ошибка при изменении статуса: ' + error.message);
             return false;
+        } finally {
+            hideLoading();
         }
     }
 
     async function refreshProjectDetails(projectId) {
         try {
-            const response = await window.authFetch(`${API_URL}/projects/${projectId}/refresh`, { method: 'POST' });
-            if (!response.ok) throw new Error('Ошибка обновления');
-            const index = myProjects.findIndex(p => p.id === projectId);
-            if (index !== -1) {
-                const updatedResponse = await window.authFetch(`${API_URL}/projects`);
-                const allProjects = await updatedResponse.json();
-                myProjects = allProjects.filter(p => !p.watched);
+            const filmId = projectId.replace('kp_', '');
+            const details = await fetch(`https://kinopoiskapiunofficial.tech/api/v2.2/films/${filmId}`, {
+                headers: { 'X-API-KEY': KINOPOISK_TOKEN }
+            });
+            if (!details.ok) throw new Error('Ошибка обновления данных');
+            const data = await details.json();
+
+            // Обновляем локальные данные
+            const projectIndex = myProjects.findIndex(p => p.id === projectId);
+            if (projectIndex !== -1) {
+                myProjects[projectIndex] = {
+                    ...myProjects[projectIndex],
+                    description: data.description || 'Описание отсутствует',
+                    year: data.year,
+                    poster: data.posterUrl || myProjects[projectIndex].poster
+                };
+                renderProjects();
+                updateStats();
+                const modal = document.querySelector('.project-modal.active');
+                if (modal && modal.dataset.projectId === projectId) {
+                    openModal(projectId);
+                }
+                showSuccess('Данные проекта обновлены!');
             }
-            renderProjects();
-            updateStats();
-            const modal = document.querySelector('.project-modal.active');
-            if (modal && modal.dataset.projectId === projectId) {
-                openModal(projectId);
-            }
-            showSuccess('Данные проекта обновлены!');
         } catch (error) {
             showError('Ошибка обновления: ' + error.message);
         }
@@ -538,29 +541,51 @@
 
     async function deleteProject(projectId) {
         if (!confirm('Удалить проект?')) return;
+
+        showLoading();
+
         try {
             let response;
+
             if (currentMode === 'group' && selectedGroupId) {
                 const groupProject = myProjects.find(p => p.id === projectId);
                 const groupProjectId = groupProject?.group_project_id;
-                if (groupProjectId) {
-                    response = await window.authFetch(`${API_URL}/api/groups/${selectedGroupId}/projects/${groupProjectId}`, { method: 'DELETE' });
-                } else {
+
+                if (!groupProjectId) {
                     showError('Не удалось идентифицировать групповой проект');
+                    hideLoading();
                     return;
                 }
+
+                response = await window.authFetch(`${API_URL}/api/groups/${selectedGroupId}/projects/${groupProjectId}`, {
+                    method: 'DELETE'
+                });
             } else {
-                response = await window.authFetch(`${API_URL}/projects/${projectId}`, { method: 'DELETE' });
+                // Для личного режима используем DELETE метод
+                response = await window.authFetch(`${API_URL}/api/user/projects/${projectId}/status`, {
+                    method: 'DELETE'
+                });
             }
-            if (!response.ok) throw new Error(`Ошибка удаления: ${response.status}`);
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || `Ошибка: ${response.status}`);
+            }
+
             myProjects = myProjects.filter(p => p.id !== projectId);
             renderProjects();
             updateStats();
+
             const modal = document.querySelector('.project-modal.active');
             if (modal && modal.dataset.projectId === projectId) closeModal();
+
             showSuccess('Проект удалён');
+
         } catch (error) {
+            console.error('❌ Ошибка удаления:', error);
             showError('Ошибка удаления: ' + error.message);
+        } finally {
+            hideLoading();
         }
     }
 
@@ -581,9 +606,7 @@
         try {
             let response;
 
-            // Если в групповом режиме и выбрана группа
             if (currentMode === 'group' && selectedGroupId) {
-                // Находим групповой проект
                 const groupProject = myProjects.find(p => p.id === projectId);
                 const groupProjectId = groupProject?.group_project_id;
 
@@ -593,17 +616,12 @@
                     return;
                 }
 
-                console.log(`📊 Отмечаем фильм как просмотренный в группе: проект ${projectId}`);
-
-                // Обновляем общий статус проекта в группе на 'watched'
                 response = await window.authFetch(`${API_URL}/api/groups/${selectedGroupId}/projects/${groupProjectId}/status`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ status: 'watched' })
                 });
             } else {
-                // Личный режим - обновляем статус в личном каталоге
-                console.log(`📊 Отмечаем фильм как просмотренный в личном каталоге: проект ${projectId}`);
                 response = await window.authFetch(`${API_URL}/api/user/projects/${projectId}/status`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
@@ -616,24 +634,13 @@
                 throw new Error(error.error || `Ошибка: ${response.status}`);
             }
 
-            // Удаляем фильм из текущего списка (непросмотренных)
             myProjects = myProjects.filter(p => p.id !== projectId);
-
-            // Закрываем модалку если открыта
             closeModal();
-
-            // Обновляем отображение
             renderProjects();
             updateStats();
 
-            // Отправляем событие об обновлении для синхронизации
             window.dispatchEvent(new CustomEvent('projectWatched', {
-                detail: {
-                    groupId: selectedGroupId,
-                    projectId: projectId,
-                    projectData: project,
-                    mode: currentMode
-                }
+                detail: { groupId: selectedGroupId, projectId: projectId, projectData: project, mode: currentMode }
             }));
 
             showSuccess('Фильм отмечен как просмотренный! Перейдите в личный кабинет для оценки.');
@@ -648,19 +655,16 @@
 
     async function changeProjectType(projectId, newType) {
         try {
-            const response = await window.authFetch(`${API_URL}/projects/${projectId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type: newType })
-            });
-            if (!response.ok) throw new Error(`Ошибка обновления: ${response.status}`);
-            const index = myProjects.findIndex(p => p.id === projectId);
-            if (index !== -1) {
-                myProjects[index].type = newType;
+            const projectIndex = myProjects.findIndex(p => p.id === projectId);
+            if (projectIndex !== -1) {
+                myProjects[projectIndex].type = newType;
                 renderProjects();
                 updateStats();
                 const modal = document.querySelector('.project-modal.active');
-                if (modal && modal.dataset.projectId === projectId) openModal(projectId);
+                if (modal && modal.dataset.projectId === projectId) {
+                    openModal(projectId);
+                }
+                showSuccess('Тип изменён');
             }
         } catch (error) {
             showError('Ошибка изменения типа: ' + error.message);
@@ -686,7 +690,7 @@
         return myProjects.filter(p => p.type === currentFilter);
     }
 
-    // ========== ЗАГРУЗКА СЕЗОНОВ И ВИДЕО (сохраняем из предыдущей версии) ==========
+    // ========== ЗАГРУЗКА СЕЗОНОВ И ВИДЕО ==========
     async function loadSeasons(filmId) {
         const cacheKey = `seasons_${filmId}`;
         if (seasonsCache.has(cacheKey)) return seasonsCache.get(cacheKey);
@@ -1006,8 +1010,6 @@
             await loadPersonalProjects();
         } else if (selectedGroupId) {
             await loadGroupProjects(selectedGroupId);
-        } else {
-            await loadUnwatchedProjects();
         }
     }
     init();

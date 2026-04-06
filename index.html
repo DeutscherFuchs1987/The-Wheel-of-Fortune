@@ -11,13 +11,16 @@
 <body>
     <div class="app">
 
+        <!-- ========== НОВЫЙ ХЕДЕР (как на всех страницах) ========== -->
         <div class="header">
-            <h1>🎬 НАШ КАТАЛОГ</h1>
-            <div class="nav-buttons">
-                <a href="index.html" class="nav-btn">🎡 Колесо</a>
-                <a href="catalog.html" class="nav-btn active">📚 Каталог</a>
-                <a href="ratings.html" class="nav-btn">⭐ Оценки</a>
-                <a href="profile.html" class="nav-btn">👤 Профиль</a>
+            <div class="header-left">
+                <h1>🎡 КОЛЕСО ФОРТУНЫ</h1>
+                <div class="nav-buttons">
+                    <a href="index.html" class="nav-btn active">🎡 Колесо</a>
+                    <a href="catalog.html" class="nav-btn">📚 Каталог</a>
+                    <a href="ratings.html" class="nav-btn">⭐ Оценки</a>
+                    <a href="profile.html" class="nav-btn">👤 Профиль</a>
+                </div>
             </div>
 
             <!-- Блок авторизации -->
@@ -30,8 +33,7 @@
                     <span class="user-avatar">👤</span>
                     <span class="user-name" id="userName"></span>
                     <span class="user-badge" id="userBadge"></span>
-                    <a href="profile.html" class="profile-link">👤 Профиль</a>
-                    <button class="auth-btn-small" onclick="logout()">Выйти</button>
+                    <button class="auth-btn-small" onclick="logout()">🚪 Выйти</button>
                 </div>
             </div>
         </div>
@@ -55,7 +57,7 @@
             </div>
         </div>
 
-        <!-- Объединенная панель: фильтры по типу + переключатель режимов -->
+        <!-- Объединенная панель: фильтры по типу + переключатель режимов исключения -->
         <div class="filter-panel">
             <div class="filter-section">
                 <span class="filter-title">📌 Тип:</span>
@@ -131,8 +133,7 @@
                 <button class="auth-btn submit" onclick="submitLogin()">Войти</button>
                 <button class="auth-btn cancel" onclick="closeAuthModal()">Отмена</button>
             </div>
-            <div class="auth-link" onclick="showRegisterModal(); closeAuthModal()">Нет аккаунта? Зарегистрироваться
-            </div>
+            <div class="auth-link" onclick="showRegisterModal(); closeAuthModal()">Нет аккаунта? Зарегистрироваться</div>
         </div>
     </div>
 

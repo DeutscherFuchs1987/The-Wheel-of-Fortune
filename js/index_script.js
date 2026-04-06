@@ -12,7 +12,7 @@
     let spinSpeed = 2.0;
     let spinRotations = 8;
 
-    // Переменные для голосования (теперь групповые)
+    // Переменные для бустов (только групповые)
     let filmBoosts = {};
     let isEliminationMode = false;
 
@@ -303,7 +303,7 @@
         return idToTitleMap[id] || id;
     }
 
-    // ========== ЗАГРУЗКА БУСТОВ (ГРУППОВЫХ ИЛИ ЛИЧНЫХ) ==========
+    // ========== ЗАГРУЗКА БУСТОВ (ТОЛЬКО ГРУППОВЫЕ) ==========
     async function loadGroupBoosts() {
         if (currentMode === 'group' && selectedGroupId) {
             try {
@@ -318,18 +318,9 @@
                 filmBoosts = {};
             }
         } else {
-            // Личный режим - загружаем глобальные бусты
-            try {
-                const response = await window.authFetch(`${API_URL}/api/film-boosts`);
-                if (response.ok) {
-                    filmBoosts = await response.json();
-                    console.log('📊 Загружены личные бусты:', filmBoosts);
-                    drawWheel();
-                }
-            } catch (error) {
-                console.error('Ошибка загрузки личных бустов:', error);
-                filmBoosts = {};
-            }
+            // В личном режиме бустов нет
+            filmBoosts = {};
+            console.log('📊 Личный режим: бусты не используются');
         }
     }
 
@@ -419,7 +410,6 @@
             drawWheel();
             updatePoolView();
         }
-        // После загрузки проектов загружаем бусты
         await loadGroupBoosts();
     }
 
@@ -445,11 +435,15 @@
                 console.log(`📚 Загружено ${allItems.length} проектов в планах (личный режим)`);
             } else {
                 console.error('Ошибка загрузки личных проектов:', response.status);
-                fallbackToOldSystem();
+                allItems = [];
+                updateFilters();
+                syncWheel();
             }
         } catch (error) {
             console.error('Ошибка загрузки личных проектов:', error);
-            fallbackToOldSystem();
+            allItems = [];
+            updateFilters();
+            syncWheel();
         }
     }
 
@@ -475,37 +469,15 @@
                 console.log(`📚 Загружено ${allItems.length} проектов в планах (групповой режим, группа: ${groupId})`);
             } else {
                 console.error('Ошибка загрузки групповых проектов:', response.status);
-                fallbackToOldSystem();
+                allItems = [];
+                updateFilters();
+                syncWheel();
             }
         } catch (error) {
             console.error('Ошибка загрузки групповых проектов:', error);
-            fallbackToOldSystem();
-        }
-    }
-
-    async function fallbackToOldSystem() {
-        try {
-            const response = await fetch(`${API_URL}/projects`);
-            if (response.ok) {
-                const allProjects = await response.json();
-                const plannedProjects = allProjects.filter(p => !p.watched && !p.inProgress);
-
-                allItems = plannedProjects.map(p => ({
-                    Название: p.title_ru || p.title,
-                    Жанр: p.type || 'Фильм',
-                    id: p.id
-                }));
-
-                updateMaps();
-                updateFilters();
-                syncWheel();
-                drawWheel();
-                updatePoolView();
-
-                console.log(`📚 Загружено ${allItems.length} проектов из старой системы`);
-            }
-        } catch (error) {
-            console.error('Ошибка загрузки из старой системы:', error);
+            allItems = [];
+            updateFilters();
+            syncWheel();
         }
     }
 
@@ -645,7 +617,6 @@
                 ctx.shadowColor = 'rgba(0,0,0,0.5)';
                 ctx.shadowBlur = 4;
 
-                // Показываем количество голосов числом со звездой
                 const votes = Math.floor(boost);
                 if (votes <= 5) {
                     ctx.fillText('★'.repeat(votes), radius - 45, -10);
@@ -839,21 +810,60 @@
     }
 
     window.deleteItem = async function (itemName) {
-        try {
-            const response = await fetch(`${API_URL}/projects`);
-            const projects = await response.json();
-            const projectToDelete = projects.find(p =>
-                (p.title_ru === itemName || p.title === itemName) && !p.watched && !p.inProgress
-            );
+        if (!window.currentUser) {
+            showError('Требуется авторизация для удаления');
+            return;
+        }
 
-            if (projectToDelete) {
-                await fetch(`${API_URL}/projects/${projectToDelete.id}`, {
-                    method: 'DELETE'
-                });
-                await loadProjectsByMode();
+        if (!confirm(`Удалить "${itemName}" из каталога?`)) return;
+
+        try {
+            let response;
+            
+            if (currentMode === 'group' && selectedGroupId) {
+                // Сначала находим проект в группе
+                const projectsResponse = await window.authFetch(`${API_URL}/api/groups/${selectedGroupId}/projects`);
+                const projects = await projectsResponse.json();
+                const projectToDelete = projects.find(p => 
+                    (p.data?.title_ru === itemName || p.data?.title === itemName)
+                );
+                
+                if (projectToDelete) {
+                    response = await window.authFetch(`${API_URL}/api/groups/${selectedGroupId}/projects/${projectToDelete.id}`, {
+                        method: 'DELETE'
+                    });
+                } else {
+                    showError('Проект не найден в группе');
+                    return;
+                }
+            } else {
+                // Личный режим - удаляем из user_projects
+                const projectsResponse = await window.authFetch(`${API_URL}/api/user/projects/list`);
+                const projects = await projectsResponse.json();
+                const projectToDelete = projects.find(p => 
+                    (p.data?.title_ru === itemName || p.data?.title === itemName)
+                );
+                
+                if (projectToDelete) {
+                    response = await window.authFetch(`${API_URL}/api/user/projects/${projectToDelete.project_id}/status`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status: 'removed' })
+                    });
+                } else {
+                    showError('Проект не найден');
+                    return;
+                }
+            }
+
+            if (response && response.ok) {
                 showSuccess(`Удалено: ${itemName}`);
+                await loadProjectsByMode();
+            } else {
+                showError('Ошибка при удалении');
             }
         } catch (error) {
+            console.error('Ошибка удаления:', error);
             showError('Ошибка при удалении: ' + error.message);
         }
     };
