@@ -85,8 +85,8 @@
             backdrop-filter: blur(5px);
         `;
         newLoader.innerHTML = `
-            <div style="width: 60px; height: 60px; border: 4px solid #5f4bb6; border-top-color: #ffd966; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px;"></div>
-            <div style="color: white; font-size: 1.2rem;">Загрузка...</div>
+            <div style="width: 60px; height: 60px; border: 4px solid #2a2a2a; border-top-color: #8B7355; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px;"></div>
+            <div style="color: #e0e0e0; font-size: 1.2rem;">Загрузка...</div>
             <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
         `;
         document.body.appendChild(newLoader);
@@ -222,7 +222,7 @@
                     </option>
                 `).join('')}
             </select>
-            <button class="refresh-group-btn" onclick="window.refreshGroupProjects()">🔄</button>
+            <button class="btn-icon" onclick="window.refreshGroupProjects()">🔄</button>
         `;
     }
 
@@ -312,8 +312,8 @@
     function showError(text) {
         console.error('❌ Ошибка:', text);
         if (errorMessageDiv) {
+            errorMessageDiv.textContent = text;
             errorMessageDiv.style.display = 'block';
-            errorMessageDiv.textContent = '❌ ' + text;
             setTimeout(() => errorMessageDiv.style.display = 'none', 3000);
         }
     }
@@ -321,15 +321,15 @@
     function showSuccess(text) {
         console.log('✅ Успех:', text);
         if (successMessageDiv) {
+            successMessageDiv.textContent = text;
             successMessageDiv.style.display = 'block';
-            successMessageDiv.textContent = '✅ ' + text;
             setTimeout(() => successMessageDiv.style.display = 'none', 2000);
         }
     }
 
     function showInfo(text) {
         const infoDiv = document.createElement('div');
-        infoDiv.style.cssText = `position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#4a3f7a;color:white;padding:10px 20px;border-radius:8px;z-index:10000;animation:fadeOut 3s forwards;`;
+        infoDiv.style.cssText = `position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#8B7355;padding:10px 20px;border-radius:8px;z-index:10000;animation:fadeOut 3s forwards;border-left:3px solid #8B7355;`;
         infoDiv.textContent = 'ℹ️ ' + text;
         document.body.appendChild(infoDiv);
         setTimeout(() => infoDiv.remove(), 3000);
@@ -370,7 +370,7 @@
         showSuccess('Весь кэш очищен');
     }
 
-    // ========== ОСНОВНАЯ ФУНКЦИЯ ДОБАВЛЕНИЯ (НОВАЯ СИСТЕМА) ==========
+    // ========== ОСНОВНАЯ ФУНКЦИЯ ДОБАВЛЕНИЯ ==========
     async function addProject(film) {
         if (!currentUser) {
             showError('Сначала войдите в аккаунт');
@@ -517,7 +517,6 @@
             if (!details.ok) throw new Error('Ошибка обновления данных');
             const data = await details.json();
 
-            // Обновляем локальные данные
             const projectIndex = myProjects.findIndex(p => p.id === projectId);
             if (projectIndex !== -1) {
                 myProjects[projectIndex] = {
@@ -561,7 +560,6 @@
                     method: 'DELETE'
                 });
             } else {
-                // Для личного режима используем DELETE метод
                 response = await window.authFetch(`${API_URL}/api/user/projects/${projectId}/status`, {
                     method: 'DELETE'
                 });
@@ -744,13 +742,13 @@
     function showVideoNotFound(playerDiv, projectId, filmId, title, year, originalTitle, seasonNum, episodeNum, contentType) {
         const hasSeasonInfo = seasonNum !== null && seasonNum !== undefined && episodeNum !== null && episodeNum !== undefined;
         const errorMessage = hasSeasonInfo ? `Не удалось найти "${title} ${seasonNum} сезон ${episodeNum} серия"` : `Не удалось найти "${title}"`;
-        playerDiv.innerHTML = `<div style="text-align:center; padding:30px; color:#ff8a8a;">❌ ${errorMessage}<br><small style="color:#aaa;">Попробуйте найти вручную на Rutube</small><br><br><div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;"><button class="retry-btn" onclick="window.clearAndRetry('${projectId}', '${filmId}', '${title.replace(/'/g, "\\'")}', '${year}', '${originalTitle.replace(/'/g, "\\'")}', ${seasonNum}, ${episodeNum}, '${contentType}')">🗑️ Очистить кэш и повторить</button><button class="retry-btn" onclick="window.openManualSearch('${title}', ${seasonNum}, ${episodeNum}, '${contentType}')">🔍 Поиск на Rutube</button><button class="retry-btn" onclick="window.loadEpisodeVideo('${projectId}', '${filmId}', '${title.replace(/'/g, "\\'")}', '${year}', '${originalTitle.replace(/'/g, "\\'")}', ${seasonNum}, ${episodeNum}, '${contentType}')">🔄 Повторить</button></div></div>`;
+        playerDiv.innerHTML = `<div style="text-align:center; padding:30px; color:#a0522d;">❌ ${errorMessage}<br><small style="color:#aaa;">Попробуйте найти вручную на Rutube</small><br><br><div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;"><button class="retry-btn" style="background:#1a1a1a; border:1px solid #8B7355; color:#e0e0e0; padding:8px 16px; border-radius:30px; cursor:pointer;" onclick="window.clearAndRetry('${projectId}', '${filmId}', '${title.replace(/'/g, "\\'")}', '${year}', '${originalTitle.replace(/'/g, "\\'")}', ${seasonNum}, ${episodeNum}, '${contentType}')">🗑️ Очистить кэш и повторить</button><button class="retry-btn" style="background:#1a1a1a; border:1px solid #8B7355; color:#e0e0e0; padding:8px 16px; border-radius:30px; cursor:pointer;" onclick="window.openManualSearch('${title}', ${seasonNum}, ${episodeNum}, '${contentType}')">🔍 Поиск на Rutube</button><button class="retry-btn" style="background:#1a1a1a; border:1px solid #8B7355; color:#e0e0e0; padding:8px 16px; border-radius:30px; cursor:pointer;" onclick="window.loadEpisodeVideo('${projectId}', '${filmId}', '${title.replace(/'/g, "\\'")}', '${year}', '${originalTitle.replace(/'/g, "\\'")}', ${seasonNum}, ${episodeNum}, '${contentType}')">🔄 Повторить</button></div></div>`;
     }
 
     function embedPlayerWithOptions(projectId, primaryVideo, candidates, season, episode, startTime = 0) {
         const playerId = `player-${projectId}-${season}-${episode}-${Date.now()}`;
         const cacheKey = `${projectId}_${season}_${episode}`;
-        return `<div class="player-container" id="${playerId}"><div class="primary-player">${primaryVideo.embed_code}</div><div style="display: flex; justify-content: space-between; align-items: center; margin-top: 5px;"><div style="display: flex; align-items: center; gap: 10px;"><button class="retry-btn" style="padding: 4px 8px; font-size: 11px;" onclick="window.clearAndRetry('${projectId}', '', '${primaryVideo.title}', '', '', ${season}, ${episode}, '')">🗑️ Очистить кэш</button></div><div style="display: flex; align-items: center; opacity: 0.5;"><span style="color: #888; font-size: 11px;">🎯 осн.</span><span style="color: #666; font-size: 10px; margin-left: 5px;">${primaryVideo.score} баллов</span></div></div>${candidates?.length > 1 ? `<div class="alternative-toggle" style="margin-top: 5px; opacity: 0.3; transition: opacity 0.3s; text-align: right; font-size: 11px;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='0.3'"><span style="color: #666; cursor: pointer;" onclick="window.toggleAlternatives('${playerId}')">📋 еще ${candidates.length - 1} вар.</span></div><div class="alternatives-hidden" id="alt-${playerId}" style="display: none; margin-top: 10px; padding: 8px; background: rgba(255,255,255,0.02); border-radius: 6px;"><div style="font-size: 12px; color: #aaa; margin-bottom: 8px; text-align: center;">другие варианты</div><div style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px;">${candidates.slice(1).map((video, index) => `<div style="min-width: 200px; padding: 8px; background: rgba(255,255,255,0.03); border-radius: 4px; cursor: pointer;" onclick="window.switchVideo('${projectId}', ${season}, ${episode}, ${index + 1})"><div style="font-size: 11px; color: #ccc;">${video.title.substring(0, 40)}${video.title.length > 40 ? '...' : ''}</div><div style="display: flex; gap: 10px; font-size: 10px; color: #666; margin-top: 4px;"><span>⏱️ ${formatDuration(video.duration)}</span><span>👁️ ${Math.round(video.views / 1000)}k</span><span style="color: #888;">${video.score} баллов</span></div></div>`).join('')}</div></div>` : ''}${startTime > 0 ? `<div style="margin-top: 8px; text-align: center; opacity: 0.6;"><button class="resume-btn-mini" onclick="window.resumeVideo('${projectId}', ${season}, ${episode}, ${startTime})" style="background: none; border: 1px solid #4caf50; border-radius: 12px; color: #4caf50; padding: 4px 12px; font-size: 11px; cursor: pointer;">⏯️ продолжить с ${window.watchProgress?.formatTime(startTime) || '0:00'}</button></div>` : ''}</div><script>(function(){if(!window.videoCandidates)window.videoCandidates=new Map();window.videoCandidates.set('${cacheKey}',${JSON.stringify(candidates)});setTimeout(()=>{const wrapper=document.getElementById('${playerId}');const iframe=wrapper.querySelector('iframe');if(!iframe)return;try{const player=iframe.contentWindow?.player;if(player?.api){if(${startTime}>0)player.api.seek(${startTime});let lastSave=0;player.api.on('timeupdate',(data)=>{if(Math.floor(data.currentTime/10)>Math.floor(lastSave/10)){lastSave=data.currentTime;window.watchProgress?.markStarted('${projectId}',${season},${episode},data.currentTime,data.duration);}});player.api.on('ended',()=>{window.watchProgress?.markWatched('${projectId}',${season},${episode});if(window.showInfo)window.showInfo('✅ Серия отмечена как просмотренная');});}}catch(e){console.log('⚠️ Rutube API недоступен');}},2000);})();<\/script>`;
+        return `<div class="player-container" id="${playerId}"><div class="primary-player">${primaryVideo.embed_code}</div><div style="display: flex; justify-content: space-between; align-items: center; margin-top: 5px;"><div style="display: flex; align-items: center; gap: 10px;"><button class="retry-btn" style="padding: 4px 8px; font-size: 11px; background:#1a1a1a; border:1px solid #8B7355; color:#e0e0e0; border-radius:30px; cursor:pointer;" onclick="window.clearAndRetry('${projectId}', '', '${primaryVideo.title}', '', '', ${season}, ${episode}, '')">🗑️ Очистить кэш</button></div><div style="display: flex; align-items: center; opacity: 0.5;"><span style="color: #888; font-size: 11px;">🎯 осн.</span><span style="color: #666; font-size: 10px; margin-left: 5px;">${primaryVideo.score} баллов</span></div></div>${candidates?.length > 1 ? `<div class="alternative-toggle" style="margin-top: 5px; opacity: 0.3; transition: opacity 0.3s; text-align: right; font-size: 11px;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='0.3'"><span style="color: #666; cursor: pointer;" onclick="window.toggleAlternatives('${playerId}')">📋 еще ${candidates.length - 1} вар.</span></div><div class="alternatives-hidden" id="alt-${playerId}" style="display: none; margin-top: 10px; padding: 8px; background: rgba(255,255,255,0.02); border-radius: 6px;"><div style="font-size: 12px; color: #aaa; margin-bottom: 8px; text-align: center;">другие варианты</div><div style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px;">${candidates.slice(1).map((video, index) => `<div style="min-width: 200px; padding: 8px; background: rgba(255,255,255,0.03); border-radius: 4px; cursor: pointer;" onclick="window.switchVideo('${projectId}', ${season}, ${episode}, ${index + 1})"><div style="font-size: 11px; color: #ccc;">${video.title.substring(0, 40)}${video.title.length > 40 ? '...' : ''}</div><div style="display: flex; gap: 10px; font-size: 10px; color: #666; margin-top: 4px;"><span>⏱️ ${formatDuration(video.duration)}</span><span>👁️ ${Math.round(video.views / 1000)}k</span><span style="color: #888;">${video.score} баллов</span></div></div>`).join('')}</div></div>` : ''}${startTime > 0 ? `<div style="margin-top: 8px; text-align: center; opacity: 0.6;"><button class="resume-btn-mini" onclick="window.resumeVideo('${projectId}', ${season}, ${episode}, ${startTime})" style="background: none; border: 1px solid #8B7355; border-radius: 30px; color: #8B7355; padding: 4px 12px; font-size: 11px; cursor: pointer;">⏯️ продолжить с ${window.watchProgress?.formatTime(startTime) || '0:00'}</button></div>` : ''}</div><script>(function(){if(!window.videoCandidates)window.videoCandidates=new Map();window.videoCandidates.set('${cacheKey}',${JSON.stringify(candidates)});setTimeout(()=>{const wrapper=document.getElementById('${playerId}');const iframe=wrapper.querySelector('iframe');if(!iframe)return;try{const player=iframe.contentWindow?.player;if(player?.api){if(${startTime}>0)player.api.seek(${startTime});let lastSave=0;player.api.on('timeupdate',(data)=>{if(Math.floor(data.currentTime/10)>Math.floor(lastSave/10)){lastSave=data.currentTime;window.watchProgress?.markStarted('${projectId}',${season},${episode},data.currentTime,data.duration);}});player.api.on('ended',()=>{window.watchProgress?.markWatched('${projectId}',${season},${episode});if(window.showInfo)window.showInfo('✅ Серия отмечена как просмотренная');});}}catch(e){console.log('⚠️ Rutube API недоступен');}},2000);})();<\/script>`;
     }
 
     window.switchVideo = function (projectId, season, episode, candidateIndex) {
@@ -793,7 +791,7 @@
         const progress = window.watchProgress?.get(projectId);
         let html = '<div class="seasons-list">';
         seasonsData.items.forEach(season => {
-            html += `<div class="season-item"><h4 onclick="window.toggleSeason('${projectId}', ${season.number})" style="cursor: pointer;">${season.number}-й сезон <span style="color:#888; font-size:12px;">▼</span></h4><div class="episodes-list" id="season-${projectId}-${season.number}" style="display: none;">`;
+            html += `<div class="season-item"><h4 onclick="window.toggleSeason('${projectId}', ${season.number})" style="cursor: pointer; color:#8B7355;">${season.number}-й сезон <span style="color:#888; font-size:12px;">▼</span></h4><div class="episodes-list" id="season-${projectId}-${season.number}" style="display: none;">`;
             season.episodes.forEach(episode => {
                 const isCurrentEpisode = progress?.season === season.number && progress?.episode === episode.episodeNumber;
                 const progressPercent = isCurrentEpisode && progress?.duration ? Math.round((progress.timecode / progress.duration) * 100) : 0;
@@ -823,12 +821,16 @@
     window.openModal = async function (projectId) {
         const project = myProjects.find(p => p.id === projectId);
         if (!project) return;
+        
         const existingModal = document.querySelector('.project-modal');
         if (existingModal) existingModal.remove();
+        
         document.body.classList.add('modal-open');
+        
         const modal = document.createElement('div');
         modal.className = 'project-modal active';
         modal.dataset.projectId = project.id;
+        
         const posterEmoji = project.type === 'Аниме' ? '🇯🇵' : project.type === 'Сериал' ? '📺' : project.type === 'Мультфильм' ? '🖍️' : '🎬';
         const genresHtml = project.genres?.length ? project.genres.map(g => `<span class="modal-genre-tag">${g.genre || g}</span>`).join('') : '<span class="modal-genre-tag">Жанры будут добавлены</span>';
         const description = project.description?.length > 500 ? project.description.substring(0, 500) + '...' : project.description || 'Описание будет загружено позже...';
@@ -836,11 +838,61 @@
         const progress = window.watchProgress?.get(project.id);
         const isSeries = project.type === 'Сериал';
         const isAnimeOrCartoon = project.type === 'Аниме' || project.type === 'Мультфильм';
-        const continueButton = (isSeries || isAnimeOrCartoon) && progress && !progress.completed ? `<button class="continue-watching-btn" onclick="window.continueWatching('${project.id}')">▶️ Продолжить с ${progress.season} сезона ${progress.episode} серии (${window.watchProgress?.formatTime(progress.timecode)})</button>` : '';
-        const cacheButtons = `<div style="display: flex; gap: 10px; margin-bottom: 15px; justify-content: flex-end;"><button class="retry-btn" style="padding: 5px 10px; font-size: 12px;" onclick="window.clearAllCache()">🗑️ Очистить весь кэш</button></div>`;
-        const seasonsSection = (isSeries || isAnimeOrCartoon) ? `<div class="modal-section"><h3>📺 Сезоны и серии</h3>${cacheButtons}<div id="seasons-container-${project.id}" class="seasons-container"><div class="loading-spinner" style="text-align:center; padding:30px;"></div></div></div>` : '';
-        modal.innerHTML = `<div class="modal-overlay" onclick="window.closeModal()"></div><div class="modal-content"><button class="modal-close" onclick="window.closeModal()">✕</button><div class="modal-layout"><div class="modal-left"><div class="modal-poster">${project.poster ? `<img src="${project.poster}" alt="${project.title_ru || project.title}">` : `<div class="modal-no-poster">${posterEmoji}</div>`}</div><div class="modal-quick-info"><div class="modal-rating-badge"><span>⭐</span><span>${project.rating}</span></div><div class="modal-year-badge"><span>📅</span><span>${project.year}</span></div></div><div class="modal-actions"><button class="modal-action-btn delete" onclick="window.deleteProject('${project.id}'); window.closeModal()" title="Удалить"><span class="btn-icon">🗑️</span><span class="btn-text">Удалить</span></button><button class="modal-action-btn progress ${project.inProgress ? 'active' : ''}" onclick="window.toggleInProgress('${project.id}')" title="${project.inProgress ? 'Убрать из процесса' : 'В процессе'}"><span class="btn-icon">🔥</span><span class="btn-text">${project.inProgress ? 'В процессе' : 'В процесс'}</span></button><button class="modal-action-btn watched" onclick="window.markAsWatched('${project.id}'); window.closeModal()" title="Просмотрено"><span class="btn-icon">✅</span><span class="btn-text">Просмотрено</span></button><button class="modal-action-btn refresh" onclick="window.refreshProjectDetails('${project.id}')" title="Обновить данные"><span class="btn-icon">🔄</span><span class="btn-text">Обновить</span></button></div></div><div class="modal-right"><h2 class="modal-title">${project.title_ru || project.title}</h2><div class="modal-section"><h3>Жанры</h3><div class="modal-genres">${genresHtml}</div></div><div class="modal-section"><h3>Описание</h3><p class="modal-description">${description}</p></div><div class="modal-section"><h3>🎬 Смотреть на Rutube</h3>${continueButton}<div class="rutube-player" id="rutube-player-${project.id}" style="display: block;"><div class="loading-spinner" style="text-align:center; padding:50px;"></div></div></div>${seasonsSection}</div></div></div>`;
+        
+        const continueButton = (isSeries || isAnimeOrCartoon) && progress && !progress.completed ? 
+            `<button class="continue-watching-btn" style="background:#1a1a1a; border:1px solid #8B7355; color:#8B7355; padding:12px; border-radius:30px; width:100%; margin-bottom:10px; cursor:pointer;" onclick="window.continueWatching('${project.id}')">▶️ Продолжить с ${progress.season} сезона ${progress.episode} серии (${window.watchProgress?.formatTime(progress.timecode)})</button>` : '';
+        
+        const cacheButtons = `<div style="display: flex; gap: 10px; margin-bottom: 15px; justify-content: flex-end;"><button class="retry-btn" style="padding: 5px 10px; font-size: 12px; background:#1a1a1a; border:1px solid #8B7355; border-radius:30px; color:#e0e0e0; cursor:pointer;" onclick="window.clearAllCache()">🗑️ Очистить весь кэш</button></div>`;
+        
+        const seasonsSection = (isSeries || isAnimeOrCartoon) ? 
+            `<div class="modal-section"><h3>📺 Сезоны и серии</h3>${cacheButtons}<div id="seasons-container-${project.id}" class="seasons-container"><div class="loading-spinner" style="text-align:center; padding:30px;"></div></div></div>` : '';
+        
+        modal.innerHTML = `
+            <div class="modal-overlay-project" onclick="window.closeModal()"></div>
+            <div class="project-modal-content">
+                <button class="modal-close" onclick="window.closeModal()">✕</button>
+                <div class="modal-layout">
+                    <div class="modal-left">
+                        <div class="modal-poster">
+                            ${project.poster ? `<img src="${project.poster}" alt="${project.title_ru || project.title}">` : `<div class="modal-no-poster">${posterEmoji}</div>`}
+                        </div>
+                        <div class="modal-quick-info">
+                            <div class="modal-rating-badge"><span>⭐</span><span>${project.rating}</span></div>
+                            <div class="modal-year-badge"><span>📅</span><span>${project.year}</span></div>
+                        </div>
+                        <div class="modal-actions">
+                            <button class="modal-action-btn delete" onclick="window.deleteProject('${project.id}'); window.closeModal()" title="Удалить"><span class="btn-icon">🗑️</span><span class="btn-text">Удалить</span></button>
+                            <button class="modal-action-btn progress ${project.inProgress ? 'active' : ''}" onclick="window.toggleInProgress('${project.id}')" title="${project.inProgress ? 'Убрать из процесса' : 'В процессе'}"><span class="btn-icon">🔥</span><span class="btn-text">${project.inProgress ? 'В процессе' : 'В процесс'}</span></button>
+                            <button class="modal-action-btn watched" onclick="window.markAsWatched('${project.id}'); window.closeModal()" title="Просмотрено"><span class="btn-icon">✅</span><span class="btn-text">Просмотрено</span></button>
+                            <button class="modal-action-btn refresh" onclick="window.refreshProjectDetails('${project.id}')" title="Обновить данные"><span class="btn-icon">🔄</span><span class="btn-text">Обновить</span></button>
+                        </div>
+                    </div>
+                    <div class="modal-right">
+                        <h2 class="modal-title">${project.title_ru || project.title}</h2>
+                        <div class="modal-section">
+                            <h3>Жанры</h3>
+                            <div class="modal-genres">${genresHtml}</div>
+                        </div>
+                        <div class="modal-section">
+                            <h3>Описание</h3>
+                            <p class="modal-description">${description}</p>
+                        </div>
+                        <div class="modal-section">
+                            <h3>🎬 Смотреть на Rutube</h3>
+                            ${continueButton}
+                            <div class="rutube-player" id="rutube-player-${project.id}" style="display: block;">
+                                <div class="loading-spinner" style="text-align:center; padding:50px;"></div>
+                            </div>
+                        </div>
+                        ${seasonsSection}
+                    </div>
+                </div>
+            </div>
+        `;
+        
         document.body.appendChild(modal);
+        modal.style.display = 'flex';
+        
         if (isSeries || isAnimeOrCartoon) {
             const seasonsData = await loadSeasons(filmId);
             if (seasonsData?.items?.length > 0) {
@@ -868,6 +920,7 @@
         const modal = document.querySelector('.project-modal');
         if (modal) {
             modal.classList.remove('active');
+            modal.style.display = 'none';
             document.body.classList.remove('modal-open');
             setTimeout(() => modal.remove(), 300);
         }
@@ -885,7 +938,7 @@
             const progress = window.watchProgress?.get(project.id);
             const progressPercent = progress?.duration ? (progress.timecode / progress.duration) * 100 : 0;
             const hasProgress = progress && !progress.completed && progressPercent > 0;
-            return `<div class="card ${project.inProgress ? 'in-progress' : ''}" data-project-id="${project.id}" onclick="window.openModal('${project.id}')"><div class="card-buttons" onclick="event.stopPropagation()"><button class="delete-card" onclick="window.deleteProject('${project.id}')">✕</button><div style="display: flex; gap: 5px;"><button class="in-progress-btn ${project.inProgress ? 'active' : ''}" onclick="window.toggleInProgress('${project.id}')">🔥</button><button class="watched-btn" onclick="window.markAsWatched('${project.id}')">✅</button></div></div><div class="poster" style="background-image: ${project.poster ? `url('${project.poster}')` : 'none'};">${!project.poster ? `<div class="no-poster">${posterEmoji}</div>` : ''}${hasProgress ? `<div class="progress-overlay"><div class="progress-bar" style="width: ${progressPercent}%;"></div><div class="progress-text">Сезон ${progress.season} серия ${progress.episode}<br><small>${Math.round(progressPercent)}%</small></div></div>` : ''}<div class="rating-badge ${project.rating === '—' ? 'none' : ''}">${project.rating}</div></div><div class="card-content"><div class="card-title">${project.title_ru || project.title}</div><div class="type-selector" onclick="event.stopPropagation()"><button class="type-btn ${project.type === 'Фильм' ? 'active' : ''}" onclick="window.changeProjectType('${project.id}', 'Фильм')">🎬</button><button class="type-btn ${project.type === 'Сериал' ? 'active' : ''}" onclick="window.changeProjectType('${project.id}', 'Сериал')">📺</button><button class="type-btn ${project.type === 'Мультфильм' ? 'active' : ''}" onclick="window.changeProjectType('${project.id}', 'Мультфильм')">🖍️</button><button class="type-btn ${project.type === 'Аниме' ? 'active' : ''}" onclick="window.changeProjectType('${project.id}', 'Аниме')">🇯🇵</button></div><div class="card-meta"><span>📅 ${project.year}</span></div></div></div>`;
+            return `<div class="movie-card ${project.inProgress ? 'in-progress' : ''}" data-project-id="${project.id}" onclick="window.openModal('${project.id}')"><div class="card-buttons" onclick="event.stopPropagation()"><button class="delete-btn" onclick="window.deleteProject('${project.id}')">✕</button><div style="display: flex; gap: 5px;"><button class="in-progress-btn ${project.inProgress ? 'active' : ''}" onclick="window.toggleInProgress('${project.id}')">🔥</button><button class="watched-btn" onclick="window.markAsWatched('${project.id}')">✅</button></div></div><div class="card-poster" style="background-image: ${project.poster ? `url('${project.poster}')` : 'none'};">${!project.poster ? `<div class="no-poster">${posterEmoji}</div>` : ''}${hasProgress ? `<div class="progress-overlay"><div class="progress-bar" style="width: ${progressPercent}%;"></div><div class="progress-text">Сезон ${progress.season} серия ${progress.episode}<br><small>${Math.round(progressPercent)}%</small></div></div>` : ''}<div class="rating-badge ${project.rating === '—' ? 'none' : ''}">${project.rating}</div></div><div class="card-content"><div class="card-title">${project.title_ru || project.title}</div><div class="type-buttons" onclick="event.stopPropagation()"><button class="type-btn ${project.type === 'Фильм' ? 'active' : ''}" onclick="window.changeProjectType('${project.id}', 'Фильм')">🎬</button><button class="type-btn ${project.type === 'Сериал' ? 'active' : ''}" onclick="window.changeProjectType('${project.id}', 'Сериал')">📺</button><button class="type-btn ${project.type === 'Мультфильм' ? 'active' : ''}" onclick="window.changeProjectType('${project.id}', 'Мультфильм')">🖍️</button><button class="type-btn ${project.type === 'Аниме' ? 'active' : ''}" onclick="window.changeProjectType('${project.id}', 'Аниме')">🇯🇵</button></div><div class="card-meta"><span>📅 ${project.year}</span></div></div></div>`;
         }).join('');
     }
 
@@ -904,12 +957,12 @@
             searchTimeout = setTimeout(async () => {
                 try {
                     if (!searchResults) return;
-                    searchResults.innerHTML = '<div class="loading">🔍 Поиск на Кинопоиске...</div>';
+                    searchResults.innerHTML = '<div class="loading-state" style="padding:20px; text-align:center; color:#666;">🔍 Поиск на Кинопоиске...</div>';
                     searchResults.classList.add('active');
                     const response = await fetch(`https://kinopoiskapiunofficial.tech/api/v2.1/films/search-by-keyword?keyword=${encodeURIComponent(query)}`, { headers: { 'X-API-KEY': KINOPOISK_TOKEN } });
                     if (!response.ok) throw new Error(`Ошибка ${response.status}`);
                     const data = await response.json();
-                    if (!data.films?.length) { searchResults.innerHTML = '<div style="padding:20px; text-align:center;">Ничего не найдено</div>'; return; }
+                    if (!data.films?.length) { searchResults.innerHTML = '<div style="padding:20px; text-align:center; color:#666;">Ничего не найдено</div>'; return; }
                     searchResults.innerHTML = data.films.slice(0, 7).map(film => {
                         const type = detectTypeByGenres(film);
                         const poster = film.posterUrlPreview || film.posterUrl;
@@ -917,7 +970,7 @@
                     }).join('');
                 } catch (error) {
                     console.error('Ошибка поиска:', error);
-                    if (searchResults) searchResults.innerHTML = `<div style="padding:20px; text-align:center; color:#ff8a8a;">Ошибка: ${error.message}</div>`;
+                    if (searchResults) searchResults.innerHTML = `<div style="padding:20px; text-align:center; color:#a0522d;">Ошибка: ${error.message}</div>`;
                 }
             }, 400);
         });
@@ -978,6 +1031,10 @@
     window.addMovieFromKinopoisk = addMovieFromKinopoisk;
     window.selectGroup = selectGroup;
     window.refreshGroupProjects = refreshGroupProjects;
+    window.refreshCatalog = function () {
+        loadProjectsByMode();
+        showSuccess('Каталог обновлён');
+    };
     window.debugCatalog = function () {
         console.log('=== DEBUG CATALOG ===');
         console.log('currentMode:', currentMode);

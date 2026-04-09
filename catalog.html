@@ -3,120 +3,153 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Каталог проектов 🎬</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Cinema Wheel | Каталог фильмов</title>
     <link rel="stylesheet" href="css/catalog_style.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap"
+        rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 </head>
 
 <body>
-    <div class="container">
-        <!-- ========== НОВЫЙ ХЕДЕР ========== -->
-        <div class="header">
-            <div class="header-left">
-                <h1>🎬 НАШ КАТАЛОГ</h1>
-                <div class="nav-buttons">
-                    <a href="index.html" class="nav-btn">🎡 Колесо</a>
-                    <a href="catalog.html" class="nav-btn active">📚 Каталог</a>
-                    <a href="ratings.html" class="nav-btn">⭐ Оценки</a>
-                    <a href="profile.html" class="nav-btn">👤 Профиль</a>
-                </div>
+
+    <div class="app">
+        <!-- Верхняя навигация -->
+        <header class="site-header">
+            <div class="logo">
+                <span class="logo-icon">🎬</span>
+                <span class="logo-text">CINEMA WHEEL</span>
             </div>
 
-            <!-- Блок авторизации -->
+            <nav class="main-nav">
+                <a href="index.html" class="nav-link">Колесо</a>
+                <a href="catalog.html" class="nav-link active">Каталог</a>
+                <a href="ratings.html" class="nav-link">Оценки</a>
+                <a href="profile.html" class="nav-link">Профиль</a>
+            </nav>
+
             <div class="auth-section">
                 <div class="auth-buttons" id="authButtons">
-                    <button class="auth-btn" onclick="showLoginModal()">🔑 Войти</button>
-                    <button class="auth-btn" onclick="showRegisterModal()">📝 Регистрация</button>
+                    <button class="btn-outline" onclick="window.showLoginModal()">Войти</button>
+                    <button class="btn-primary" onclick="window.showRegisterModal()">Регистрация</button>
                 </div>
                 <div class="user-info" id="userInfo" style="display: none;">
                     <span class="user-avatar">👤</span>
                     <span class="user-name" id="userName"></span>
                     <span class="user-badge" id="userBadge"></span>
-                    <button class="auth-btn-small" onclick="logout()">🚪 Выйти</button>
+                    <button class="btn-outline small" onclick="window.logout()">Выйти</button>
                 </div>
             </div>
-        </div>
+        </header>
 
-        <!-- Переключатель режимов (личный/групповой) -->
-        <div class="mode-selector">
-            <div class="catalog-mode-toggle" id="catalogModeToggle">
-                <div class="toggle-track">
-                    <div class="toggle-thumb" id="catalogModeThumb"></div>
+        <!-- Переключатель режимов -->
+        <div class="mode-bar">
+            <div class="mode-switch">
+                <div class="catalog-mode-toggle" id="catalogModeToggle">
+                    <div class="toggle-track">
+                        <div class="toggle-thumb" id="catalogModeThumb"></div>
+                    </div>
                 </div>
-            </div>
-            <div class="mode-labels">
-                <span class="mode-label personal active">👤 Личный каталог</span>
-                <span class="mode-label group">👥 Групповая библиотека</span>
+                <div class="mode-labels">
+                    <span class="mode-label personal active">Личный каталог</span>
+                    <span class="mode-label group">Групповая библиотека</span>
+                </div>
             </div>
             <div class="group-selector" id="groupSelector" style="display: none;">
                 <select id="groupSelect" onchange="window.selectGroup(this.value)">
                     <option value="">-- Выберите группу --</option>
                 </select>
-                <button class="refresh-group-btn" onclick="window.refreshGroupProjects()">🔄</button>
+                <button class="btn-icon" onclick="window.refreshGroupProjects()" title="Обновить">🔄</button>
             </div>
         </div>
 
-        <div class="filter-bar">
-            <span class="filter-title">📌 Фильтр:</span>
-            <div class="filter-buttons" id="filterButtons">
-                <button class="filter-btn active" data-filter="all">Все</button>
-                <button class="filter-btn" data-filter="Фильм">🎬 Фильмы</button>
-                <button class="filter-btn" data-filter="Сериал">📺 Сериалы</button>
-                <button class="filter-btn" data-filter="Мультфильм">🖍️ Мультфильмы</button>
-                <button class="filter-btn" data-filter="Аниме">🇯🇵 Аниме</button>
-            </div>
-        </div>
-
-        <div class="controls-panel">
+        <!-- Панель поиска и фильтров -->
+        <div class="search-section">
             <div class="search-container">
-                <input type="text" id="searchInput" class="search-input"
-                    placeholder="🔍 Поиск фильмов, аниме, сериалов на Кинопоиске...">
+                <div class="search-wrapper">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="searchInput" class="search-input"
+                        placeholder="Поиск фильмов, сериалов, аниме на Кинопоиске...">
+                </div>
                 <div id="searchResults" class="search-results"></div>
             </div>
-            <div class="stats" id="stats"></div>
+
+            <div class="filter-bar">
+                <div class="filter-header">
+                    <span class="filter-icon">🎞️</span>
+                    <span class="filter-title">Фильтр по типу</span>
+                </div>
+                <div class="filter-buttons" id="filterButtons">
+                    <button class="filter-btn active" data-filter="all">Все</button>
+                    <button class="filter-btn" data-filter="Фильм">🎬 Фильмы</button>
+                    <button class="filter-btn" data-filter="Сериал">📺 Сериалы</button>
+                    <button class="filter-btn" data-filter="Мультфильм">🖍️ Мультфильмы</button>
+                    <button class="filter-btn" data-filter="Аниме">🇯🇵 Аниме</button>
+                </div>
+            </div>
+
+            <div class="stats-panel">
+                <span class="stats-text" id="stats"></span>
+                <button class="btn-icon refresh-stats" onclick="window.refreshCatalog()"
+                    title="Обновить каталог">🔄</button>
+            </div>
         </div>
 
-        <div class="success-message" id="successMessage"></div>
-        <div class="error-message" id="errorMessage"></div>
+        <!-- Сообщения -->
+        <div class="toast-message success" id="successMessage"></div>
+        <div class="toast-message error" id="errorMessage"></div>
 
-        <div class="projects-grid" id="projectsGrid"></div>
+        <!-- Сетка проектов -->
+        <div class="projects-grid" id="projectsGrid">
+            <div class="loading-state">
+                <div class="loading-spinner"></div>
+                <span>Загрузка каталога...</span>
+            </div>
+        </div>
     </div>
 
-    <!-- Модальные окна авторизации -->
+    <!-- МОДАЛЬНЫЕ ОКНА -->
     <div class="modal-overlay" id="modalOverlay" style="display: none;"></div>
 
+    <!-- Модалка входа -->
     <div class="auth-modal" id="loginModal">
         <div class="auth-modal-content">
             <h3>🔑 Вход</h3>
             <input type="text" id="loginUsername" class="auth-input" placeholder="Логин">
             <input type="password" id="loginPassword" class="auth-input" placeholder="Пароль">
+            <div class="auth-hint">После входа вы сможете добавлять фильмы в каталог</div>
             <div class="auth-buttons">
-                <button class="auth-btn submit" onclick="submitLogin()">Войти</button>
-                <button class="auth-btn cancel" onclick="closeAuthModal()">Отмена</button>
+                <button class="btn-outline" onclick="window.closeAuthModal()">Отмена</button>
+                <button class="btn-primary" onclick="window.submitLogin()">Войти</button>
             </div>
-            <div class="auth-link" onclick="showRegisterModal(); closeAuthModal()">Нет аккаунта? Зарегистрироваться</div>
+            <div class="auth-link" onclick="window.showRegisterModal(); window.closeAuthModal()">Нет аккаунта?
+                Зарегистрироваться</div>
         </div>
     </div>
 
+    <!-- Модалка регистрации -->
     <div class="auth-modal" id="registerModal">
         <div class="auth-modal-content">
             <h3>📝 Регистрация</h3>
-            <input type="text" id="regUsername" class="auth-input" placeholder="Логин">
-            <input type="password" id="regPassword" class="auth-input" placeholder="Пароль">
+            <input type="text" id="regUsername" class="auth-input" placeholder="Придумайте логин">
+            <input type="password" id="regPassword" class="auth-input" placeholder="Придумайте пароль">
+            <div class="auth-hint">После регистрации нужно дождаться подтверждения администратором</div>
             <div class="auth-buttons">
-                <button class="auth-btn submit" onclick="submitRegistration()">Зарегистрироваться</button>
-                <button class="auth-btn cancel" onclick="closeAuthModal()">Отмена</button>
+                <button class="btn-outline" onclick="window.closeAuthModal()">Отмена</button>
+                <button class="btn-primary" onclick="window.submitRegistration()">Зарегистрироваться</button>
             </div>
-            <div class="auth-link" onclick="showLoginModal(); closeAuthModal()">Уже есть аккаунт? Войти</div>
+            <div class="auth-link" onclick="window.showLoginModal(); window.closeAuthModal()">Уже есть аккаунт? Войти
+            </div>
         </div>
     </div>
 
-    <!-- Модальное окно проекта -->
-    <div class="modal-overlay-project" onclick="closeModal()" style="display: none;"></div>
-    <div class="modal-container" style="display: none;">
-        <div class="project-modal" id="project-modal">
-            <!-- Весь контент будет вставлен через JavaScript -->
+    <!-- Модалка проекта (детальный просмотр) -->
+    <div class="modal-overlay-project" id="modalOverlayProject" style="display: none;"></div>
+    <div class="project-modal" id="projectModal">
+        <div class="project-modal-content">
+            <button class="modal-close" onclick="window.closeModal()">✕</button>
+            <div id="projectModalBody"></div>
         </div>
     </div>
 

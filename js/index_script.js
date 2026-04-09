@@ -26,12 +26,29 @@
     let userGroups = [];
 
     const colorPalette = [
-        '#FF6B8B', '#5F9EA0', '#FFD166', '#B185DB', '#FFB347', '#6A8D92', '#E5989B',
-        '#6D6875', '#FF9AA2', '#B5838D', '#7B9C9E', '#F4A261', '#A7C4B5', '#CD9777',
-        '#C44569', '#4A8FE4', '#E59866', '#A27E8E', '#82A7A6', '#FFC4D6'
+        '#C75C5C', // насыщенный терракотовый (не ярко-красный)
+        '#5C9E5C', // травяной зеленый (не кислотный)
+        '#D4A85C', // теплый золотой (не лимонный)
+        '#5C7EC4', // приглушенный синий (не электрик)
+        '#B57CB5', // лавандовый (не неоновый)
+        '#7CB85C', // оливково-зеленый
+        '#D4885C', // янтарный
+        '#5CB8B8', // бирюзовый (не аквамарин)
+        '#C45C8C', // розовый (не фуксия)
+        '#7C6CC4', // сиреневый
+        '#B8B85C', // горчичный
+        '#5CB89C', // мятный
+        '#C45C6C', // коралловый
+        '#6C8CB8', // серо-голубой
+        '#C4A85C', // шафрановый
+        '#9C5CC4', // пурпурный
+        '#6CB85C', // фисташковый
+        '#D47C7C', // лососевый
+        '#5C9CB8', // стальной синий
+        '#C48C5C'  // медный
     ];
 
-    // ========== DOM ЭЛЕМЕНТЫ ==========
+    // ========== DOM ЭЛЕМЕНТЫ (НОВЫЕ КЛАССЫ) ==========
     const canvas = document.getElementById('wheelCanvas');
     const ctx = canvas.getContext('2d');
     const filterDiv = document.getElementById('filter-buttons');
@@ -39,12 +56,12 @@
     const eliminatedDiv = document.getElementById('eliminatedContainer');
     const itemPoolDiv = document.getElementById('itemPool');
     const itemCountSpan = document.getElementById('itemCount');
+    const eliminatedCountSpan = document.getElementById('eliminatedCount');
     const errorMessageDiv = document.getElementById('errorMessage');
     const successMessageDiv = document.getElementById('successMessage');
     const spinIndicator = document.getElementById('spinIndicator');
 
     const spinBtn = document.getElementById('spinOnceBtn');
-    const spinEliminateBtn = document.getElementById('spinEliminateBtn');
     const resetWheelBtn = document.getElementById('resetWheelBtn');
 
     const speedSlider = document.getElementById('speedSlider');
@@ -62,11 +79,6 @@
     const modalOverlay = document.getElementById('modalOverlay');
     const loginModal = document.getElementById('loginModal');
     const registerModal = document.getElementById('registerModal');
-
-    // Скрываем вторую кнопку режима исключения
-    if (spinEliminateBtn) {
-        spinEliminateBtn.style.display = 'none';
-    }
 
     // ========== ФУНКЦИИ АВТОРИЗАЦИИ ==========
     async function loadCurrentUser() {
@@ -226,27 +238,31 @@
 
     function showError(text) {
         console.error('Ошибка:', text);
-        errorMessageDiv.style.display = 'block';
-        errorMessageDiv.textContent = '❌ ' + text;
-        setTimeout(() => {
-            errorMessageDiv.style.display = 'none';
-        }, 3000);
+        if (errorMessageDiv) {
+            errorMessageDiv.textContent = text;
+            errorMessageDiv.style.display = 'block';
+            setTimeout(() => {
+                errorMessageDiv.style.display = 'none';
+            }, 3000);
+        }
     }
 
     function showSuccess(text) {
         console.log('Успех:', text);
-        successMessageDiv.style.display = 'block';
-        successMessageDiv.textContent = '✅ ' + text;
-        setTimeout(() => {
-            successMessageDiv.style.display = 'none';
-        }, 2000);
+        if (successMessageDiv) {
+            successMessageDiv.textContent = text;
+            successMessageDiv.style.display = 'block';
+            setTimeout(() => {
+                successMessageDiv.style.display = 'none';
+            }, 2000);
+        }
     }
 
     // ========== ПЕРЕКЛЮЧАТЕЛЬ РЕЖИМОВ ИСКЛЮЧЕНИЯ ==========
     function initModeToggle() {
         const modeToggle = document.getElementById('modeToggle');
-        const normalLabel = document.querySelector('.mode-label:first-child');
-        const elimLabel = document.querySelector('.elimination-label');
+        const normalLabel = document.querySelector('.mode-normal');
+        const elimLabel = document.querySelector('.mode-elimination');
 
         if (!modeToggle) return;
 
@@ -257,14 +273,12 @@
                     elimLabel.classList.add('active');
                     if (spinBtn) {
                         spinBtn.innerHTML = '⚔️ Крутить (Исключение)';
-                        spinBtn.classList.add('eliminate-mode');
                     }
                 } else {
                     normalLabel.classList.add('active');
                     elimLabel.classList.remove('active');
                     if (spinBtn) {
-                        spinBtn.innerHTML = '🎲 Крутить (Обычный)';
-                        spinBtn.classList.remove('eliminate-mode');
+                        spinBtn.innerHTML = '🎲 Вращать колесо';
                     }
                 }
             }
@@ -278,8 +292,8 @@
             updateModeLabels(isEliminationMode);
             drawWheel();
             showSuccess(isEliminationMode ?
-                '⚔️ Режим исключения: бусты уменьшают шанс вылететь' :
-                '🎲 Обычный режим: бусты увеличивают шанс победы');
+                'Режим исключения: бусты уменьшают шанс вылететь' :
+                'Обычный режим: бусты увеличивают шанс победы');
         });
     }
 
@@ -318,7 +332,6 @@
                 filmBoosts = {};
             }
         } else {
-            // В личном режиме бустов нет
             filmBoosts = {};
             console.log('📊 Личный режим: бусты не используются');
         }
@@ -333,7 +346,7 @@
     }
 
     window.addEventListener('modeChanged', (event) => {
-        if (event.detail.mode !== currentMode) {
+        if (event.detail.mode !== currentMode && !isSpinning) {
             currentMode = event.detail.mode;
             selectedGroupId = event.detail.groupId;
             updateModeUI();
@@ -373,11 +386,15 @@
                     </option>
                 `).join('')}
             </select>
-            <button class="refresh-group-btn" onclick="window.refreshGroupProjects()">🔄</button>
+            <button class="btn-icon" onclick="window.refreshGroupProjects()" title="Обновить">🔄</button>
         `;
     }
 
     window.selectGroup = function (groupId) {
+        if (isSpinning) {
+            showError('Подождите, колесо вращается');
+            return;
+        }
         selectedGroupId = groupId || null;
         if (groupId) {
             localStorage.setItem('selected_group', groupId);
@@ -391,7 +408,7 @@
     };
 
     window.refreshGroupProjects = function () {
-        if (selectedGroupId && currentMode === 'group') {
+        if (selectedGroupId && currentMode === 'group' && !isSpinning) {
             loadProjectsByMode();
             showSuccess('Проекты группы обновлены');
         }
@@ -513,6 +530,10 @@
         catalogModeToggle.parentNode.replaceChild(newToggle, catalogModeToggle);
 
         newToggle.addEventListener('click', () => {
+            if (isSpinning) {
+                showError('Подождите, колесо вращается');
+                return;
+            }
             currentMode = currentMode === 'personal' ? 'group' : 'personal';
             localStorage.setItem('catalog_mode', currentMode);
             updateModeUI();
@@ -524,13 +545,32 @@
     }
 
     // ========== ФУНКЦИИ КОЛЕСА ==========
+    function getNormalizedWeights(items) {
+        const rawWeights = items.map(item => {
+            const filmId = getFilmIdByTitle(item);
+            const boost = filmBoosts[filmId] || 0;
+
+            if (isEliminationMode) {
+                const weight = 1 / (1 + boost * 0.5);
+                return Math.max(0.2, Math.min(2.0, weight));
+            } else {
+                return 1 + boost * 0.5;
+            }
+        });
+
+        const sum = rawWeights.reduce((a, b) => a + b, 0);
+        const normalized = rawWeights.map(w => (w / sum) * items.length);
+
+        return normalized;
+    }
+
     function getWeightedRandomIndex(items) {
         const weights = items.map(item => {
             const filmId = getFilmIdByTitle(item);
             const boost = filmBoosts[filmId] || 0;
             return isEliminationMode ?
-                Math.max(0.1, 1 - boost * 2) :
-                1 + boost * 2;
+                Math.max(0.1, 1 / (1 + boost * 0.5)) :
+                1 + boost * 0.5;
         });
 
         const totalWeight = weights.reduce((a, b) => a + b, 0);
@@ -550,35 +590,27 @@
         if (count === 0) {
             ctx.beginPath();
             ctx.arc(300, 300, 280, 0, 2 * Math.PI);
-            ctx.fillStyle = '#262d4a';
+            ctx.fillStyle = '#1a1a1a';
             ctx.fill();
-            ctx.strokeStyle = '#5f6a9e';
-            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#2a2a2a';
+            ctx.lineWidth = 2;
             ctx.stroke();
-            ctx.fillStyle = '#b5c2ff';
-            ctx.font = 'bold 22px Segoe UI';
+            ctx.fillStyle = '#666';
+            ctx.font = '500 18px Inter, sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText('Нет элементов', 300, 300);
             return;
         }
 
-        const weights = wheelItems.map(item => {
-            const filmId = getFilmIdByTitle(item);
-            const boost = filmBoosts[filmId] || 0;
-            return isEliminationMode ?
-                Math.max(0.3, 1 - boost * 2) :
-                1 + boost * 2;
-        });
-
-        const positiveWeights = weights.map(w => Math.max(0.3, w));
-        const totalWeight = positiveWeights.reduce((a, b) => a + b, 0);
+        const visualWeights = getNormalizedWeights(wheelItems);
+        const totalWeight = visualWeights.reduce((a, b) => a + b, 0);
         const radius = 280;
         const centerX = 300, centerY = 300;
 
         let startAngle = rotateAngle;
         for (let i = 0; i < count; i++) {
-            const angle = (positiveWeights[i] / totalWeight) * 2 * Math.PI;
+            const angle = (visualWeights[i] / totalWeight) * 2 * Math.PI;
             const endAngle = startAngle + angle;
             const color = colorPalette[i % colorPalette.length];
 
@@ -588,22 +620,21 @@
             ctx.closePath();
             ctx.fillStyle = color;
             ctx.fill();
-            ctx.strokeStyle = '#0b0e1a';
-            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = '#1a1a1a';
+            ctx.lineWidth = 2;
             ctx.stroke();
 
             ctx.save();
             ctx.translate(centerX, centerY);
             ctx.rotate(startAngle + angle / 2);
             ctx.textAlign = 'right';
-            ctx.fillStyle = '#121212';
-            ctx.font = 'bold 16px "Segoe UI", sans-serif';
-            ctx.shadowColor = 'rgba(255,255,255,0.5)';
-            ctx.shadowBlur = 4;
+            ctx.fillStyle = '#0a0a0a';
+            ctx.font = '500 14px Inter, sans-serif';
+            ctx.shadowBlur = 0;
 
             let text = wheelItems[i];
-            if (text.length > 20) text = text.substr(0, 18) + '…';
-            ctx.fillText(text, radius - 24, 8);
+            if (text.length > 18) text = text.substr(0, 16) + '…';
+            ctx.fillText(text, radius - 20, 6);
             ctx.restore();
 
             const filmId = getFilmIdByTitle(wheelItems[i]);
@@ -612,17 +643,21 @@
                 ctx.save();
                 ctx.translate(centerX, centerY);
                 ctx.rotate(startAngle + angle / 2);
-                ctx.fillStyle = '#FFD700';
-                ctx.font = 'bold 12px "Segoe UI", sans-serif';
+
+                // Яркий золотой для звёзд с тенью для заметности
+                ctx.fillStyle = '#FFD700'; // Золотой
                 ctx.shadowColor = 'rgba(0,0,0,0.5)';
                 ctx.shadowBlur = 4;
+                ctx.font = 'bold 14px "Segoe UI", Inter, sans-serif';
 
                 const votes = Math.floor(boost);
                 if (votes <= 5) {
-                    ctx.fillText('★'.repeat(votes), radius - 45, -10);
+                    ctx.fillText('★'.repeat(votes), radius - 42, -8);
                 } else {
-                    ctx.fillText(`★${votes}`, radius - 45, -10);
+                    ctx.fillText(`★${votes}`, radius - 42, -8);
                 }
+
+                ctx.shadowBlur = 0; // Сбрасываем тень
                 ctx.restore();
             }
 
@@ -630,26 +665,17 @@
         }
 
         ctx.beginPath();
-        ctx.arc(centerX, centerY, 18, 0, 2 * Math.PI);
-        ctx.fillStyle = '#f2e9c0';
-        ctx.shadowBlur = 15;
+        ctx.arc(centerX, centerY, 16, 0, 2 * Math.PI);
+        ctx.fillStyle = '#1a1a1a';
         ctx.fill();
-        ctx.shadowBlur = 0;
+        ctx.strokeStyle = '#8B7355';
+        ctx.lineWidth = 2;
+        ctx.stroke();
 
         ctx.beginPath();
-        ctx.arc(centerX, centerY, 8, 0, 2 * Math.PI);
-        ctx.fillStyle = '#d4af37';
+        ctx.arc(centerX, centerY, 6, 0, 2 * Math.PI);
+        ctx.fillStyle = '#8B7355';
         ctx.fill();
-
-        ctx.beginPath();
-        ctx.moveTo(centerX, centerY - radius - 10);
-        ctx.lineTo(centerX - 10, centerY - radius + 20);
-        ctx.lineTo(centerX + 10, centerY - radius + 20);
-        ctx.closePath();
-        ctx.fillStyle = '#ffd700';
-        ctx.shadowBlur = 10;
-        ctx.fill();
-        ctx.shadowBlur = 0;
     }
 
     function spinWheel() {
@@ -693,6 +719,7 @@
 
         isSpinning = true;
         spinBtn.disabled = true;
+        resetWheelBtn.disabled = true;
 
         const startTime = performance.now();
         const duration = spinSpeed * 1000;
@@ -710,14 +737,17 @@
             const currentAngle = startAngle + (finalAngle * easeOut);
 
             drawWheel(currentAngle);
-            spinIndicator.textContent = `⚡ Вращение... ${Math.round(progress * 100)}%`;
+            if (spinIndicator) {
+                spinIndicator.textContent = `Вращение... ${Math.round(progress * 100)}%`;
+            }
 
             if (progress < 1) {
                 requestAnimationFrame(animate);
             } else {
                 isSpinning = false;
                 spinBtn.disabled = false;
-                spinIndicator.textContent = '';
+                resetWheelBtn.disabled = false;
+                if (spinIndicator) spinIndicator.textContent = '';
 
                 const selected = wheelItems[targetIndex];
                 winnerNameDiv.textContent = selected;
@@ -725,11 +755,9 @@
                 const tags = document.querySelectorAll('.tag');
                 tags.forEach(tag => {
                     if (tag.textContent.includes(selected)) {
-                        tag.style.background = '#5f4bb6';
-                        tag.style.boxShadow = '0 0 15px #a990ff';
+                        tag.style.borderColor = '#8B7355';
                         setTimeout(() => {
-                            tag.style.background = '';
-                            tag.style.boxShadow = '';
+                            tag.style.borderColor = '';
                         }, 1000);
                     }
                 });
@@ -751,6 +779,10 @@
         allBtn.dataset.filter = 'Все';
         if (currentCategory === 'Все') allBtn.classList.add('active');
         allBtn.addEventListener('click', () => {
+            if (isSpinning) {
+                showError('Подождите, колесо вращается');
+                return;
+            }
             document.querySelectorAll('.filter-buttons button').forEach(b => b.classList.remove('active'));
             allBtn.classList.add('active');
             currentCategory = 'Все';
@@ -764,6 +796,10 @@
             btn.dataset.filter = genre;
             if (currentCategory === genre) btn.classList.add('active');
             btn.addEventListener('click', () => {
+                if (isSpinning) {
+                    showError('Подождите, колесо вращается');
+                    return;
+                }
                 document.querySelectorAll('.filter-buttons button').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 currentCategory = genre;
@@ -784,6 +820,10 @@
     }
 
     function syncWheel() {
+        if (isSpinning) {
+            showError('Подождите, колесо вращается');
+            return;
+        }
         wheelItems = getCurrentItems();
         eliminatedLog = [];
         winnerNameDiv.textContent = '—';
@@ -793,10 +833,12 @@
     }
 
     function updatePoolView() {
+        if (!itemPoolDiv) return;
+
         itemPoolDiv.innerHTML = '';
         if (wheelItems.length === 0) {
             itemPoolDiv.innerHTML = '<span class="tag">❌ пусто</span>';
-            itemCountSpan.textContent = '0';
+            if (itemCountSpan) itemCountSpan.textContent = '0';
             return;
         }
 
@@ -806,7 +848,7 @@
             container.innerHTML = `<span>${escapeHtml(item)}</span><button class="delete-item" onclick="deleteItem('${escapeHtml(item)}')">✕</button>`;
             itemPoolDiv.appendChild(container);
         });
-        itemCountSpan.textContent = wheelItems.length;
+        if (itemCountSpan) itemCountSpan.textContent = wheelItems.length;
     }
 
     window.deleteItem = async function (itemName) {
@@ -815,19 +857,23 @@
             return;
         }
 
+        if (isSpinning) {
+            showError('Подождите, колесо вращается');
+            return;
+        }
+
         if (!confirm(`Удалить "${itemName}" из каталога?`)) return;
 
         try {
             let response;
-            
+
             if (currentMode === 'group' && selectedGroupId) {
-                // Сначала находим проект в группе
                 const projectsResponse = await window.authFetch(`${API_URL}/api/groups/${selectedGroupId}/projects`);
                 const projects = await projectsResponse.json();
-                const projectToDelete = projects.find(p => 
+                const projectToDelete = projects.find(p =>
                     (p.data?.title_ru === itemName || p.data?.title === itemName)
                 );
-                
+
                 if (projectToDelete) {
                     response = await window.authFetch(`${API_URL}/api/groups/${selectedGroupId}/projects/${projectToDelete.id}`, {
                         method: 'DELETE'
@@ -837,13 +883,12 @@
                     return;
                 }
             } else {
-                // Личный режим - удаляем из user_projects
                 const projectsResponse = await window.authFetch(`${API_URL}/api/user/projects/list`);
                 const projects = await projectsResponse.json();
-                const projectToDelete = projects.find(p => 
+                const projectToDelete = projects.find(p =>
                     (p.data?.title_ru === itemName || p.data?.title === itemName)
                 );
-                
+
                 if (projectToDelete) {
                     response = await window.authFetch(`${API_URL}/api/user/projects/${projectToDelete.project_id}/status`, {
                         method: 'PUT',
@@ -869,33 +914,46 @@
     };
 
     function updateEliminatedView() {
+        if (!eliminatedDiv) return;
+
         eliminatedDiv.innerHTML = eliminatedLog.length === 0
-            ? '<span>✖️ пока никого</span>'
+            ? '<span class="empty-text">✖️ пока никого</span>'
             : eliminatedLog.map((name, idx) => `<span>❌ ${idx + 1}. ${escapeHtml(name)}</span>`).join('');
+
+        if (eliminatedCountSpan) {
+            eliminatedCountSpan.textContent = eliminatedLog.length;
+        }
     }
 
     // ========== ИНИЦИАЛИЗАЦИЯ ==========
-    spinBtn.addEventListener('click', spinWheel);
-    resetWheelBtn.addEventListener('click', syncWheel);
+    if (spinBtn) spinBtn.addEventListener('click', spinWheel);
+    if (resetWheelBtn) resetWheelBtn.addEventListener('click', syncWheel);
 
-    speedSlider.addEventListener('input', () => {
-        spinSpeed = parseFloat(speedSlider.value);
-        speedValue.textContent = spinSpeed.toFixed(1) + ' сек';
-    });
+    if (speedSlider) {
+        speedSlider.addEventListener('input', () => {
+            spinSpeed = parseFloat(speedSlider.value);
+            if (speedValue) speedValue.textContent = spinSpeed.toFixed(1) + ' сек';
+        });
+    }
 
-    rotationsSlider.addEventListener('input', () => {
-        spinRotations = parseInt(rotationsSlider.value);
-        rotationsValue.textContent = spinRotations;
-    });
+    if (rotationsSlider) {
+        rotationsSlider.addEventListener('input', () => {
+            spinRotations = parseInt(rotationsSlider.value);
+            if (rotationsValue) rotationsValue.textContent = spinRotations;
+        });
+    }
+
 
     console.log('🚀 Запуск колеса фортуны...');
+
+
+    
 
     initModeToggle();
     loadCurrentUser();
     loadUserGroupsForSelector();
     setupModeToggle();
     loadProjectsByMode();
-    setInterval(loadProjectsByMode, 30000);
     drawWheel();
     updatePoolView();
     updateEliminatedView();

@@ -1,139 +1,165 @@
 <!DOCTYPE html>
 <html lang="ru">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Колесо Фортуны 🎡</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Cinema Wheel | Выбор фильма</title>
     <link rel="stylesheet" href="css/index_style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
 </head>
-
 <body>
-    <div class="app">
 
-        <!-- ========== НОВЫЙ ХЕДЕР (как на всех страницах) ========== -->
-        <div class="header">
-            <div class="header-left">
-                <h1>🎡 КОЛЕСО ФОРТУНЫ</h1>
-                <div class="nav-buttons">
-                    <a href="index.html" class="nav-btn active">🎡 Колесо</a>
-                    <a href="catalog.html" class="nav-btn">📚 Каталог</a>
-                    <a href="ratings.html" class="nav-btn">⭐ Оценки</a>
-                    <a href="profile.html" class="nav-btn">👤 Профиль</a>
-                </div>
+    <div class="app">
+        <!-- Верхняя навигация -->
+        <header class="site-header">
+            <div class="logo">
+                <span class="logo-icon">🎬</span>
+                <span class="logo-text">CINEMA WHEEL</span>
             </div>
 
-            <!-- Блок авторизации -->
+            <nav class="main-nav">
+                <a href="index.html" class="nav-link active">Колесо</a>
+                <a href="catalog.html" class="nav-link">Каталог</a>
+                <a href="ratings.html" class="nav-link">Оценки</a>
+                <a href="profile.html" class="nav-link">Профиль</a>
+            </nav>
+
             <div class="auth-section">
                 <div class="auth-buttons" id="authButtons">
-                    <button class="auth-btn" onclick="showLoginModal()">🔑 Войти</button>
-                    <button class="auth-btn" onclick="showRegisterModal()">📝 Регистрация</button>
+                    <button class="btn-outline" onclick="window.showLoginModal()">Войти</button>
+                    <button class="btn-primary" onclick="window.showRegisterModal()">Регистрация</button>
                 </div>
                 <div class="user-info" id="userInfo" style="display: none;">
                     <span class="user-avatar">👤</span>
                     <span class="user-name" id="userName"></span>
                     <span class="user-badge" id="userBadge"></span>
-                    <button class="auth-btn-small" onclick="logout()">🚪 Выйти</button>
+                    <button class="btn-outline small" onclick="window.logout()">Выйти</button>
                 </div>
             </div>
-        </div>
+        </header>
 
-        <!-- Переключатель режимов (личный/групповой) -->
-        <div class="mode-selector">
-            <div class="catalog-mode-toggle" id="catalogModeToggle">
-                <div class="toggle-track">
-                    <div class="toggle-thumb" id="catalogModeThumb"></div>
+        <!-- Переключатель режимов -->
+        <div class="mode-bar">
+            <div class="mode-switch">
+                <div class="catalog-mode-toggle" id="catalogModeToggle">
+                    <div class="toggle-track">
+                        <div class="toggle-thumb" id="catalogModeThumb"></div>
+                    </div>
                 </div>
-            </div>
-            <div class="mode-labels">
-                <span class="mode-label personal active">👤 Личный каталог</span>
-                <span class="mode-label group">👥 Групповая библиотека</span>
+                <div class="mode-labels">
+                    <span class="mode-label personal active">Личный каталог</span>
+                    <span class="mode-label group">Групповая библиотека</span>
+                </div>
             </div>
             <div class="group-selector" id="groupSelector" style="display: none;">
                 <select id="groupSelect" onchange="window.selectGroup(this.value)">
                     <option value="">-- Выберите группу --</option>
                 </select>
-                <button class="refresh-group-btn" onclick="window.refreshGroupProjects()">🔄</button>
+                <button class="btn-icon" onclick="window.refreshGroupProjects()" title="Обновить">🔄</button>
             </div>
         </div>
 
-        <!-- Объединенная панель: фильтры по типу + переключатель режимов исключения -->
-        <div class="filter-panel">
-            <div class="filter-section">
-                <span class="filter-title">📌 Тип:</span>
-                <div class="filter-buttons" id="filter-buttons"></div>
-            </div>
+        <!-- Основной экран -->
+        <main class="main-layout">
+            <!-- Левая панель -->
+            <aside class="control-panel">
+                <div class="control-group">
+                    <div class="control-header">
+                        <span>🎞️ Жанр</span>
+                    </div>
+                    <div class="filter-buttons" id="filter-buttons"></div>
+                </div>
 
-            <div class="mode-toggle-section">
-                <span class="mode-label">🎲 Обычный</span>
-                <div class="mode-toggle" id="modeToggle">
-                    <div class="toggle-track">
-                        <div class="toggle-thumb" id="toggleThumb"></div>
+                <div class="control-group">
+                    <div class="control-header">
+                        <span>⚙️ Режим</span>
+                    </div>
+                    <div class="mode-selector-ui">
+                        <div class="mode-toggle" id="modeToggle">
+                            <div class="toggle-track small">
+                                <div class="toggle-thumb small" id="toggleThumb"></div>
+                            </div>
+                        </div>
+                        <div class="mode-desc">
+                            <span class="mode-normal active">Обычный</span>
+                            <span class="mode-elimination">Исключение</span>
+                        </div>
                     </div>
                 </div>
-                <span class="mode-label elimination-label">⚔️ Исключение</span>
-            </div>
-        </div>
 
-        <div class="success-message" id="successMessage"></div>
-        <div class="error-message" id="errorMessage"></div>
-
-        <div class="controls-panel">
-            <div class="slider-control">
-                <label>
-                    <span>⚡ Скорость вращения</span>
-                    <span class="slider-value" id="speedValue">2.0 сек</span>
-                </label>
-                <input type="range" id="speedSlider" min="0.5" max="4.0" step="0.1" value="2.0">
-            </div>
-            <div class="slider-control">
-                <label>
-                    <span>🔄 Количество оборотов</span>
-                    <span class="slider-value" id="rotationsValue">8</span>
-                </label>
-                <input type="range" id="rotationsSlider" min="3" max="15" step="1" value="8">
-            </div>
-        </div>
-
-        <div class="wheel-container">
-            <div class="canvas-wrapper">
-                <div class="pointer"></div>
-                <canvas id="wheelCanvas" width="600" height="600"></canvas>
-                <div class="wheel-controls">
-                    <button id="spinOnceBtn">🎲 Один выбор</button>
-                    <button id="spinEliminateBtn" class="eliminate-mode">⚔️ На исключение</button>
-                    <button id="resetWheelBtn">⟲ Сброс колеса</button>
+                <div class="control-group">
+                    <div class="control-header">
+                        <span>🎚️ Настройки</span>
+                    </div>
+                    <div class="slider-control">
+                        <label>Скорость вращения <span class="slider-value" id="speedValue">2.0 сек</span></label>
+                        <input type="range" id="speedSlider" min="0.5" max="4.0" step="0.1" value="2.0">
+                    </div>
+                    <div class="slider-control">
+                        <label>Количество оборотов <span class="slider-value" id="rotationsValue">8</span></label>
+                        <input type="range" id="rotationsSlider" min="3" max="15" step="1" value="8">
+                    </div>
                 </div>
-                <div class="spin-indicator" id="spinIndicator"></div>
-            </div>
-            <div class="result-area">
-                <div class="result-title">ПОБЕДИТЕЛЬ</div>
-                <div class="result-name" id="winnerName">—</div>
-                <div id="eliminatedContainer" class="elim-list"></div>
-            </div>
-        </div>
+            </aside>
 
-        <div class="items-pool">
-            <h3>📋 Текущие пункты <span class="item-count" id="itemCount">0</span></h3>
-            <div class="pool-tags" id="itemPool"></div>
-        </div>
+            <!-- Центральная часть: Колесо -->
+            <section class="wheel-section">
+                <div class="wheel-container">
+                    <div class="pointer"></div>
+                    <canvas id="wheelCanvas" width="600" height="600"></canvas>
+                    <div class="wheel-buttons">
+                        <button id="spinOnceBtn" class="btn-primary spin">🎲 Вращать колесо</button>
+                        <button id="resetWheelBtn" class="btn-secondary">⟲ Сбросить</button>
+                    </div>
+                    <div class="spin-indicator" id="spinIndicator"></div>
+                </div>
+            </section>
+
+            <!-- Правая панель -->
+            <aside class="result-panel">
+                <div class="result-card">
+                    <div class="result-header">Победитель</div>
+                    <div class="result-winner" id="winnerName">—</div>
+                </div>
+                <div class="result-card">
+                    <div class="result-header">
+                        <span>Выбывшие</span>
+                        <span class="badge" id="eliminatedCount">0</span>
+                    </div>
+                    <div class="eliminated-list" id="eliminatedContainer">
+                        <span class="empty-text">✖️ пока никого</span>
+                    </div>
+                </div>
+                <div class="result-card">
+                    <div class="result-header">
+                        <span>В очереди</span>
+                        <span class="badge" id="itemCount">0</span>
+                    </div>
+                    <div class="items-pool" id="itemPool"></div>
+                </div>
+            </aside>
+        </main>
+
+        <!-- Сообщения -->
+        <div class="toast-message success" id="successMessage"></div>
+        <div class="toast-message error" id="errorMessage"></div>
     </div>
 
-    <!-- Общий overlay для модалок -->
+    <!-- МОДАЛЬНЫЕ ОКНА -->
     <div class="modal-overlay" id="modalOverlay" style="display: none;"></div>
 
     <!-- Модалка входа -->
     <div class="auth-modal" id="loginModal">
         <div class="auth-modal-content">
             <h3>🔑 Вход</h3>
-            <input type="text" id="loginUsername" class="auth-input" placeholder="Логин" maxlength="50">
+            <input type="text" id="loginUsername" class="auth-input" placeholder="Логин">
             <input type="password" id="loginPassword" class="auth-input" placeholder="Пароль">
             <div class="auth-hint">После входа вы сможете голосовать</div>
             <div class="auth-buttons">
-                <button class="auth-btn submit" onclick="submitLogin()">Войти</button>
-                <button class="auth-btn cancel" onclick="closeAuthModal()">Отмена</button>
+                <button class="btn-outline" onclick="window.closeAuthModal()">Отмена</button>
+                <button class="btn-primary" onclick="window.submitLogin()">Войти</button>
             </div>
-            <div class="auth-link" onclick="showRegisterModal(); closeAuthModal()">Нет аккаунта? Зарегистрироваться</div>
+            <div class="auth-link" onclick="window.showRegisterModal(); window.closeAuthModal()">Нет аккаунта? Зарегистрироваться</div>
         </div>
     </div>
 
@@ -141,14 +167,14 @@
     <div class="auth-modal" id="registerModal">
         <div class="auth-modal-content">
             <h3>📝 Регистрация</h3>
-            <input type="text" id="regUsername" class="auth-input" placeholder="Придумайте логин" maxlength="50">
-            <input type="password" id="regPassword" class="auth-input" placeholder="Придумайте пароль" minlength="4">
+            <input type="text" id="regUsername" class="auth-input" placeholder="Придумайте логин">
+            <input type="password" id="regPassword" class="auth-input" placeholder="Придумайте пароль">
             <div class="auth-hint">После регистрации нужно дождаться подтверждения админом</div>
             <div class="auth-buttons">
-                <button class="auth-btn submit" onclick="submitRegistration()">Зарегистрироваться</button>
-                <button class="auth-btn cancel" onclick="closeAuthModal()">Отмена</button>
+                <button class="btn-outline" onclick="window.closeAuthModal()">Отмена</button>
+                <button class="btn-primary" onclick="window.submitRegistration()">Зарегистрироваться</button>
             </div>
-            <div class="auth-link" onclick="showLoginModal(); closeAuthModal()">Уже есть аккаунт? Войти</div>
+            <div class="auth-link" onclick="window.showLoginModal(); window.closeAuthModal()">Уже есть аккаунт? Войти</div>
         </div>
     </div>
 
@@ -157,21 +183,15 @@
         <div class="voting-modal-content">
             <h3>🗳️ Голосование <span id="votingCategory"></span></h3>
             <p class="voting-user" id="votingUser"></p>
-
             <div class="voting-search">
-                <input type="text" id="voteSearchInput" class="vote-search-input" placeholder="🔍 Поиск фильма...">
+                <input type="text" id="voteSearchInput" class="auth-input" placeholder="🔍 Поиск фильма...">
             </div>
-
-            <p class="voting-hint">Выберите 3 фильма, чтобы повысить их шансы</p>
-
+            <p class="auth-hint">Выберите 3 фильма, чтобы повысить их шансы</p>
             <div class="voting-movies" id="votingMoviesList"></div>
-
-            <div class="voting-footer">
-                <div class="selected-counter" id="selectedCounter">Выбрано: 0/3</div>
-                <div class="voting-buttons">
-                    <button class="voting-btn cancel" onclick="closeVotingModal()">Отмена</button>
-                    <button class="voting-btn submit" id="submitVoteBtn" disabled>Сохранить</button>
-                </div>
+            <div class="selected-counter" id="selectedCounter">Выбрано: 0/3</div>
+            <div class="auth-buttons">
+                <button class="btn-outline" onclick="window.closeVotingModal()">Отмена</button>
+                <button class="btn-primary" id="submitVoteBtn" disabled>Сохранить</button>
             </div>
         </div>
     </div>
@@ -181,12 +201,11 @@
         <div class="stats-modal-content">
             <h3>📊 Статистика бустов <span id="statsCategory"></span></h3>
             <div class="stats-list" id="statsList"></div>
-            <button class="stats-close cosmic-close" onclick="closeStatsModal()">🌌 ЗАКРЫТЬ 🌌</button>
+            <button class="btn-secondary" style="margin-top: 20px; width: 100%;" onclick="window.closeStatsModal()">Закрыть</button>
         </div>
     </div>
 
     <script src="js/auth.js"></script>
     <script src="js/index_script.js"></script>
 </body>
-
 </html>
