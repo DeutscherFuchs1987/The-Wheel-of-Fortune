@@ -36,11 +36,19 @@
                     const badgeEl = document.getElementById('profileBadge');
                     if (badgeEl) badgeEl.innerHTML = '<span>ADMIN</span>';
                 }
+                
+                // Обновляем аватар в зависимости от роли
+                const avatarEl = document.getElementById('avatarEmoji');
+                if (avatarEl) {
+                    avatarEl.textContent = currentUser.role === 'admin' ? '👑' : '🎬';
+                }
+                
                 await loadUserGroups();
                 await loadUserRatings();
                 setupModeToggle();
                 await loadProfileData();
                 setupVotingSystem();
+                setupTabNavigation();
             } else {
                 console.log('❌ Не авторизован, редирект на главную');
                 window.location.href = 'index.html';
@@ -49,6 +57,18 @@
             console.error('Ошибка загрузки пользователя:', error);
             window.location.href = 'index.html';
         }
+    }
+
+    function setupTabNavigation() {
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tabId = btn.dataset.tab;
+                if (tabId) {
+                    switchTab(tabId);
+                }
+            });
+        });
     }
 
     async function loadProfileData() {
@@ -71,6 +91,7 @@
             renderProgressList();
             renderWatchedList();
             renderPlannedList();
+            updateTabCounters();
 
             hideLoading();
             console.log('✅ Данные профиля загружены');
@@ -230,8 +251,7 @@
             currentVotingCycle.cycle?.status === 'cancelled') {
 
             if (statusBadge) {
-                statusBadge.textContent = '⚪ Не активно';
-                statusBadge.style.color = '#a3b7f0';
+                statusBadge.innerHTML = '⚪ Не активно';
             }
 
             if (isAdmin && adminControls) {
@@ -247,14 +267,13 @@
         const cycle = currentVotingCycle.cycle;
 
         if (statusBadge) {
-            statusBadge.textContent = '🟢 Активно';
-            statusBadge.style.color = '#4CAF50';
+            statusBadge.innerHTML = '🟢 Активно';
         }
 
         if (statusMessage) {
             statusMessage.style.display = 'block';
             statusMessage.innerHTML = `🎯 Голосование активно! Выберите от 1 до 3 фильмов. Осталось времени: <span id="voteTimer"></span>`;
-            statusMessage.className = 'voting-status-message active';
+            statusMessage.className = 'voting-status active';
         }
 
         const hasVoted = cycle.votes && cycle.votes[currentUser?.username];
@@ -264,11 +283,9 @@
             const voteBtn = document.getElementById('castVoteBtn');
             if (voteBtn) {
                 if (hasVoted) {
-                    voteBtn.textContent = '✏️ Изменить голос';
-                    voteBtn.style.background = '#ffd966';
+                    voteBtn.innerHTML = '✏️ Изменить голос';
                 } else {
-                    voteBtn.textContent = '🗳️ Проголосовать';
-                    voteBtn.style.background = '#5f4bb6';
+                    voteBtn.innerHTML = '🗳️ Проголосовать';
                 }
             }
         }
@@ -320,7 +337,7 @@
         const sortedResults = Object.entries(results).sort((a, b) => b[1] - a[1]).slice(0, 10);
 
         if (sortedResults.length === 0) {
-            container.innerHTML = '<div class="empty-state">Пока нет голосов</div>';
+            container.innerHTML = '<div class="empty-state-small">Пока нет голосов</div>';
             return;
         }
 
@@ -341,12 +358,12 @@
         if (!container) return;
 
         if (!history || history.length === 0) {
-            container.innerHTML = '<div class="empty-state"><span>📊</span><p>История голосований пуста</p></div>';
+            container.innerHTML = '<div class="empty-state-small">Нет завершённых голосований</div>';
             return;
         }
 
         container.innerHTML = history.map(cycle => `
-            <div class="history-item" onclick="openVoteDetails('${cycle.id}', '${cycle.created_at}')">
+            <div class="history-item" onclick="window.openVoteDetails('${cycle.id}', '${cycle.created_at}')">
                 <div class="history-date">${formatDate(cycle.created_at)}</div>
                 <div class="history-status ${cycle.status}">${cycle.status === 'completed' ? '✅ Завершено' : '❌ Отменено'}</div>
             </div>
@@ -364,7 +381,7 @@
 
             if (diff <= 0) {
                 timerElement.textContent = '0:00';
-                clearInterval(timerInterval);
+                clearInterval(window.voteTimerInterval);
                 loadGroupVotingInfo();
                 return;
             }
@@ -375,228 +392,8 @@
         };
 
         updateTimer();
-        const timerInterval = setInterval(updateTimer, 1000);
-        window.voteTimerInterval = timerInterval;
+        window.voteTimerInterval = setInterval(updateTimer, 1000);
     }
-
-    window.startGroupVoting = async function () {
-        if (!selectedGroupId) {
-            showError('Сначала выберите группу');
-            return;
-        }
-
-        const isAdmin = groupMembers.find(m => m.user_id === currentUser.id)?.role === 'admin';
-        if (!isAdmin) {
-            showError('Только администратор группы может начать голосование');
-            return;
-        }
-
-        showLoading();
-
-        try {
-            const response = await window.authFetch(`${API_URL}/api/voting/group/${selectedGroupId}/start`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ duration_minutes: 1440 })
-            });
-
-            const data = await response.json();
-            if (data.success) {
-                showSuccess('Голосование начато!');
-                await loadGroupVotingInfo();
-            } else {
-                showError(data.error || 'Ошибка начала голосования');
-            }
-        } catch (error) {
-            console.error('Ошибка:', error);
-            showError('Ошибка сети');
-        } finally {
-            hideLoading();
-        }
-    };
-
-    window.endGroupVoting = async function () {
-        if (!selectedGroupId || !currentVotingCycle) {
-            showError('Нет активного голосования');
-            return;
-        }
-
-        const isAdmin = groupMembers.find(m => m.user_id === currentUser.id)?.role === 'admin';
-        if (!isAdmin) {
-            showError('Только администратор может завершить голосование');
-            return;
-        }
-
-        if (!confirm('Завершить голосование и сохранить бусты?')) return;
-
-        showLoading();
-
-        try {
-            const response = await window.authFetch(`${API_URL}/api/voting/group/${selectedGroupId}/end`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-
-            const data = await response.json();
-            if (data.success) {
-                showSuccess('Голосование завершено! Бусты добавлены.');
-                await loadGroupVotingInfo();
-                window.dispatchEvent(new CustomEvent('ratingsUpdated'));
-            } else {
-                showError(data.error || 'Ошибка завершения голосования');
-            }
-        } catch (error) {
-            console.error('Ошибка:', error);
-            showError('Ошибка сети');
-        } finally {
-            hideLoading();
-        }
-    };
-
-    window.cancelGroupVoting = async function () {
-        if (!selectedGroupId || !currentVotingCycle) {
-            showError('Нет активного голосования');
-            return;
-        }
-
-        const isAdmin = groupMembers.find(m => m.user_id === currentUser.id)?.role === 'admin';
-        if (!isAdmin) {
-            showError('Только администратор может отменить голосование');
-            return;
-        }
-
-        if (!confirm('Отменить голосование? Бусты НЕ будут добавлены.')) return;
-
-        showLoading();
-
-        try {
-            const response = await window.authFetch(`${API_URL}/api/voting/group/${selectedGroupId}/cancel`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-
-            const data = await response.json();
-            if (data.success) {
-                showSuccess('Голосование отменено');
-                await loadGroupVotingInfo();
-            } else {
-                showError(data.error || 'Ошибка отмены голосования');
-            }
-        } catch (error) {
-            console.error('Ошибка:', error);
-            showError('Ошибка сети');
-        } finally {
-            hideLoading();
-        }
-    };
-
-    window.openVoteModal = async function () {
-        if (!selectedGroupId || !currentVotingCycle) {
-            showError('Нет активного голосования');
-            return;
-        }
-
-        const response = await window.authFetch(`${API_URL}/api/groups/${selectedGroupId}/projects`);
-        if (!response.ok) {
-            showError('Не удалось загрузить фильмы');
-            return;
-        }
-
-        const projects = await response.json();
-        const plannedProjects = projects.filter(p => p.status === 'planned');
-
-        if (plannedProjects.length === 0) {
-            showError('В группе нет фильмов в планах для голосования');
-            return;
-        }
-
-        const currentUserVotes = currentVotingCycle.votes?.[currentUser?.username] || [];
-
-        const modal = document.getElementById('voteModal');
-        const moviesList = document.getElementById('voteMoviesList');
-        const counter = document.getElementById('voteCounter');
-        const submitBtn = document.getElementById('submitVoteBtn');
-
-        currentVoteSelections = [...currentUserVotes];
-
-        moviesList.innerHTML = plannedProjects.map(project => {
-            const isSelected = currentVoteSelections.includes(project.project_id);
-            return `
-                <div class="vote-movie-item ${isSelected ? 'selected' : ''}" data-film-id="${project.project_id}">
-                    <div class="vote-movie-check">${isSelected ? '✓' : '○'}</div>
-                    <div class="vote-movie-title">${escapeHtml(project.data?.title_ru || project.data?.title || 'Без названия')}</div>
-                </div>
-            `;
-        }).join('');
-
-        function updateVoteCounter() {
-            counter.textContent = `Выбрано: ${currentVoteSelections.length} (от 1 до 3)`;
-            submitBtn.disabled = currentVoteSelections.length < 1 || currentVoteSelections.length > 3;
-        }
-
-        document.querySelectorAll('.vote-movie-item').forEach(item => {
-            item.onclick = () => {
-                const filmId = item.dataset.filmId;
-                const index = currentVoteSelections.indexOf(filmId);
-
-                if (index !== -1) {
-                    currentVoteSelections.splice(index, 1);
-                    item.classList.remove('selected');
-                    item.querySelector('.vote-movie-check').textContent = '○';
-                } else if (currentVoteSelections.length < 3) {
-                    currentVoteSelections.push(filmId);
-                    item.classList.add('selected');
-                    item.querySelector('.vote-movie-check').textContent = '✓';
-                } else {
-                    showError('Можно выбрать не более 3 фильмов');
-                }
-                updateVoteCounter();
-            };
-        });
-
-        updateVoteCounter();
-        modal.style.display = 'flex';
-        document.getElementById('modalOverlay').style.display = 'block';
-    };
-
-    window.closeVoteModal = function () {
-        document.getElementById('voteModal').style.display = 'none';
-        document.getElementById('modalOverlay').style.display = 'none';
-        currentVoteSelections = [];
-    };
-
-    window.submitVote = async function () {
-        if (currentVoteSelections.length < 1 || currentVoteSelections.length > 3) {
-            showError('Выберите от 1 до 3 фильмов');
-            return;
-        }
-
-        showLoading();
-
-        try {
-            const response = await window.authFetch(`${API_URL}/api/voting/group/${selectedGroupId}/vote`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    film_ids: currentVoteSelections
-                })
-            });
-
-            const data = await response.json();
-            if (data.success) {
-                showSuccess('Ваш голос сохранён!');
-                closeVoteModal();
-                await loadGroupVotingInfo();
-            } else {
-                showError(data.error || 'Ошибка сохранения голоса');
-            }
-        } catch (error) {
-            console.error('Ошибка:', error);
-            showError('Ошибка сети');
-        } finally {
-            hideLoading();
-        }
-    };
 
     // ========== ФУНКЦИИ ДЛЯ ГРУПП ==========
     async function loadUserGroups() {
@@ -605,19 +402,58 @@
             if (response.ok) {
                 userGroups = await response.json();
                 console.log(`👥 Загружено групп: ${userGroups.length}`);
-                renderGroupsList();
+                renderGroupsShortList();
                 renderGroupsDetailedList();
                 renderGroupSelector();
 
-                const groupsCountEl = document.getElementById('groupsCount');
+                const groupsCountEl = document.getElementById('tabGroupsCount');
                 if (groupsCountEl) groupsCountEl.textContent = userGroups.length;
             }
         } catch (error) {
             console.error('Ошибка загрузки групп:', error);
             userGroups = [];
-            renderGroupsList();
+            renderGroupsShortList();
             renderGroupsDetailedList();
         }
+    }
+
+    function renderGroupsShortList() {
+        const container = document.getElementById('groupsShortList');
+        if (!container) return;
+
+        if (userGroups.length === 0) {
+            container.innerHTML = '<div class="empty-state-small">Нет групп</div>';
+            return;
+        }
+
+        container.innerHTML = userGroups.slice(0, 3).map(group => `
+            <div class="group-item" onclick="window.openGroupInfo('${group.id}')">
+                <span class="group-name">${escapeHtml(group.name)}</span>
+                <span class="group-role">${group.role === 'admin' ? 'admin' : 'участник'}</span>
+            </div>
+        `).join('');
+    }
+
+    function renderGroupSelector() {
+        const container = document.getElementById('groupSelector');
+        if (!container) return;
+
+        if (userGroups.length === 0) {
+            container.innerHTML = '<select disabled><option>Нет групп</option></select>';
+            return;
+        }
+
+        container.innerHTML = `
+            <select id="groupSelect" onchange="window.selectGroup(this.value)">
+                <option value="">-- Выберите группу --</option>
+                ${userGroups.map(group => `
+                    <option value="${group.id}" ${selectedGroupId === group.id ? 'selected' : ''}>
+                        ${escapeHtml(group.name)} (${group.role === 'admin' ? 'admin' : 'участник'})
+                    </option>
+                `).join('')}
+            </select>
+            <button class="btn-icon" onclick="window.refreshGroupProjects()">🔄</button>
+        `;
     }
 
     async function loadPersonalProjects() {
@@ -670,156 +506,14 @@
         }
     }
 
-    function renderGroupSelector() {
-        const container = document.getElementById('groupSelector');
-        if (!container) return;
-
-        if (userGroups.length === 0) {
-            container.innerHTML = '<select disabled><option>Нет групп</option></select>';
-            return;
-        }
-
-        container.innerHTML = `
-            <select id="groupSelect" onchange="window.selectGroup(this.value)">
-                <option value="">-- Выберите группу --</option>
-                ${userGroups.map(group => `
-                    <option value="${group.id}" ${selectedGroupId === group.id ? 'selected' : ''}>
-                        ${escapeHtml(group.name)} (${group.role === 'admin' ? 'admin' : 'участник'})
-                    </option>
-                `).join('')}
-            </select>
-            <button class="refresh-group-btn" onclick="window.refreshGroupProjects()">🔄</button>
-        `;
-    }
-
-    window.selectGroup = async function (groupId) {
-        if (!groupId) {
-            selectedGroupId = null;
-            localStorage.removeItem('selected_group');
-            if (currentMode === 'group') {
-                currentMode = 'personal';
-                localStorage.setItem('profile_mode', 'personal');
-                await loadPersonalProjects();
-                await loadWatchedProjects();
-                updateStats();
-                renderProgressList();
-                renderPlannedList();
-                renderWatchedList();
-                setupModeToggle();
-            }
-            return;
-        }
-        
-        selectedGroupId = groupId;
-        localStorage.setItem('selected_group', groupId);
-        
-        if (currentMode === 'group') {
-            showLoading();
-            try {
-                await loadGroupProjects(selectedGroupId);
-                await loadGroupVotingInfo();
-                await loadWatchedProjects();
-                updateStats();
-                renderProgressList();
-                renderPlannedList();
-                renderWatchedList();
-                showSuccess('Проекты группы загружены');
-            } catch (error) {
-                console.error('Ошибка:', error);
-                showError('Ошибка загрузки проектов группы');
-            } finally {
-                hideLoading();
-            }
-        }
-    };
-
-    window.refreshGroupProjects = function () {
-        if (selectedGroupId && currentMode === 'group') {
-            loadGroupProjects(selectedGroupId);
-            loadWatchedProjects().then(() => renderWatchedList());
-            loadGroupVotingInfo();
-            showSuccess('Проекты группы обновлены');
-        }
-    };
-
-    window.leaveGroup = async function (groupId) {
-        if (!confirm('Вы уверены, что хотите покинуть группу?')) return;
-
-        showLoading();
-        try {
-            const response = await window.authFetch(`${API_URL}/api/groups/${groupId}/leave`, {
-                method: 'POST'
-            });
-
-            const data = await response.json();
-            if (data.success) {
-                showSuccess('Вы покинули группу');
-                await loadUserGroups();
-                if (selectedGroupId === groupId) {
-                    selectedGroupId = null;
-                    if (currentMode === 'group') {
-                        currentMode = 'personal';
-                        localStorage.setItem('profile_mode', 'personal');
-                        await loadPersonalProjects();
-                        await loadWatchedProjects();
-                        renderWatchedList();
-                        setupModeToggle();
-                    }
-                }
-            } else {
-                showError(data.error || 'Ошибка при выходе из группы');
-            }
-        } catch (error) {
-            console.error('Ошибка:', error);
-            showError('Ошибка сети');
-        } finally {
-            hideLoading();
-        }
-    };
-
-    window.deleteGroup = async function (groupId) {
-        if (!confirm('ВНИМАНИЕ! Это действие удалит группу и все её проекты. Восстановить будет невозможно. Продолжить?')) return;
-
-        showLoading();
-        try {
-            const response = await window.authFetch(`${API_URL}/api/groups/${groupId}`, {
-                method: 'DELETE'
-            });
-
-            const data = await response.json();
-            if (data.success) {
-                showSuccess('Группа удалена');
-                await loadUserGroups();
-                if (selectedGroupId === groupId) {
-                    selectedGroupId = null;
-                    if (currentMode === 'group') {
-                        currentMode = 'personal';
-                        localStorage.setItem('profile_mode', 'personal');
-                        await loadPersonalProjects();
-                        await loadWatchedProjects();
-                        renderWatchedList();
-                        setupModeToggle();
-                    }
-                }
-            } else {
-                showError(data.error || 'Ошибка при удалении группы');
-            }
-        } catch (error) {
-            console.error('Ошибка:', error);
-            showError('Ошибка сети');
-        } finally {
-            hideLoading();
-        }
-    };
-
     // ========== ПЕРЕКЛЮЧАТЕЛЬ РЕЖИМОВ ==========
     function setupModeToggle() {
-        const modeToggle = document.getElementById('modeToggle');
+        const catalogModeToggle = document.getElementById('catalogModeToggle');
         const personalLabel = document.querySelector('.mode-label.personal');
         const groupLabel = document.querySelector('.mode-label.group');
         const groupSelector = document.getElementById('groupSelector');
 
-        if (!modeToggle) {
+        if (!catalogModeToggle) {
             console.warn('⚠️ modeToggle не найден на странице');
             return;
         }
@@ -829,17 +523,17 @@
                 if (personalLabel) personalLabel.classList.add('active');
                 if (groupLabel) groupLabel.classList.remove('active');
                 if (groupSelector) groupSelector.style.display = 'none';
-                modeToggle.classList.remove('group-mode');
+                catalogModeToggle.classList.remove('group-mode');
             } else {
                 if (personalLabel) personalLabel.classList.remove('active');
                 if (groupLabel) groupLabel.classList.add('active');
                 if (groupSelector) groupSelector.style.display = 'flex';
-                modeToggle.classList.add('group-mode');
+                catalogModeToggle.classList.add('group-mode');
             }
         }
 
-        const newToggle = modeToggle.cloneNode(true);
-        modeToggle.parentNode.replaceChild(newToggle, modeToggle);
+        const newToggle = catalogModeToggle.cloneNode(true);
+        catalogModeToggle.parentNode.replaceChild(newToggle, catalogModeToggle);
 
         newToggle.addEventListener('click', async () => {
             const newMode = currentMode === 'personal' ? 'group' : 'personal';
@@ -868,6 +562,7 @@
                 renderProgressList();
                 renderPlannedList();
                 renderWatchedList();
+                updateTabCounters();
                 
                 window.dispatchEvent(new CustomEvent('modeChanged', {
                     detail: { mode: currentMode, groupId: selectedGroupId }
@@ -885,43 +580,105 @@
         updateUIMode();
     }
 
+    window.selectGroup = async function (groupId) {
+        if (!groupId) {
+            selectedGroupId = null;
+            localStorage.removeItem('selected_group');
+            if (currentMode === 'group') {
+                currentMode = 'personal';
+                localStorage.setItem('profile_mode', 'personal');
+                await loadPersonalProjects();
+                await loadWatchedProjects();
+                updateStats();
+                renderProgressList();
+                renderPlannedList();
+                renderWatchedList();
+                setupModeToggle();
+                updateTabCounters();
+            }
+            return;
+        }
+        
+        selectedGroupId = groupId;
+        localStorage.setItem('selected_group', groupId);
+        
+        if (currentMode === 'group') {
+            showLoading();
+            try {
+                await loadGroupProjects(selectedGroupId);
+                await loadGroupVotingInfo();
+                await loadWatchedProjects();
+                updateStats();
+                renderProgressList();
+                renderPlannedList();
+                renderWatchedList();
+                updateTabCounters();
+                showSuccess('Проекты группы загружены');
+            } catch (error) {
+                console.error('Ошибка:', error);
+                showError('Ошибка загрузки проектов группы');
+            } finally {
+                hideLoading();
+            }
+        }
+    };
+
+    window.refreshGroupProjects = function () {
+        if (selectedGroupId && currentMode === 'group') {
+            loadGroupProjects(selectedGroupId);
+            loadWatchedProjects().then(() => renderWatchedList());
+            loadGroupVotingInfo();
+            showSuccess('Проекты группы обновлены');
+        }
+    };
+
     // ========== СТАТИСТИКА ==========
     function updateStats() {
         const watched = allProjects.filter(p => p.user_status === 'watched' || p.status === 'watched').length;
         const inProgress = allProjects.filter(p => p.user_status === 'in_progress' || p.status === 'in_progress').length;
         const planned = allProjects.filter(p => p.user_status === 'planned' || p.status === 'planned').length;
+        const total = watched + inProgress + planned;
 
         const watchedCountEl = document.getElementById('watchedCount');
         const inProgressCountEl = document.getElementById('inProgressCount');
         const plannedCountEl = document.getElementById('plannedCount');
-        const registerDateEl = document.getElementById('registerDate');
-        const lastLoginEl = document.getElementById('lastLogin');
+        const overallProgressEl = document.getElementById('overallProgress');
+        const overallProgressFill = document.getElementById('overallProgressFill');
 
         if (watchedCountEl) watchedCountEl.textContent = watched;
         if (inProgressCountEl) inProgressCountEl.textContent = inProgress;
         if (plannedCountEl) plannedCountEl.textContent = planned;
 
-        if (registerDateEl && currentUser) {
-            registerDateEl.textContent = formatDate(currentUser.registered_at);
+        if (overallProgressEl && total > 0) {
+            const percent = Math.round((watched / total) * 100);
+            overallProgressEl.textContent = `${percent}%`;
+            if (overallProgressFill) overallProgressFill.style.width = `${percent}%`;
         }
-        if (lastLoginEl && currentUser) {
-            lastLoginEl.textContent = formatDateTime(currentUser.last_login);
-        }
+    }
+
+    function updateTabCounters() {
+        const progressCount = allProjects.filter(p => p.status === 'in_progress' || p.user_status === 'in_progress').length;
+        const plannedCount = allProjects.filter(p => p.status === 'planned' || p.user_status === 'planned').length;
+        const watchedCount = watchedProjects.length;
+
+        const tabProgress = document.querySelector('.tab-btn[data-tab="progress"] .tab-count');
+        const tabPlanned = document.querySelector('.tab-btn[data-tab="planned"] .tab-count');
+        const tabWatched = document.querySelector('.tab-btn[data-tab="watched"] .tab-count');
+
+        if (tabProgress) tabProgress.textContent = progressCount;
+        if (tabPlanned) tabPlanned.textContent = plannedCount;
+        if (tabWatched) tabWatched.textContent = watchedCount;
     }
 
     // ========== РЕНДЕРИНГ СПИСКОВ ==========
     function renderProgressList() {
         const container = document.getElementById('progressList');
-        const countEl = document.getElementById('progressCount');
-
         if (!container) return;
 
-        const progressItems = allProjects.filter(p => p.status === 'in_progress' || p.user_status === 'in_progress' || p.inProgress === true);
-        
-        if (countEl) countEl.textContent = progressItems.length;
+        const progressItems = allProjects.filter(p => p.status === 'in_progress' || p.user_status === 'in_progress');
 
         if (progressItems.length === 0) {
-            container.innerHTML = '<div class="empty-state"><span>🎬</span><p>Нет проектов в процессе</p></div>';
+            container.innerHTML = '<div class="empty-state"><span>🎬</span><p>Нет проектов в процессе</p><p class="hint">Отметьте фильм как "В процессе" в каталоге</p></div>';
             return;
         }
 
@@ -930,12 +687,51 @@
             const title = project.title_ru || project.title;
             const type = project.type || 'Фильм';
             const year = project.year || '';
+            const progress = userProgress.find(p => p.project_id === project.id);
+            const progressPercent = progress?.duration ? Math.round((progress.timecode / progress.duration) * 100) : 0;
 
             return `
-                <div class="item-card" onclick="showStatusModal('${project.id}', '${escapeHtml(title)}')">
+                <div class="item-card" onclick="window.showStatusModal('${project.id}', '${escapeHtml(title)}')">
                     <div class="item-poster" style="background-image: url('${poster}')">
                         ${!poster ? '<div class="item-no-poster">🎬</div>' : ''}
                         <div class="item-status status-in-progress">🔥</div>
+                        ${progressPercent > 0 ? `<div class="item-progress"><div class="progress-fill-small" style="width: ${progressPercent}%;"></div></div>` : ''}
+                    </div>
+                    <div class="item-info">
+                        <div class="item-title">${escapeHtml(title)}</div>
+                        <div class="item-meta">
+                            <span>${type}</span>
+                            <span>${year}</span>
+                        </div>
+                        ${progressPercent > 0 ? `<div class="item-progress-text">${progressPercent}% просмотрено</div>` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function renderPlannedList() {
+        const container = document.getElementById('plannedList');
+        if (!container) return;
+
+        const plannedItems = allProjects.filter(p => p.status === 'planned' || p.user_status === 'planned');
+
+        if (plannedItems.length === 0) {
+            container.innerHTML = '<div class="empty-state"><span>📋</span><p>Нет проектов в планах</p><p class="hint">Добавьте фильмы через поиск в каталоге</p></div>';
+            return;
+        }
+
+        container.innerHTML = plannedItems.map(project => {
+            const poster = project.poster || '';
+            const title = project.title_ru || project.title;
+            const type = project.type || 'Фильм';
+            const year = project.year || '';
+
+            return `
+                <div class="item-card" onclick="window.showStatusModal('${project.id}', '${escapeHtml(title)}')">
+                    <div class="item-poster" style="background-image: url('${poster}')">
+                        ${!poster ? '<div class="item-no-poster">📋</div>' : ''}
+                        <div class="item-status status-planned">📋</div>
                     </div>
                     <div class="item-info">
                         <div class="item-title">${escapeHtml(title)}</div>
@@ -951,14 +747,10 @@
 
     function renderWatchedList() {
         const container = document.getElementById('watchedList');
-        const countEl = document.getElementById('watchedListCount');
-
         if (!container) return;
 
-        countEl.textContent = watchedProjects.length;
-
         if (watchedProjects.length === 0) {
-            container.innerHTML = '<div class="empty-state"><span>✅</span><p>Нет просмотренных фильмов</p><p>Отметьте фильм как просмотренный в каталоге</p></div>';
+            container.innerHTML = '<div class="empty-state"><span>✅</span><p>Нет просмотренных фильмов</p><p class="hint">Отметьте фильм как "Просмотрено" в каталоге</p></div>';
             return;
         }
 
@@ -970,9 +762,9 @@
             const userRating = userRatings[project.id];
 
             return `
-                <div class="item-card watched-card" data-project-id="${project.id}">
+                <div class="item-card watched-card">
                     <div class="item-poster" style="background-image: url('${poster}')">
-                        ${!poster ? '<div class="item-no-poster">🎬</div>' : ''}
+                        ${!poster ? '<div class="item-no-poster">✅</div>' : ''}
                         <div class="item-status status-watched">✅</div>
                     </div>
                     <div class="item-info">
@@ -986,83 +778,16 @@
                                 <div class="rating-display ${getRatingClass(userRating.rating)}">
                                     ${userRating.rating.toFixed(1)}
                                 </div>
-                                <button class="edit-rating-btn" onclick="openRatingModal('${project.id}', '${escapeHtml(title)}', ${userRating.rating}, '${escapeHtml(userRating.notes || '')}')">✏️</button>
+                                <button class="rate-btn-small" onclick="event.stopPropagation(); window.openRatingModal('${project.id}', '${escapeHtml(title)}', ${userRating.rating}, '${escapeHtml(userRating.notes || '')}')">✏️</button>
                             ` : `
-                                <button class="rate-btn" onclick="openRatingModal('${project.id}', '${escapeHtml(title)}')">⭐ Оценить</button>
+                                <button class="rate-btn-small" onclick="event.stopPropagation(); window.openRatingModal('${project.id}', '${escapeHtml(title)}')">⭐ Оценить</button>
                             `}
                         </div>
-                        <div class="card-actions">
-                            <button class="remove-watched-btn" onclick="removeFromWatched('${project.id}')">🗑️ Удалить</button>
-                        </div>
+                        <button class="remove-watched-btn" onclick="event.stopPropagation(); window.removeFromWatched('${project.id}')">🗑️ Удалить</button>
                     </div>
                 </div>
             `;
         }).join('');
-    }
-
-    function renderPlannedList() {
-        const container = document.getElementById('plannedList');
-        const countEl = document.getElementById('plannedListCount');
-
-        if (!container) return;
-
-        const plannedItems = allProjects.filter(p => p.status === 'planned' || p.user_status === 'planned');
-        
-        if (countEl) countEl.textContent = plannedItems.length;
-
-        if (plannedItems.length === 0) {
-            container.innerHTML = '<div class="empty-state"><span>📋</span><p>Нет проектов в планах</p></div>';
-            return;
-        }
-
-        container.innerHTML = plannedItems.map(project => {
-            const poster = project.poster || '';
-            const title = project.title_ru || project.title;
-            const type = project.type || 'Фильм';
-            const year = project.year || '';
-
-            return `
-                <div class="item-card" onclick="showStatusModal('${project.id}', '${escapeHtml(title)}')">
-                    <div class="item-poster" style="background-image: url('${poster}')">
-                        ${!poster ? '<div class="item-no-poster">🎬</div>' : ''}
-                        <div class="item-status status-planned">📋</div>
-                    </div>
-                    <div class="item-info">
-                        <div class="item-title">${escapeHtml(title)}</div>
-                        <div class="item-meta">
-                            <span>${type}</span>
-                            <span>${year}</span>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }).join('');
-    }
-
-    // ========== ОТРИСОВКА ГРУПП ==========
-    function renderGroupsList() {
-        const container = document.getElementById('groupsList');
-        if (!container) return;
-
-        if (userGroups.length === 0) {
-            container.innerHTML = '<div class="empty-groups">У вас нет групп</div>';
-            return;
-        }
-
-        container.innerHTML = userGroups.map(group => `
-            <div class="group-card" onclick="openGroupInfo('${group.id}')">
-                <div class="group-info">
-                    <div class="group-name">
-                        ${escapeHtml(group.name)}
-                        <span class="group-role">${group.role === 'admin' ? 'admin' : 'участник'}</span>
-                    </div>
-                    <div class="group-meta">
-                        Код: <span class="group-invite">${group.invite_code}</span>
-                    </div>
-                </div>
-                <div class="group-arrow">👉</div>
-            </div>
-        `).join('');
     }
 
     function renderGroupsDetailedList() {
@@ -1070,107 +795,31 @@
         if (!container) return;
 
         if (userGroups.length === 0) {
-            container.innerHTML = '<div class="empty-state"><span>👥</span><p>У вас нет групп</p><p>Создайте группу или вступите по коду приглашения</p></div>';
+            container.innerHTML = '<div class="empty-state"><span>👥</span><p>У вас нет групп</p><p class="hint">Создайте группу или вступите по коду приглашения</p></div>';
             return;
         }
 
         container.innerHTML = userGroups.map(group => `
-            <div class="group-card" style="margin-bottom: 10px;">
-                <div class="group-info" onclick="openGroupInfo('${group.id}')">
-                    <div class="group-name">
-                        ${escapeHtml(group.name)}
-                        <span class="group-role">${group.role === 'admin' ? 'admin' : 'участник'}</span>
-                    </div>
-                    <div class="group-meta">
-                        Создана: ${formatDate(group.created_at)} | 
-                        Код: <span class="group-invite">${group.invite_code}</span>
-                    </div>
+            <div class="group-detailed-card">
+                <div class="group-detailed-header">
+                    <span class="group-detailed-name">${escapeHtml(group.name)}</span>
+                    <span class="group-detailed-role">${group.role === 'admin' ? 'admin' : 'участник'}</span>
                 </div>
-                <div class="group-actions">
+                <div class="group-detailed-meta">
+                    Создана: ${formatDate(group.created_at)} | 
+                    Код: <strong>${group.invite_code}</strong>
+                </div>
+                <div class="group-detailed-actions">
+                    <button class="btn-outline small" onclick="window.openGroupInfo('${group.id}')">📋 Подробнее</button>
                     ${group.role === 'admin' ? `
-                        <button class="group-action-btn delete-group" onclick="event.stopPropagation(); deleteGroup('${group.id}')" title="Удалить группу">
-                            🗑️ Удалить
-                        </button>
+                        <button class="btn-outline danger small" onclick="window.deleteGroup('${group.id}')">🗑️ Удалить</button>
                     ` : `
-                        <button class="group-action-btn leave-group" onclick="event.stopPropagation(); leaveGroup('${group.id}')" title="Покинуть группу">
-                            🚪 Выйти
-                        </button>
+                        <button class="btn-outline small" onclick="window.leaveGroup('${group.id}')">🚪 Выйти</button>
                     `}
                 </div>
             </div>
         `).join('');
     }
-
-    window.openGroupInfo = async function (groupId) {
-        showLoading();
-
-        try {
-            const infoResponse = await window.authFetch(`${API_URL}/api/groups/${groupId}/info`);
-            const groupInfo = await infoResponse.json();
-
-            const membersResponse = await window.authFetch(`${API_URL}/api/groups/${groupId}/members`);
-            const members = await membersResponse.json();
-
-            const projectsResponse = await window.authFetch(`${API_URL}/api/groups/${groupId}/projects`);
-            const projects = await projectsResponse.json();
-
-            const isAdmin = members.find(m => m.user_id === currentUser.id)?.role === 'admin';
-
-            document.getElementById('groupInfoTitle').textContent = groupInfo.name;
-            document.getElementById('groupInfoContent').innerHTML = `
-                <div class="invite-code">
-                    <strong>🔑 Код приглашения:</strong><br>
-                    <span>${groupInfo.invite_code}</span>
-                    <button class="copy-btn" onclick="copyToClipboard('${groupInfo.invite_code}')">📋 Копировать</button>
-                </div>
-                
-                <div class="group-members-list">
-                    <strong>👥 Участники (${members.length})</strong>
-                    ${members.map(m => `
-                        <div class="member-item">
-                            <span class="member-name">${escapeHtml(m.username)}</span>
-                            <span class="member-role">${m.role === 'admin' ? 'admin' : 'участник'}</span>
-                        </div>
-                    `).join('')}
-                </div>
-                
-                <div class="group-projects-list">
-                    <strong>🎬 Проекты группы (${projects.length})</strong>
-                    ${projects.length === 0 ? '<p style="color: #a3b7f0; padding: 10px;">Нет проектов</p>' :
-                    projects.slice(0, 5).map(p => {
-                        const data = p.data || {};
-                        return `
-                                <div class="member-item">
-                                    <span class="member-name">${escapeHtml(data.title_ru || data.title || p.project_id)}</span>
-                                </div>
-                            `;
-                    }).join('')}
-                    ${projects.length > 5 ? `<p style="color: #a3b7f0; padding: 10px;">... и ещё ${projects.length - 5} проектов</p>` : ''}
-                </div>
-                
-                <div class="group-action-buttons" style="margin-top: 20px; display: flex; gap: 10px; justify-content: center;">
-                    ${isAdmin ? `
-                        <button class="group-action-btn delete-group" onclick="deleteGroup('${groupId}'); closeGroupInfoModal()">
-                            🗑️ Удалить группу
-                        </button>
-                    ` : `
-                        <button class="group-action-btn leave-group" onclick="leaveGroup('${groupId}'); closeGroupInfoModal()">
-                            🚪 Покинуть группу
-                        </button>
-                    `}
-                </div>
-            `;
-
-            document.getElementById('groupInfoModal').style.display = 'flex';
-            document.getElementById('modalOverlay').style.display = 'block';
-
-        } catch (error) {
-            console.error('Ошибка загрузки группы:', error);
-            showError('Ошибка загрузки информации о группе');
-        } finally {
-            hideLoading();
-        }
-    };
 
     // ========== УПРАВЛЕНИЕ СТАТУСОМ ==========
     window.showStatusModal = function (projectId, title) {
@@ -1219,6 +868,7 @@
                 await loadProfileData();
                 await loadWatchedProjects();
                 renderWatchedList();
+                updateTabCounters();
             } else {
                 const data = await response.json();
                 showError(data.error || 'Ошибка изменения статуса');
@@ -1378,45 +1028,6 @@
                 throw new Error(error.error || 'Ошибка сохранения оценки');
             }
 
-            try {
-                let projectData = watchedProjects.find(p => p.id === currentRatingProject.id);
-
-                if (!projectData) {
-                    const projectResponse = await fetch(`${API_URL}/projects/${currentRatingProject.id}`);
-                    if (projectResponse.ok) {
-                        projectData = await projectResponse.json();
-                    }
-                }
-
-                if (projectData) {
-                    const listResponse = await window.authFetch(`${API_URL}/api/user/projects/list`);
-                    const userProjects = await listResponse.json();
-                    const existingProject = userProjects.find(p => p.project_id === currentRatingProject.id);
-
-                    if (!existingProject) {
-                        await window.authFetch(`${API_URL}/api/user/projects/list`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                project_id: currentRatingProject.id,
-                                data: projectData,
-                                status: 'watched'
-                            })
-                        });
-                        console.log('✅ Проект добавлен в user_projects со статусом watched');
-                    } else if (existingProject.status !== 'watched') {
-                        await window.authFetch(`${API_URL}/api/user/projects/${currentRatingProject.id}/status`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ status: 'watched' })
-                        });
-                        console.log('✅ Статус проекта обновлён на watched');
-                    }
-                }
-            } catch (statusError) {
-                console.error('Ошибка при работе с user_projects:', statusError);
-            }
-
             showSuccess(rating ? `Оценка ${rating}/10 сохранена!` : 'Заметки сохранены!');
             closeRatingModal();
 
@@ -1474,6 +1085,10 @@
                 } else if (selectedGroupId) {
                     await loadGroupProjects(selectedGroupId);
                 }
+                renderProgressList();
+                renderPlannedList();
+                updateStats();
+                updateTabCounters();
             } else {
                 const error = await response.json();
                 showError(error.error || 'Ошибка');
@@ -1564,14 +1179,147 @@
         }
     };
 
-    window.copyToClipboard = function (text) {
-        navigator.clipboard.writeText(text);
-        showSuccess('Код скопирован!');
+    window.leaveGroup = async function (groupId) {
+        if (!confirm('Вы уверены, что хотите покинуть группу?')) return;
+
+        showLoading();
+        try {
+            const response = await window.authFetch(`${API_URL}/api/groups/${groupId}/leave`, {
+                method: 'POST'
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                showSuccess('Вы покинули группу');
+                await loadUserGroups();
+                if (selectedGroupId === groupId) {
+                    selectedGroupId = null;
+                    if (currentMode === 'group') {
+                        currentMode = 'personal';
+                        localStorage.setItem('profile_mode', 'personal');
+                        await loadPersonalProjects();
+                        await loadWatchedProjects();
+                        renderWatchedList();
+                        setupModeToggle();
+                    }
+                }
+            } else {
+                showError(data.error || 'Ошибка при выходе из группы');
+            }
+        } catch (error) {
+            console.error('Ошибка:', error);
+            showError('Ошибка сети');
+        } finally {
+            hideLoading();
+        }
+    };
+
+    window.deleteGroup = async function (groupId) {
+        if (!confirm('ВНИМАНИЕ! Это действие удалит группу и все её проекты. Восстановить будет невозможно. Продолжить?')) return;
+
+        showLoading();
+        try {
+            const response = await window.authFetch(`${API_URL}/api/groups/${groupId}`, {
+                method: 'DELETE'
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                showSuccess('Группа удалена');
+                await loadUserGroups();
+                if (selectedGroupId === groupId) {
+                    selectedGroupId = null;
+                    if (currentMode === 'group') {
+                        currentMode = 'personal';
+                        localStorage.setItem('profile_mode', 'personal');
+                        await loadPersonalProjects();
+                        await loadWatchedProjects();
+                        renderWatchedList();
+                        setupModeToggle();
+                    }
+                }
+            } else {
+                showError(data.error || 'Ошибка при удалении группы');
+            }
+        } catch (error) {
+            console.error('Ошибка:', error);
+            showError('Ошибка сети');
+        } finally {
+            hideLoading();
+        }
+    };
+
+    window.openGroupInfo = async function (groupId) {
+        showLoading();
+
+        try {
+            const infoResponse = await window.authFetch(`${API_URL}/api/groups/${groupId}/info`);
+            const groupInfo = await infoResponse.json();
+
+            const membersResponse = await window.authFetch(`${API_URL}/api/groups/${groupId}/members`);
+            const members = await membersResponse.json();
+
+            const projectsResponse = await window.authFetch(`${API_URL}/api/groups/${groupId}/projects`);
+            const projects = await projectsResponse.json();
+
+            const isAdmin = members.find(m => m.user_id === currentUser.id)?.role === 'admin';
+
+            document.getElementById('groupInfoTitle').textContent = groupInfo.name;
+            document.getElementById('groupInfoContent').innerHTML = `
+                <div class="invite-code" style="background:#1a1a1a; padding:15px; border-radius:16px; margin-bottom:16px; text-align:center;">
+                    <strong style="color:#8B7355;">🔑 Код приглашения:</strong><br>
+                    <span style="font-family: monospace; font-size:1.2rem; color:#D4A85C;">${groupInfo.invite_code}</span>
+                    <button class="btn-outline small" style="margin-top:8px;" onclick="window.copyToClipboard('${groupInfo.invite_code}')">📋 Копировать</button>
+                </div>
+                
+                <div style="margin-bottom:16px;">
+                    <strong style="color:#8B7355;">👥 Участники (${members.length})</strong>
+                    <div style="margin-top:8px; max-height:200px; overflow-y:auto;">
+                        ${members.map(m => `
+                            <div style="display:flex; justify-content:space-between; padding:8px; background:#1a1a1a; border-radius:30px; margin-bottom:4px;">
+                                <span>${escapeHtml(m.username)}</span>
+                                <span style="color:#8B7355; font-size:0.7rem;">${m.role === 'admin' ? 'admin' : 'участник'}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                
+                <div style="margin-bottom:16px;">
+                    <strong style="color:#8B7355;">🎬 Проекты группы (${projects.length})</strong>
+                    <div style="margin-top:8px; max-height:150px; overflow-y:auto;">
+                        ${projects.length === 0 ? '<div class="empty-state-small">Нет проектов</div>' :
+                            projects.slice(0, 10).map(p => {
+                                const data = p.data || {};
+                                return `
+                                    <div style="padding:8px; background:#1a1a1a; border-radius:30px; margin-bottom:4px;">
+                                        ${escapeHtml(data.title_ru || data.title || p.project_id)}
+                                    </div>
+                                `;
+                            }).join('')}
+                        ${projects.length > 10 ? `<div class="empty-state-small">... и ещё ${projects.length - 10} проектов</div>` : ''}
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('groupInfoModal').style.display = 'flex';
+            document.getElementById('modalOverlay').style.display = 'block';
+
+        } catch (error) {
+            console.error('Ошибка загрузки группы:', error);
+            showError('Ошибка загрузки информации о группе');
+        } finally {
+            hideLoading();
+        }
     };
 
     window.closeGroupInfoModal = function () {
         document.getElementById('groupInfoModal').style.display = 'none';
         document.getElementById('modalOverlay').style.display = 'none';
+    };
+
+    window.copyToClipboard = function (text) {
+        navigator.clipboard.writeText(text);
+        showSuccess('Код скопирован!');
     };
 
     // ========== ДЕТАЛИ ГОЛОСОВАНИЙ ==========
@@ -1598,24 +1346,18 @@
             title.textContent = `Голосование от ${formatDate(cycleDate)}`;
 
             if (!data.votes || Object.keys(data.votes).length === 0) {
-                content.innerHTML = '<div class="empty-state">Нет данных о голосовании</div>';
+                content.innerHTML = '<div class="empty-state-small">Нет данных о голосовании</div>';
             } else {
                 let html = '';
                 for (const [username, films] of Object.entries(data.votes)) {
                     html += `<div class="vote-detail-group">
-                        <div class="vote-detail-user">👤 ${escapeHtml(username)}</div>
-                        <div class="vote-detail-films">`;
-
+                        <div class="vote-detail-user">👤 ${escapeHtml(username)}</div>`;
                     for (const film of films) {
                         const project = allProjects.find(p => p.id === film.film_id);
                         const filmTitle = project?.title_ru || project?.title || film.film_id;
-                        html += `<div class="vote-detail-item">
-                            <span class="vote-detail-film">${escapeHtml(filmTitle)}</span>
-                            <span class="vote-detail-boost">+${film.boost || 1}</span>
-                        </div>`;
+                        html += `<div class="vote-detail-film">🎬 ${escapeHtml(filmTitle)} <span style="color:#8B7355;">+${film.boost || 1}</span></div>`;
                     }
-
-                    html += `</div></div>`;
+                    html += `</div>`;
                 }
                 content.innerHTML = html;
             }
@@ -1636,16 +1378,255 @@
         document.getElementById('modalOverlay').style.display = 'none';
     };
 
-    // ========== ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК ==========
-    window.switchTab = function (tab) {
-        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-        document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
-
-        if (event && event.target) {
-            event.target.classList.add('active');
+    // ========== ФУНКЦИИ ГОЛОСОВАНИЯ ==========
+    window.startGroupVoting = async function () {
+        if (!selectedGroupId) {
+            showError('Сначала выберите группу');
+            return;
         }
-        const tabPane = document.getElementById(`tab-${tab}`);
-        if (tabPane) tabPane.classList.add('active');
+
+        const isAdmin = groupMembers.find(m => m.user_id === currentUser?.id)?.role === 'admin';
+        if (!isAdmin) {
+            showError('Только администратор группы может начать голосование');
+            return;
+        }
+
+        showLoading();
+
+        try {
+            const response = await window.authFetch(`${API_URL}/api/voting/group/${selectedGroupId}/start`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ duration_minutes: 1440 })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                showSuccess('Голосование начато!');
+                await loadGroupVotingInfo();
+            } else {
+                showError(data.error || 'Ошибка начала голосования');
+            }
+        } catch (error) {
+            console.error('Ошибка:', error);
+            showError('Ошибка сети');
+        } finally {
+            hideLoading();
+        }
+    };
+
+    window.endGroupVoting = async function () {
+        if (!selectedGroupId || !currentVotingCycle) {
+            showError('Нет активного голосования');
+            return;
+        }
+
+        const isAdmin = groupMembers.find(m => m.user_id === currentUser?.id)?.role === 'admin';
+        if (!isAdmin) {
+            showError('Только администратор может завершить голосование');
+            return;
+        }
+
+        if (!confirm('Завершить голосование и сохранить бусты?')) return;
+
+        showLoading();
+
+        try {
+            const response = await window.authFetch(`${API_URL}/api/voting/group/${selectedGroupId}/end`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                showSuccess('Голосование завершено! Бусты добавлены.');
+                await loadGroupVotingInfo();
+                window.dispatchEvent(new CustomEvent('ratingsUpdated'));
+            } else {
+                showError(data.error || 'Ошибка завершения голосования');
+            }
+        } catch (error) {
+            console.error('Ошибка:', error);
+            showError('Ошибка сети');
+        } finally {
+            hideLoading();
+        }
+    };
+
+    window.cancelGroupVoting = async function () {
+        if (!selectedGroupId || !currentVotingCycle) {
+            showError('Нет активного голосования');
+            return;
+        }
+
+        const isAdmin = groupMembers.find(m => m.user_id === currentUser?.id)?.role === 'admin';
+        if (!isAdmin) {
+            showError('Только администратор может отменить голосование');
+            return;
+        }
+
+        if (!confirm('Отменить голосование? Бусты НЕ будут добавлены.')) return;
+
+        showLoading();
+
+        try {
+            const response = await window.authFetch(`${API_URL}/api/voting/group/${selectedGroupId}/cancel`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                showSuccess('Голосование отменено');
+                await loadGroupVotingInfo();
+            } else {
+                showError(data.error || 'Ошибка отмены голосования');
+            }
+        } catch (error) {
+            console.error('Ошибка:', error);
+            showError('Ошибка сети');
+        } finally {
+            hideLoading();
+        }
+    };
+
+    window.openVoteModal = async function () {
+        if (!selectedGroupId || !currentVotingCycle) {
+            showError('Нет активного голосования');
+            return;
+        }
+
+        const response = await window.authFetch(`${API_URL}/api/groups/${selectedGroupId}/projects`);
+        if (!response.ok) {
+            showError('Не удалось загрузить фильмы');
+            return;
+        }
+
+        const projects = await response.json();
+        const plannedProjects = projects.filter(p => p.status === 'planned');
+
+        if (plannedProjects.length === 0) {
+            showError('В группе нет фильмов в планах для голосования');
+            return;
+        }
+
+        const currentUserVotes = currentVotingCycle.votes?.[currentUser?.username] || [];
+
+        const modal = document.getElementById('voteModal');
+        const moviesList = document.getElementById('voteMoviesList');
+        const counter = document.getElementById('voteCounter');
+        const submitBtn = document.getElementById('submitVoteBtn');
+
+        currentVoteSelections = [...currentUserVotes];
+
+        moviesList.innerHTML = plannedProjects.map(project => {
+            const isSelected = currentVoteSelections.includes(project.project_id);
+            return `
+                <div class="vote-movie-item ${isSelected ? 'selected' : ''}" data-film-id="${project.project_id}">
+                    <div class="vote-movie-check">${isSelected ? '✓' : '○'}</div>
+                    <div class="vote-movie-title">${escapeHtml(project.data?.title_ru || project.data?.title || 'Без названия')}</div>
+                </div>
+            `;
+        }).join('');
+
+        function updateVoteCounter() {
+            counter.textContent = `Выбрано: ${currentVoteSelections.length} (от 1 до 3)`;
+            submitBtn.disabled = currentVoteSelections.length < 1 || currentVoteSelections.length > 3;
+        }
+
+        document.querySelectorAll('.vote-movie-item').forEach(item => {
+            item.onclick = () => {
+                const filmId = item.dataset.filmId;
+                const index = currentVoteSelections.indexOf(filmId);
+
+                if (index !== -1) {
+                    currentVoteSelections.splice(index, 1);
+                    item.classList.remove('selected');
+                    item.querySelector('.vote-movie-check').textContent = '○';
+                } else if (currentVoteSelections.length < 3) {
+                    currentVoteSelections.push(filmId);
+                    item.classList.add('selected');
+                    item.querySelector('.vote-movie-check').textContent = '✓';
+                } else {
+                    showError('Можно выбрать не более 3 фильмов');
+                }
+                updateVoteCounter();
+            };
+        });
+
+        updateVoteCounter();
+        modal.style.display = 'flex';
+        document.getElementById('modalOverlay').style.display = 'block';
+    };
+
+    window.closeVoteModal = function () {
+        document.getElementById('voteModal').style.display = 'none';
+        document.getElementById('modalOverlay').style.display = 'none';
+        currentVoteSelections = [];
+    };
+
+    window.submitVote = async function () {
+        if (currentVoteSelections.length < 1 || currentVoteSelections.length > 3) {
+            showError('Выберите от 1 до 3 фильмов');
+            return;
+        }
+
+        showLoading();
+
+        try {
+            const response = await window.authFetch(`${API_URL}/api/voting/group/${selectedGroupId}/vote`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    film_ids: currentVoteSelections
+                })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                showSuccess('Ваш голос сохранён!');
+                closeVoteModal();
+                await loadGroupVotingInfo();
+            } else {
+                showError(data.error || 'Ошибка сохранения голоса');
+            }
+        } catch (error) {
+            console.error('Ошибка:', error);
+            showError('Ошибка сети');
+        } finally {
+            hideLoading();
+        }
+    };
+
+    // ========== ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК ==========
+    window.switchTab = function (tabId) {
+        // Обновляем активную кнопку
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.dataset.tab === tabId) {
+                btn.classList.add('active');
+            }
+        });
+        
+        // Обновляем активную панель
+        document.querySelectorAll('.tab-pane').forEach(pane => {
+            pane.classList.remove('active');
+        });
+        
+        const targetPane = document.getElementById(`tab-${tabId}`);
+        if (targetPane) {
+            targetPane.classList.add('active');
+        }
+        
+        // Если переключились на вкладку групп, обновляем список
+        if (tabId === 'groups') {
+            renderGroupsDetailedList();
+        }
+        
+        // Если переключились на вкладку голосований, обновляем информацию
+        if (tabId === 'votes') {
+            loadGroupVotingInfo();
+        }
     };
 
     // ========== ВЫХОД ==========
@@ -1687,31 +1668,6 @@
         }
     }
 
-    function formatDateTime(dateString) {
-        if (!dateString) return '—';
-        try {
-            let date;
-            if (dateString.includes(' ')) {
-                const [datePart, timePart] = dateString.split(' ');
-                const [year, month, day] = datePart.split('-');
-                const [hour, minute, second] = timePart.split(':');
-                date = new Date(year, month - 1, day, hour, minute, second || 0);
-            } else {
-                date = new Date(dateString);
-            }
-            if (isNaN(date.getTime())) return '—';
-            return date.toLocaleString('ru-RU', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-        } catch {
-            return '—';
-        }
-    }
-
     function escapeHtml(unsafe) {
         if (!unsafe) return '';
         return unsafe
@@ -1743,9 +1699,8 @@
             backdrop-filter: blur(5px);
         `;
         newLoader.innerHTML = `
-            <div style="width: 60px; height: 60px; border: 4px solid #5f4bb6; border-top-color: #ffd966; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px;"></div>
-            <div style="color: white; font-size: 1.2rem;">Загрузка...</div>
-            <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+            <div class="loading-spinner" style="width: 60px; height: 60px;"></div>
+            <div style="color: #e0e0e0; font-size: 1.2rem; margin-top: 16px;">Загрузка...</div>
         `;
         document.body.appendChild(newLoader);
     }
@@ -1757,18 +1712,14 @@
 
     function showSuccess(text) {
         const msg = document.createElement('div');
-        msg.className = 'success-message';
-        msg.textContent = '✅ ' + text;
+        msg.className = 'toast-message success';
+        msg.textContent = text;
         msg.style.cssText = `
             position: fixed;
             top: 20px;
             right: 20px;
-            background: #1e3a2a;
-            color: #a0ffa0;
-            padding: 12px 24px;
-            border-radius: 30px;
             z-index: 10001;
-            animation: slideIn 0.3s ease;
+            animation: slideUp 0.3s ease;
         `;
         document.body.appendChild(msg);
         setTimeout(() => msg.remove(), 3000);
@@ -1776,24 +1727,19 @@
 
     function showError(text) {
         const msg = document.createElement('div');
-        msg.className = 'error-message';
-        msg.textContent = '❌ ' + text;
+        msg.className = 'toast-message error';
+        msg.textContent = text;
         msg.style.cssText = `
             position: fixed;
             top: 20px;
             right: 20px;
-            background: #3d1e2b;
-            color: #ff8a8a;
-            padding: 12px 24px;
-            border-radius: 30px;
             z-index: 10001;
-            animation: slideIn 0.3s ease;
+            animation: slideUp 0.3s ease;
         `;
         document.body.appendChild(msg);
         setTimeout(() => msg.remove(), 3000);
     }
 
-    // Отладочная функция
     window.debugProfile = function () {
         console.log('=== DEBUG PROFILE ===');
         console.log('currentMode:', currentMode);
@@ -1801,43 +1747,5 @@
         console.log('allProjects length:', allProjects.length);
         console.log('Progress items:', allProjects.filter(p => p.user_status === 'in_progress' || p.status === 'in_progress'));
         console.log('Planned items:', allProjects.filter(p => p.user_status === 'planned' || p.status === 'planned'));
-        console.log('progressList element:', document.getElementById('progressList'));
-        console.log('plannedList element:', document.getElementById('plannedList'));
     };
-
-    // Экспорт функций
-    window.openCreateGroupModal = openCreateGroupModal;
-    window.closeCreateGroupModal = closeCreateGroupModal;
-    window.createGroup = createGroup;
-    window.joinGroup = joinGroup;
-    window.leaveGroup = leaveGroup;
-    window.deleteGroup = deleteGroup;
-    window.openGroupInfo = openGroupInfo;
-    window.closeGroupInfoModal = closeGroupInfoModal;
-    window.selectGroup = selectGroup;
-    window.refreshGroupProjects = refreshGroupProjects;
-    window.copyToClipboard = copyToClipboard;
-    window.showStatusModal = showStatusModal;
-    window.closeStatusModal = closeStatusModal;
-    window.changeStatus = changeStatus;
-    window.switchTab = switchTab;
-    window.logout = logout;
-    window.openRatingModal = openRatingModal;
-    window.closeRatingModal = closeRatingModal;
-    window.updateRatingValue = updateRatingValue;
-    window.updateRatingFromInput = updateRatingFromInput;
-    window.clearRating = clearRating;
-    window.saveRating = saveRating;
-    window.removeFromWatched = removeFromWatched;
-
-    // Экспорт функций голосования
-    window.startGroupVoting = startGroupVoting;
-    window.endGroupVoting = endGroupVoting;
-    window.cancelGroupVoting = cancelGroupVoting;
-    window.openVoteModal = openVoteModal;
-    window.closeVoteModal = closeVoteModal;
-    window.submitVote = submitVote;
-    window.openVoteDetails = openVoteDetails;
-    window.closeVoteDetailsModal = closeVoteDetailsModal;
-    window.debugProfile = debugProfile;
 })();

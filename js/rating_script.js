@@ -2,11 +2,11 @@
     const API_URL = 'https://movie-server-deutscherfuchs.amvera.io';
 
     let myProjects = [];
-    let groupRatings = {}; // Оценки внутри текущей группы
+    let groupRatings = {};
     let currentFilter = 'all';
     let currentProject = null;
     let currentUser = null;
-    let userRatings = {}; // { projectId: { rating, notes } } для текущего пользователя
+    let userRatings = {};
 
     // ========== ПЕРЕМЕННЫЕ ДЛЯ ГРУППОВОГО РЕЖИМА ==========
     let currentMode = localStorage.getItem('ratings_mode') || 'personal';
@@ -20,7 +20,6 @@
     const filterButtons = document.querySelectorAll('.filter-btn');
     const ratingModal = document.getElementById('ratingModal');
     const modalContent = document.getElementById('modalContent');
-    const body = document.body;
 
     // ========== АВТОРИЗАЦИЯ ==========
     async function loadCurrentUser() {
@@ -110,11 +109,7 @@
                 }
                 return;
             }
-
-            // В личном режиме используем только свои оценки
             console.log('👤 Личный режим: показываем только свои оценки');
-            allUserRatings = {};
-            return;
         } catch (error) {
             console.error('Ошибка загрузки оценок:', error);
             groupRatings = {};
@@ -210,7 +205,7 @@
                     </option>
                 `).join('')}
             </select>
-            <button class="refresh-group-btn" onclick="window.refreshGroupProjects()">🔄</button>
+            <button class="btn-icon" onclick="window.refreshGroupProjects()">🔄</button>
         `;
     }
 
@@ -231,6 +226,11 @@
             loadAllRatings().then(() => loadWatchedProjects());
             showSuccess('Проекты группы обновлены');
         }
+    };
+
+    window.refreshRatings = function () {
+        loadAllRatings().then(() => loadWatchedProjects());
+        showSuccess('Оценки обновлены');
     };
 
     // ========== ПЕРЕКЛЮЧАТЕЛЬ РЕЖИМОВ ==========
@@ -290,8 +290,10 @@
     }
 
     // ========== УДАЛЕНИЕ ПРОЕКТА ==========
-    const deleteProject = async function (projectId) {
-        if (!confirm('Удалить проект из просмотренных?')) return;
+    const deleteProject = async function (projectId, event) {
+        if (event) event.stopPropagation();
+        
+        if (!confirm('Удалить проект из просмотренных? Он будет перемещён обратно в каталог.')) return;
 
         try {
             let response;
@@ -333,6 +335,13 @@
     function getRatingClass(rating) {
         if (!rating && rating !== 0) return 'rating-null';
         const rounded = Math.round(rating);
+        if (rounded < 4) return 'rating-1';
+        if (rounded < 5) return 'rating-4';
+        if (rounded < 6) return 'rating-5';
+        if (rounded < 7) return 'rating-6';
+        if (rounded < 8) return 'rating-7';
+        if (rounded < 9) return 'rating-8';
+        if (rounded < 10) return 'rating-9';
         return `rating-${rounded}`;
     }
 
@@ -347,7 +356,6 @@
         if (!project) return;
 
         currentProject = project;
-        body.classList.add('modal-open');
 
         const posterEmoji = project.type === 'Аниме' ? '🇯🇵' :
             project.type === 'Сериал' ? '📺' :
@@ -357,10 +365,8 @@
             ? `<div class="modal-poster" style="background-image: url('${project.poster}');"></div>`
             : `<div class="modal-poster no-poster">${posterEmoji}</div>`;
 
-        // ВЫБИРАЕМ ПРАВИЛЬНЫЙ ИСТОЧНИК ОЦЕНОК
         const ratingsSource = (currentMode === 'group' && selectedGroupId) ? groupRatings : { [currentUser?.username]: userRatings };
 
-        // Получаем всех пользователей, которые оценили этот фильм
         const usersWithRatings = [];
         for (const [username, ratings] of Object.entries(ratingsSource)) {
             if (ratings[projectId]) {
@@ -372,7 +378,6 @@
             }
         }
 
-        // Сортируем по оценке (от высшей к низшей)
         usersWithRatings.sort((a, b) => (b.rating || 0) - (a.rating || 0));
 
         const currentUserRating = userRatings[projectId];
@@ -397,18 +402,18 @@
                 <div class="modal-info">
                     <div class="modal-title">${escapeHtml(project.title_ru || project.title)}</div>
                     <div class="modal-year">${project.year || '—'}</div>
-                    <div class="modal-rating">Кинопоиск: ${project.rating || '—'}</div>
+                    <div class="modal-kp-rating">Кинопоиск: ${project.rating || '—'}</div>
                 </div>
             </div>
             
             <div class="ratings-container">
-                <h3 style="color: #ffd966; margin-bottom: 15px;">⭐ Оценки участников</h3>
+                <h3>⭐ Оценки участников</h3>
                 ${ratingsHtml}
             </div>
             
             ${currentUserRating ? `
-                <div class="my-rating">
-                    <h3 style="color: #ffd966; margin-top: 20px; margin-bottom: 10px;">🎯 Ваша оценка</h3>
+                <div class="my-rating-section">
+                    <h3>🎯 Ваша оценка</h3>
                     <div class="rating-row">
                         <div class="rating-header">
                             <span class="rating-name">${escapeHtml(currentUser.username)}</span>
@@ -417,28 +422,27 @@
                             </span>
                         </div>
                         ${currentUserRating.notes ? `<div class="rating-notes">📝 ${escapeHtml(currentUserRating.notes)}</div>` : ''}
-                        <div style="margin-top: 10px;">
-                            <button class="edit-my-rating-btn" onclick="editMyRating('${projectId}')">✏️ Изменить оценку</button>
-                        </div>
+                        <button class="rate-btn" onclick="window.editMyRating('${projectId}')">✏️ Изменить оценку</button>
                     </div>
                 </div>
             ` : `
-                <div class="rate-this-film" style="margin-top: 20px;">
-                    <button class="rate-this-film-btn" onclick="rateThisFilm('${projectId}')">⭐ Оценить фильм</button>
+                <div class="my-rating-section">
+                    <button class="rate-btn" onclick="window.rateThisFilm('${projectId}')">⭐ Оценить фильм</button>
                 </div>
             `}
             
-            <div class="modal-buttons">
-                <button class="modal-btn cancel" onclick="closeRatingModal()">Закрыть</button>
+            <div class="modal-footer">
+                <button class="btn-outline" onclick="window.closeRatingModal()">Закрыть</button>
             </div>
         `;
 
         ratingModal.classList.add('active');
+        document.body.classList.add('modal-open');
     };
 
     window.closeRatingModal = function () {
-        body.classList.remove('modal-open');
         ratingModal.classList.remove('active');
+        document.body.classList.remove('modal-open');
         currentProject = null;
     };
 
@@ -474,7 +478,7 @@
                 <div class="empty-state">
                     <span>⭐</span>
                     <p>Пока нет просмотренных фильмов</p>
-                    <p style="font-size: 1rem; margin-top: 10px; color: #6b729b;">
+                    <p style="font-size: 1rem; margin-top: 10px; color: #666;">
                         ${currentMode === 'group' && !selectedGroupId
                             ? 'Выберите группу в переключателе режимов'
                             : 'Отмечайте фильмы галочкой ✅ в каталоге, а затем оценивайте их в профиле'}
@@ -491,10 +495,8 @@
             else if (project.type === 'Сериал') posterEmoji = '📺';
             else if (project.type === 'Мультфильм') posterEmoji = '🖍️';
 
-            // ВЫБИРАЕМ ПРАВИЛЬНЫЙ ИСТОЧНИК ДЛЯ ПОДСЧЁТА СРЕДНЕЙ ОЦЕНКИ
             const ratingsSource = (currentMode === 'group' && selectedGroupId) ? groupRatings : { [currentUser?.username]: userRatings };
 
-            // Считаем среднюю оценку
             let totalRating = 0;
             let ratingCount = 0;
             for (const [username, ratings] of Object.entries(ratingsSource)) {
@@ -507,25 +509,25 @@
             const userHasRated = userRatings[project.id] !== undefined;
 
             const posterHtml = project.poster
-                ? `<div class="poster" style="background-image: url('${project.poster}');">
+                ? `<div class="card-poster" style="background-image: url('${project.poster}');">
                      <div class="rating-badge">${project.rating || '—'}</div>
                      ${averageRating ? `<div class="average-rating-badge">⭐ ${averageRating}</div>` : ''}
                      ${userHasRated ? `<div class="user-rated-badge">✓ Оценено</div>` : ''}
                    </div>`
-                : `<div class="poster">
-                     <div class="no-poster">${posterEmoji}</div>
+                : `<div class="card-poster no-poster">
+                     <div class="no-poster-content">${posterEmoji}</div>
                      <div class="rating-badge">${project.rating || '—'}</div>
                      ${averageRating ? `<div class="average-rating-badge">⭐ ${averageRating}</div>` : ''}
                      ${userHasRated ? `<div class="user-rated-badge">✓ Оценено</div>` : ''}
                    </div>`;
 
             html += `
-                <div class="card" onclick="openRatingModal('${project.id}')">
-                    <button class="delete-card" onclick="event.stopPropagation(); window.deleteProject('${project.id}')" title="Удалить">✕</button>
+                <div class="rating-card" onclick="window.openRatingModal('${project.id}')">
+                    <button class="delete-btn" onclick="window.deleteProject('${project.id}', event)" title="Удалить">✕</button>
                     ${posterHtml}
                     <div class="card-content">
                         <div class="card-title">${escapeHtml(project.title_ru || project.title)}</div>
-                        <span class="card-type">${project.type || 'Фильм'}</span>
+                        <div class="card-type">${project.type || 'Фильм'}</div>
                         <div class="card-meta">
                             <span>📅 ${project.year || '—'}</span>
                             <span>👥 ${ratingCount} ${getRatingWord(ratingCount)}</span>
@@ -556,19 +558,23 @@
     }
 
     function showError(text) {
-        errorMessageDiv.style.display = 'block';
-        errorMessageDiv.textContent = '❌ ' + text;
-        setTimeout(() => {
-            errorMessageDiv.style.display = 'none';
-        }, 3000);
+        if (errorMessageDiv) {
+            errorMessageDiv.textContent = text;
+            errorMessageDiv.style.display = 'block';
+            setTimeout(() => {
+                errorMessageDiv.style.display = 'none';
+            }, 3000);
+        }
     }
 
     function showSuccess(text) {
-        successMessageDiv.style.display = 'block';
-        successMessageDiv.textContent = '✅ ' + text;
-        setTimeout(() => {
-            successMessageDiv.style.display = 'none';
-        }, 2000);
+        if (successMessageDiv) {
+            successMessageDiv.textContent = text;
+            successMessageDiv.style.display = 'block';
+            setTimeout(() => {
+                successMessageDiv.style.display = 'none';
+            }, 2000);
+        }
     }
 
     // ========== СЛУШАЕМ СОБЫТИЯ ==========

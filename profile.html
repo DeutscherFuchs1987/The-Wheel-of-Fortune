@@ -1,217 +1,315 @@
 <!DOCTYPE html>
 <html lang="ru">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Личный кабинет 👤</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Cinema Wheel | Личный кабинет</title>
     <link rel="stylesheet" href="css/profile_style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
 </head>
-
 <body>
+
     <div class="app">
-        <!-- Шапка -->
-        <div class="header">
-            <h1>👤 ЛИЧНЫЙ КАБИНЕТ</h1>
-            <div class="nav-buttons">
-                <a href="index.html" class="nav-btn">🎡 Колесо</a>
-                <a href="catalog.html" class="nav-btn">📚 Каталог</a>
-                <a href="ratings.html" class="nav-btn">⭐ Оценки</a>
-                <a href="profile.html" class="nav-btn active">👤 Профиль</a>
+        <!-- Верхняя навигация -->
+        <header class="site-header">
+            <div class="logo">
+                <span class="logo-icon">🎬</span>
+                <span class="logo-text">CINEMA WHEEL</span>
             </div>
-        </div>
+
+            <nav class="main-nav">
+                <a href="index.html" class="nav-link">Колесо</a>
+                <a href="catalog.html" class="nav-link">Каталог</a>
+                <a href="ratings.html" class="nav-link">Оценки</a>
+                <a href="profile.html" class="nav-link active">Профиль</a>
+            </nav>
+
+            <div class="auth-section">
+                <div class="auth-buttons" id="authButtons" style="display: none;">
+                    <button class="btn-outline" onclick="window.showLoginModal()">Войти</button>
+                    <button class="btn-primary" onclick="window.showRegisterModal()">Регистрация</button>
+                </div>
+                <div class="user-info" id="userInfo">
+                    <span class="user-avatar">👤</span>
+                    <span class="user-name" id="userName">Загрузка...</span>
+                    <span class="user-badge" id="userBadge"></span>
+                    <button class="btn-outline small" onclick="window.logout()">Выйти</button>
+                </div>
+            </div>
+        </header>
 
         <!-- Основной контент -->
-        <div class="profile-container">
-            <!-- Левая колонка - информация о пользователе -->
-            <div class="profile-left">
+        <main class="profile-container">
+            
+            <!-- ЛЕВАЯ КОЛОНКА - ПРОФИЛЬ И СТАТИСТИКА -->
+            <aside class="profile-sidebar">
+                <!-- Карточка пользователя -->
                 <div class="profile-card">
                     <div class="profile-avatar">
-                        <span class="avatar-emoji">👤</span>
+                        <span class="avatar-emoji" id="avatarEmoji">🎬</span>
+                        <div class="avatar-status" id="avatarStatus"></div>
                     </div>
                     <h2 id="profileUsername">Загрузка...</h2>
                     <div class="profile-badge" id="profileBadge"></div>
-                    <div class="profile-stats">
-                        <div class="stat-item">
+                    
+                    <!-- Ключевая статистика -->
+                    <div class="stats-grid">
+                        <div class="stat-card">
                             <span class="stat-value" id="watchedCount">0</span>
                             <span class="stat-label">Просмотрено</span>
                         </div>
-                        <div class="stat-item">
+                        <div class="stat-card">
                             <span class="stat-value" id="inProgressCount">0</span>
                             <span class="stat-label">В процессе</span>
                         </div>
-                        <div class="stat-item">
+                        <div class="stat-card">
                             <span class="stat-value" id="plannedCount">0</span>
                             <span class="stat-label">В планах</span>
                         </div>
                     </div>
                     
+                    <!-- Прогресс-бар общего просмотра -->
+                    <div class="overall-progress">
+                        <div class="progress-header">
+                            <span>📊 Общий прогресс</span>
+                            <span class="progress-percent" id="overallProgress">0%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="overallProgressFill"></div>
+                        </div>
+                    </div>
+                </div>
 
-                    <div class="mode-selector">
-                        <div class="mode-toggle" id="modeToggle">
+                <!-- Быстрые действия -->
+                <div class="quick-actions">
+                    <h3>🚀 Быстрые действия</h3>
+                    <div class="actions-grid">
+                        <button class="action-btn" onclick="window.switchTab('catalog')">
+                            <span class="action-icon">➕</span>
+                            <span class="action-text">Добавить фильм</span>
+                        </button>
+                        <button class="action-btn" onclick="window.switchTab('progress')">
+                            <span class="action-icon">🔥</span>
+                            <span class="action-text">Продолжить просмотр</span>
+                        </button>
+                        <button class="action-btn" onclick="window.openCreateGroupModal()">
+                            <span class="action-icon">👥</span>
+                            <span class="action-text">Создать группу</span>
+                        </button>
+                        <button class="action-btn" onclick="window.switchTab('votes')">
+                            <span class="action-icon">🗳️</span>
+                            <span class="action-text">Проголосовать</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Переключатель режимов -->
+                <div class="mode-card">
+                    <div class="mode-header">
+                        <span>🎮 Режим просмотра</span>
+                    </div>
+                    <div class="mode-switch">
+                        <div class="catalog-mode-toggle" id="catalogModeToggle">
                             <div class="toggle-track">
-                                <div class="toggle-thumb" id="modeToggleThumb"></div>
+                                <div class="toggle-thumb" id="catalogModeThumb"></div>
                             </div>
                         </div>
                         <div class="mode-labels">
-                            <span class="mode-label personal active">👤 Личный каталог</span>
-                            <span class="mode-label group">👥 Групповая библиотека</span>
-                        </div>
-                        <div id="groupSelector" class="group-selector" style="display: none;">
-                            <select id="groupSelect" onchange="window.selectGroup(this.value)">
-                                <option value="">-- Выберите группу --</option>
-                            </select>
-                            <button class="refresh-group-btn" onclick="window.refreshGroupProjects()">🔄</button>
+                            <span class="mode-label personal active">Личный</span>
+                            <span class="mode-label group">Групповой</span>
                         </div>
                     </div>
-
-                    <!-- Секция групп -->
-                    <div class="groups-section">
-                        <div class="groups-header">
-                            <h3>👥 Мои группы</h3>
-                            <button class="create-group-btn" onclick="openCreateGroupModal()">➕ Создать</button>
-                        </div>
-                        <div id="groupsList" class="groups-list">
-                            <div class="empty-groups">Загрузка групп...</div>
-                        </div>
-                        <div class="join-group-form">
-                            <input type="text" id="joinCodeInput" class="join-group-input"
-                                placeholder="🔑 Код приглашения">
-                            <button class="join-group-btn" onclick="joinGroup()">Вступить</button>
-                        </div>
+                    <div class="group-selector" id="groupSelector" style="display: none;">
+                        <select id="groupSelect" onchange="window.selectGroup(this.value)">
+                            <option value="">-- Выберите группу --</option>
+                        </select>
+                        <button class="btn-icon" onclick="window.refreshGroupProjects()">🔄</button>
                     </div>
-
-                    <button class="profile-logout-btn" onclick="logout()">🔓 Выйти</button>
-                </div>
-            </div>
-
-            <!-- Правая колонка - табы с контентом -->
-            <div class="profile-right">
-                <!-- Табы -->
-                <div class="profile-tabs">
-                    <button class="tab-btn active" onclick="switchTab('progress')">📺 В процессе</button>
-                    <button class="tab-btn" onclick="switchTab('watched')">✅ Просмотрено</button>
-                    <button class="tab-btn" onclick="switchTab('planned')">📋 В планах</button>
-                    <button class="tab-btn" onclick="switchTab('votes')">🗳️ Мои голоса</button>
-                    <button class="tab-btn" onclick="switchTab('groups')">👥 Группы</button>
                 </div>
 
-                <!-- Контент табов -->
-                <div class="tab-content">
-                    <!-- В процессе -->
+                <!-- Мои группы (краткий список) -->
+                <div class="groups-card">
+                    <div class="groups-header">
+                        <span>👥 Мои группы</span>
+                        <button class="btn-text" onclick="window.switchTab('groups')">Все →</button>
+                    </div>
+                    <div class="groups-list" id="groupsShortList">
+                        <div class="empty-state-small">Загрузка...</div>
+                    </div>
+                    <div class="join-group-form">
+                        <input type="text" id="joinCodeInput" class="join-input" placeholder="🔑 Код приглашения">
+                        <button class="btn-primary small" onclick="window.joinGroup()">Вступить</button>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- ПРАВАЯ КОЛОНКА - ОСНОВНОЙ КОНТЕНТ -->
+            <div class="profile-content">
+                <!-- Навигация по табам -->
+                <div class="tabs-nav">
+                    <button class="tab-btn" data-tab="progress">
+                        <span class="tab-icon">🔥</span>
+                        <span class="tab-text">В процессе</span>
+                        <span class="tab-count" id="tabProgressCount">0</span>
+                    </button>
+                    <button class="tab-btn" data-tab="planned">
+                        <span class="tab-icon">📋</span>
+                        <span class="tab-text">В планах</span>
+                        <span class="tab-count" id="tabPlannedCount">0</span>
+                    </button>
+                    <button class="tab-btn" data-tab="watched">
+                        <span class="tab-icon">✅</span>
+                        <span class="tab-text">Просмотрено</span>
+                        <span class="tab-count" id="tabWatchedCount">0</span>
+                    </button>
+                    <button class="tab-btn" data-tab="votes">
+                        <span class="tab-icon">🗳️</span>
+                        <span class="tab-text">Голосования</span>
+                        <span class="tab-count" id="tabVotesCount"></span>
+                    </button>
+                    <button class="tab-btn" data-tab="groups">
+                        <span class="tab-icon">👥</span>
+                        <span class="tab-text">Группы</span>
+                        <span class="tab-count" id="tabGroupsCount">0</span>
+                    </button>
+                </div>
+
+                <!-- КОНТЕНТ ТАБОВ -->
+                <div class="tabs-content">
+                    
+                    <!-- Таб: В процессе -->
                     <div class="tab-pane active" id="tab-progress">
-                        <div class="content-header">
-                            <h3>📺 Смотрю сейчас</h3>
-                            <span class="content-count" id="progressCount">0</span>
+                        <div class="tab-header">
+                            <h3>🔥 Продолжить просмотр</h3>
+                            <span class="tab-description">Фильмы, которые вы начали смотреть</span>
                         </div>
-                        <div class="items-grid" id="progressList"></div>
+                        <div class="items-grid" id="progressList">
+                            <div class="empty-state">
+                                <span>🎬</span>
+                                <p>Нет фильмов в процессе</p>
+                                <p class="hint">Отметьте фильм как "В процессе" в каталоге</p>
+                            </div>
+                        </div>
                     </div>
 
-                    <!-- Просмотрено -->
-                    <div class="tab-pane" id="tab-watched">
-                        <div class="content-header">
-                            <h3>✅ Уже просмотрено</h3>
-                            <span class="content-count" id="watchedListCount">0</span>
-                        </div>
-                        <div class="items-grid" id="watchedList"></div>
-                    </div>
-
-                    <!-- В планах -->
+                    <!-- Таб: В планах -->
                     <div class="tab-pane" id="tab-planned">
-                        <div class="content-header">
+                        <div class="tab-header">
                             <h3>📋 Хочу посмотреть</h3>
-                            <span class="content-count" id="plannedListCount">0</span>
+                            <span class="tab-description">Фильмы, которые ждут своей очереди</span>
                         </div>
-                        <div class="items-grid" id="plannedList"></div>
+                        <div class="items-grid" id="plannedList">
+                            <div class="empty-state">
+                                <span>📋</span>
+                                <p>Нет фильмов в планах</p>
+                                <p class="hint">Добавьте фильмы через поиск в каталоге</p>
+                            </div>
+                        </div>
                     </div>
 
-                    <!-- Мои голоса -->
-                    <!-- Мои голоса -->
+                    <!-- Таб: Просмотрено -->
+                    <div class="tab-pane" id="tab-watched">
+                        <div class="tab-header">
+                            <h3>✅ Уже просмотрено</h3>
+                            <span class="tab-description">Фильмы, которые вы оценили</span>
+                        </div>
+                        <div class="items-grid" id="watchedList">
+                            <div class="empty-state">
+                                <span>✅</span>
+                                <p>Нет просмотренных фильмов</p>
+                                <p class="hint">Отметьте фильм как "Просмотрено" в каталоге</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Таб: Голосования -->
                     <div class="tab-pane" id="tab-votes">
-                        <div class="content-header">
-                            <h3>🗳️ Голосование в группе</h3>
-                            <span class="content-count" id="votingStatusBadge">⚪ Не активно</span>
+                        <div class="tab-header">
+                            <h3>🗳️ Голосования в группе</h3>
+                            <span class="tab-description" id="votingStatusBadge">⚪ Не активно</span>
                         </div>
 
-                        <!-- Статус голосования для всех -->
-                        <div id="votingStatusMessage" class="voting-status-message" style="display: none;"></div>
+                        <!-- Статус голосования -->
+                        <div id="votingStatusMessage" class="voting-status" style="display: none;"></div>
 
-                        <!-- Блок для админа (управление голосованием) -->
-                        <div id="adminVotingControls" style="display: none;" class="admin-voting-controls">
-                            <div class="voting-controls-panel">
-                                <button id="startVoteBtn" class="voting-action-btn start"
-                                    onclick="startGroupVoting()">🚀 Начать голосование</button>
-                                <div id="voteProgress" style="display: none;">
-                                    <div class="progress-info">
-                                        <span>📊 Проголосовало: <span id="votedCount">0</span>/<span
-                                                id="totalMembers">0</span></span>
-                                        <span id="votedUsersList" class="voted-users-list"></span>
-                                    </div>
-                                    <div class="vote-progress-bar">
-                                        <div class="vote-progress-fill" id="voteProgressFill"></div>
-                                    </div>
-                                    <div class="voting-actions-admin">
-                                        <button id="endVoteBtn" class="voting-action-btn end"
-                                            onclick="endGroupVoting()">✅ Завершить голосование</button>
-                                        <button id="cancelVoteBtn" class="voting-action-btn cancel"
-                                            onclick="cancelGroupVoting()">❌ Отменить голосование</button>
-                                    </div>
+                        <!-- Админ-панель -->
+                        <div id="adminVotingControls" class="admin-voting-panel" style="display: none;">
+                            <div class="panel-header">
+                                <span>👑 Управление голосованием</span>
+                            </div>
+                            <button id="startVoteBtn" class="btn-primary" onclick="window.startGroupVoting()">🚀 Начать голосование</button>
+                            <div id="voteProgress" class="vote-progress-container" style="display: none;">
+                                <div class="progress-info">
+                                    <span>📊 Проголосовало: <span id="votedCount">0</span>/<span id="totalMembers">0</span></span>
+                                    <span id="votedUsersList" class="voted-users"></span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="voteProgressFill"></div>
+                                </div>
+                                <div class="vote-actions">
+                                    <button id="endVoteBtn" class="btn-outline" onclick="window.endGroupVoting()">✅ Завершить</button>
+                                    <button id="cancelVoteBtn" class="btn-outline danger" onclick="window.cancelGroupVoting()">❌ Отменить</button>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Блок для всех участников (кнопка голосования) -->
-                        <div id="userVotingPanel" style="display: none;">
-                            <div class="voting-info-panel">
-                                <p>🎯 В группе началось голосование! Выберите от 1 до 3 фильмов, которые хотите
-                                    поддержать.</p>
-                                <button id="castVoteBtn" class="voting-action-btn vote" onclick="openVoteModal()">🗳️
-                                    Проголосовать</button>
+                        <!-- Панель участника -->
+                        <div id="userVotingPanel" class="user-voting-panel" style="display: none;">
+                            <div class="panel-content">
+                                <p>🎯 В группе началось голосование! Выберите от 1 до 3 фильмов, которые хотите поддержать.</p>
+                                <button id="castVoteBtn" class="btn-primary" onclick="window.openVoteModal()">🗳️ Проголосовать</button>
                             </div>
                         </div>
 
-                        <!-- Результаты текущего голосования (предварительные) -->
+                        <!-- Текущие результаты -->
                         <div id="currentVotingResults" class="voting-results" style="display: none;">
-                            <h4>📊 Текущие лидеры голосования</h4>
-                            <div id="currentVotingList" class="voting-leaders"></div>
+                            <h4>📊 Текущие лидеры</h4>
+                            <div id="currentVotingList" class="leaders-list"></div>
                         </div>
 
-                        <!-- История завершённых голосований -->
+                        <!-- История голосований -->
                         <div class="votes-history">
                             <h4>📜 История голосований</h4>
-                            <div class="history-list" id="votesHistory"></div>
+                            <div class="history-list" id="votesHistory">
+                                <div class="empty-state-small">Нет завершённых голосований</div>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Группы -->
+                    <!-- Таб: Группы -->
                     <div class="tab-pane" id="tab-groups">
-                        <div class="content-header">
+                        <div class="tab-header">
                             <h3>👥 Мои группы</h3>
-                            <span class="content-count" id="groupsCount">0</span>
+                            <span class="tab-description">Управление группами и участниками</span>
                         </div>
-                        <div class="groups-list-detailed" id="groupsDetailedList">
-                            <div class="empty-state">У вас нет групп</div>
+                        <div class="groups-detailed-list" id="groupsDetailedList">
+                            <div class="empty-state">
+                                <span>👥</span>
+                                <p>У вас нет групп</p>
+                                <p class="hint">Создайте группу или вступите по коду приглашения</p>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </main>
     </div>
 
-    <!-- Модалка для изменения статуса -->
+    <!-- МОДАЛЬНЫЕ ОКНА -->
     <div class="modal-overlay" id="modalOverlay" style="display: none;"></div>
 
+    <!-- Модалка изменения статуса -->
     <div class="status-modal" id="statusModal">
         <div class="status-modal-content">
             <h3>📌 Изменить статус</h3>
             <p id="modalProjectTitle"></p>
             <div class="status-buttons">
-                <button class="status-btn progress" onclick="changeStatus('inProgress')">🔥 В процессе</button>
-                <button class="status-btn watched" onclick="changeStatus('watched')">✅ Просмотрено</button>
-                <button class="status-btn planned" onclick="changeStatus('planned')">📋 В планах</button>
-                <button class="status-btn remove" onclick="changeStatus('remove')">🗑️ Убрать</button>
+                <button class="status-btn progress" onclick="window.changeStatus('in_progress')">🔥 В процессе</button>
+                <button class="status-btn watched" onclick="window.changeStatus('watched')">✅ Просмотрено</button>
+                <button class="status-btn planned" onclick="window.changeStatus('planned')">📋 В планах</button>
+                <button class="status-btn remove" onclick="window.changeStatus('remove')">🗑️ Убрать</button>
             </div>
-            <button class="close-btn" onclick="closeStatusModal()">Закрыть</button>
+            <button class="close-btn" onclick="window.closeStatusModal()">Отмена</button>
         </div>
     </div>
 
@@ -219,10 +317,10 @@
     <div class="group-modal" id="createGroupModal">
         <div class="group-modal-content">
             <h3>➕ Создать группу</h3>
-            <input type="text" id="groupNameInput" class="group-modal-input" placeholder="Название группы">
-            <div class="group-modal-buttons">
-                <button class="group-modal-btn cancel" onclick="closeCreateGroupModal()">Отмена</button>
-                <button class="group-modal-btn create" onclick="createGroup()">Создать</button>
+            <input type="text" id="groupNameInput" class="modal-input" placeholder="Название группы">
+            <div class="modal-buttons">
+                <button class="btn-outline" onclick="window.closeCreateGroupModal()">Отмена</button>
+                <button class="btn-primary" onclick="window.createGroup()">Создать</button>
             </div>
         </div>
     </div>
@@ -232,16 +330,16 @@
         <div class="group-modal-content">
             <h3 id="groupInfoTitle">Группа</h3>
             <div id="groupInfoContent"></div>
-            <div class="group-modal-buttons">
-                <button class="group-modal-btn cancel" onclick="closeGroupInfoModal()">Закрыть</button>
+            <div class="modal-buttons">
+                <button class="btn-outline" onclick="window.closeGroupInfoModal()">Закрыть</button>
             </div>
         </div>
     </div>
 
-    <!-- Модалка для оценки фильма (обновлённая) -->
-    <div class="rating-modal" id="ratingModal" style="display: none;">
+    <!-- Модалка оценки фильма -->
+    <div class="rating-modal" id="ratingModal">
         <div class="rating-modal-content">
-            <button class="close-modal" onclick="closeRatingModal()">✕</button>
+            <button class="modal-close" onclick="window.closeRatingModal()">✕</button>
             <div class="rating-modal-header">
                 <div class="rating-modal-poster" id="ratingModalPoster"></div>
                 <div class="rating-modal-info">
@@ -251,60 +349,55 @@
                 </div>
             </div>
 
-            <div class="rating-controls-container">
+            <div class="rating-controls">
                 <div class="rating-controls-header">
-                    <span class="rating-controls-label">Ваша оценка</span>
+                    <span>Ваша оценка</span>
                     <span class="rating-display rating-null" id="ratingDisplay">—</span>
                 </div>
-                <div class="rating-controls">
-                    <input type="range" class="rating-slider" id="ratingSlider" min="1" max="10" step="0.1" value="5"
-                        oninput="updateRatingValue(this.value)">
-                    <input type="number" class="rating-input" id="ratingInput" min="1" max="10" step="0.1" value="5"
-                        oninput="updateRatingFromInput(this.value)">
-                    <button class="rating-clear-btn" onclick="clearRating()">Не оценено</button>
+                <div class="rating-slider-container">
+                    <input type="range" class="rating-slider" id="ratingSlider" min="1" max="10" step="0.1" value="5">
+                    <input type="number" class="rating-input" id="ratingInput" min="1" max="10" step="0.1" value="5">
+                    <button class="rating-clear" onclick="window.clearRating()">Очистить</button>
                 </div>
             </div>
 
-            <div class="rating-modal-notes">
+            <div class="rating-notes">
                 <label>📝 Заметки</label>
                 <textarea id="ratingNotes" rows="3" placeholder="Ваши впечатления о фильме..."></textarea>
             </div>
 
-            <div class="rating-modal-buttons">
-                <button class="rating-modal-btn cancel" onclick="closeRatingModal()">Отмена</button>
-                <button class="rating-modal-btn save" onclick="saveRating()">Сохранить</button>
+            <div class="modal-buttons">
+                <button class="btn-outline" onclick="window.closeRatingModal()">Отмена</button>
+                <button class="btn-primary" onclick="window.saveRating()">Сохранить</button>
             </div>
         </div>
     </div>
 
     <!-- Модалка голосования -->
-    <div class="vote-modal" id="voteModal" style="display: none;">
+    <div class="vote-modal" id="voteModal">
         <div class="vote-modal-content">
             <h3>🗳️ Выберите фильмы (от 1 до 3)</h3>
             <div class="vote-movies-list" id="voteMoviesList"></div>
             <div class="vote-counter" id="voteCounter">Выбрано: 0</div>
-            <div class="vote-modal-buttons">
-                <button class="vote-modal-btn cancel" onclick="closeVoteModal()">Отмена</button>
-                <button class="vote-modal-btn submit" id="submitVoteBtn" disabled
-                    onclick="submitVote()">Проголосовать</button>
+            <div class="modal-buttons">
+                <button class="btn-outline" onclick="window.closeVoteModal()">Отмена</button>
+                <button class="btn-primary" id="submitVoteBtn" disabled onclick="window.submitVote()">Проголосовать</button>
             </div>
         </div>
     </div>
 
     <!-- Модалка деталей голосования -->
-<div class="vote-details-modal" id="voteDetailsModal" style="display: none;">
-    <div class="vote-details-content">
-        <button class="close-modal" onclick="closeVoteDetailsModal()">✕</button>
-        <h3 id="voteDetailsTitle">Детали голосования</h3>
-        <div id="voteDetailsContent" class="vote-details-list"></div>
-        <div class="vote-details-footer">
-            <button class="vote-details-close" onclick="closeVoteDetailsModal()">Закрыть</button>
+    <div class="vote-details-modal" id="voteDetailsModal">
+        <div class="vote-details-content">
+            <button class="modal-close" onclick="window.closeVoteDetailsModal()">✕</button>
+            <h3 id="voteDetailsTitle">Детали голосования</h3>
+            <div id="voteDetailsContent" class="vote-details-list"></div>
+            <button class="btn-outline" onclick="window.closeVoteDetailsModal()">Закрыть</button>
         </div>
     </div>
-</div>
 
     <script src="js/auth.js"></script>
+    <script src="js/watchProgress.js"></script>
     <script src="js/profile.js"></script>
 </body>
-
 </html>
