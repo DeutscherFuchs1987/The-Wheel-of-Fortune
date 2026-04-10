@@ -1,12 +1,16 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>Cinema Wheel | Личный кабинет</title>
     <link rel="stylesheet" href="css/profile_style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap"
+        rel="stylesheet">
 </head>
+
 <body>
 
     <div class="app">
@@ -40,7 +44,7 @@
 
         <!-- Основной контент -->
         <main class="profile-container">
-            
+
             <!-- ЛЕВАЯ КОЛОНКА - ПРОФИЛЬ И СТАТИСТИКА -->
             <aside class="profile-sidebar">
                 <!-- Карточка пользователя -->
@@ -51,7 +55,7 @@
                     </div>
                     <h2 id="profileUsername">Загрузка...</h2>
                     <div class="profile-badge" id="profileBadge"></div>
-                    
+
                     <!-- Ключевая статистика -->
                     <div class="stats-grid">
                         <div class="stat-card">
@@ -67,7 +71,7 @@
                             <span class="stat-label">В планах</span>
                         </div>
                     </div>
-                    
+
                     <!-- Прогресс-бар общего просмотра -->
                     <div class="overall-progress">
                         <div class="progress-header">
@@ -84,7 +88,7 @@
                 <div class="quick-actions">
                     <h3>🚀 Быстрые действия</h3>
                     <div class="actions-grid">
-                        <button class="action-btn" onclick="window.switchTab('catalog')">
+                        <button class="action-btn" onclick="window.goToCatalog()">
                             <span class="action-icon">➕</span>
                             <span class="action-text">Добавить фильм</span>
                         </button>
@@ -176,7 +180,7 @@
 
                 <!-- КОНТЕНТ ТАБОВ -->
                 <div class="tabs-content">
-                    
+
                     <!-- Таб: В процессе -->
                     <div class="tab-pane active" id="tab-progress">
                         <div class="tab-header">
@@ -237,18 +241,22 @@
                             <div class="panel-header">
                                 <span>👑 Управление голосованием</span>
                             </div>
-                            <button id="startVoteBtn" class="btn-primary" onclick="window.startGroupVoting()">🚀 Начать голосование</button>
+                            <button id="startVoteBtn" class="btn-primary" onclick="window.startGroupVoting()">🚀 Начать
+                                голосование</button>
                             <div id="voteProgress" class="vote-progress-container" style="display: none;">
                                 <div class="progress-info">
-                                    <span>📊 Проголосовало: <span id="votedCount">0</span>/<span id="totalMembers">0</span></span>
+                                    <span>📊 Проголосовало: <span id="votedCount">0</span>/<span
+                                            id="totalMembers">0</span></span>
                                     <span id="votedUsersList" class="voted-users"></span>
                                 </div>
                                 <div class="progress-bar">
                                     <div class="progress-fill" id="voteProgressFill"></div>
                                 </div>
                                 <div class="vote-actions">
-                                    <button id="endVoteBtn" class="btn-outline" onclick="window.endGroupVoting()">✅ Завершить</button>
-                                    <button id="cancelVoteBtn" class="btn-outline danger" onclick="window.cancelGroupVoting()">❌ Отменить</button>
+                                    <button id="endVoteBtn" class="btn-outline" onclick="window.endGroupVoting()">✅
+                                        Завершить</button>
+                                    <button id="cancelVoteBtn" class="btn-outline danger"
+                                        onclick="window.cancelGroupVoting()">❌ Отменить</button>
                                 </div>
                             </div>
                         </div>
@@ -256,8 +264,10 @@
                         <!-- Панель участника -->
                         <div id="userVotingPanel" class="user-voting-panel" style="display: none;">
                             <div class="panel-content">
-                                <p>🎯 В группе началось голосование! Выберите от 1 до 3 фильмов, которые хотите поддержать.</p>
-                                <button id="castVoteBtn" class="btn-primary" onclick="window.openVoteModal()">🗳️ Проголосовать</button>
+                                <p>🎯 В группе началось голосование! Выберите от 1 до 3 фильмов, которые хотите
+                                    поддержать.</p>
+                                <button id="castVoteBtn" class="btn-primary" onclick="window.openVoteModal()">🗳️
+                                    Проголосовать</button>
                             </div>
                         </div>
 
@@ -381,7 +391,8 @@
             <div class="vote-counter" id="voteCounter">Выбрано: 0</div>
             <div class="modal-buttons">
                 <button class="btn-outline" onclick="window.closeVoteModal()">Отмена</button>
-                <button class="btn-primary" id="submitVoteBtn" disabled onclick="window.submitVote()">Проголосовать</button>
+                <button class="btn-primary" id="submitVoteBtn" disabled
+                    onclick="window.submitVote()">Проголосовать</button>
             </div>
         </div>
     </div>
@@ -400,4 +411,5 @@
     <script src="js/watchProgress.js"></script>
     <script src="js/profile.js"></script>
 </body>
+
 </html>

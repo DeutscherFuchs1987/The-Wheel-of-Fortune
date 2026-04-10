@@ -20,7 +20,40 @@
     document.addEventListener('DOMContentLoaded', async () => {
         console.log('👤 Личный кабинет загружается...');
         await loadCurrentUser();
+        setupModalHandlers();
+        setupEscapeHandler();
     });
+
+    // ========== НАСТРОЙКА МОДАЛОК ==========
+    function setupModalHandlers() {
+        const overlay = document.getElementById('modalOverlay');
+        if (overlay) {
+            overlay.addEventListener('click', closeAllModals);
+        }
+    }
+
+    function setupEscapeHandler() {
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeAllModals();
+            }
+        });
+    }
+
+    function closeAllModals() {
+        const modals = ['statusModal', 'createGroupModal', 'groupInfoModal', 'ratingModal', 'voteModal', 'voteDetailsModal'];
+        modals.forEach(modalId => {
+            const modal = document.getElementById(modalId);
+            if (modal && modal.style.display === 'flex') {
+                modal.style.display = 'none';
+            }
+        });
+        const overlay = document.getElementById('modalOverlay');
+        if (overlay) overlay.style.display = 'none';
+        currentProject = null;
+        currentRatingProject = null;
+        currentVoteSelections = [];
+    }
 
     async function loadCurrentUser() {
         try {
@@ -36,13 +69,12 @@
                     const badgeEl = document.getElementById('profileBadge');
                     if (badgeEl) badgeEl.innerHTML = '<span>ADMIN</span>';
                 }
-                
-                // Обновляем аватар в зависимости от роли
+
                 const avatarEl = document.getElementById('avatarEmoji');
                 if (avatarEl) {
                     avatarEl.textContent = currentUser.role === 'admin' ? '👑' : '🎬';
                 }
-                
+
                 await loadUserGroups();
                 await loadUserRatings();
                 setupModeToggle();
@@ -70,6 +102,31 @@
             });
         });
     }
+
+    window.switchTab = function (tabId) {
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.dataset.tab === tabId) {
+                btn.classList.add('active');
+            }
+        });
+
+        document.querySelectorAll('.tab-pane').forEach(pane => {
+            pane.classList.remove('active');
+        });
+
+        const targetPane = document.getElementById(`tab-${tabId}`);
+        if (targetPane) {
+            targetPane.classList.add('active');
+        }
+
+        if (tabId === 'groups') {
+            renderGroupsDetailedList();
+        }
+        if (tabId === 'votes') {
+            loadGroupVotingInfo();
+        }
+    };
 
     async function loadProfileData() {
         try {
@@ -183,7 +240,7 @@
         }
     }
 
-    // ========== НОВАЯ СИСТЕМА ГОЛОСОВАНИЯ ==========
+    // ========== СИСТЕМА ГОЛОСОВАНИЯ ==========
     async function setupVotingSystem() {
         if (currentMode === 'group' && selectedGroupId) {
             await loadGroupVotingInfo();
@@ -514,7 +571,7 @@
         const groupSelector = document.getElementById('groupSelector');
 
         if (!catalogModeToggle) {
-            console.warn('⚠️ modeToggle не найден на странице');
+            console.warn('⚠️ catalogModeToggle не найден на странице');
             return;
         }
 
@@ -532,23 +589,30 @@
             }
         }
 
+        // Удаляем старый обработчик
         const newToggle = catalogModeToggle.cloneNode(true);
         catalogModeToggle.parentNode.replaceChild(newToggle, catalogModeToggle);
 
         newToggle.addEventListener('click', async () => {
             const newMode = currentMode === 'personal' ? 'group' : 'personal';
-            
+
             if (newMode === 'group' && !selectedGroupId) {
                 showError('Сначала выберите группу из списка');
                 return;
             }
-            
+
+            // Анимация
+            newToggle.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                newToggle.style.transform = '';
+            }, 150);
+
             currentMode = newMode;
             localStorage.setItem('profile_mode', currentMode);
-            
+
             updateUIMode();
             showLoading();
-            
+
             try {
                 if (currentMode === 'personal') {
                     await loadPersonalProjects();
@@ -556,18 +620,18 @@
                     await loadGroupProjects(selectedGroupId);
                     await loadGroupVotingInfo();
                 }
-                
+
                 await loadWatchedProjects();
                 updateStats();
                 renderProgressList();
                 renderPlannedList();
                 renderWatchedList();
                 updateTabCounters();
-                
+
                 window.dispatchEvent(new CustomEvent('modeChanged', {
                     detail: { mode: currentMode, groupId: selectedGroupId }
                 }));
-                
+
                 showSuccess(`Переключено на ${currentMode === 'personal' ? 'личный' : 'групповой'} каталог`);
             } catch (error) {
                 console.error('Ошибка:', error);
@@ -576,7 +640,7 @@
                 hideLoading();
             }
         });
-        
+
         updateUIMode();
     }
 
@@ -598,10 +662,10 @@
             }
             return;
         }
-        
+
         selectedGroupId = groupId;
         localStorage.setItem('selected_group', groupId);
-        
+
         if (currentMode === 'group') {
             showLoading();
             try {
@@ -835,8 +899,8 @@
     };
 
     window.closeStatusModal = function () {
-        document.getElementById('modalOverlay').style.display = 'none';
         document.getElementById('statusModal').style.display = 'none';
+        document.getElementById('modalOverlay').style.display = 'none';
         currentProject = null;
     };
 
@@ -886,22 +950,57 @@
     function getRatingClass(rating) {
         if (!rating && rating !== 0) return 'rating-null';
         const rounded = Math.round(rating);
-        return `rating-${rounded}`;
+        if (rounded < 4) return 'rating-1';
+        if (rounded < 5) return 'rating-4';
+        if (rounded < 6) return 'rating-5';
+        if (rounded < 7) return 'rating-6';
+        if (rounded < 8) return 'rating-7';
+        if (rounded < 9) return 'rating-8';
+        if (rounded < 10) return 'rating-9';
+        return `rating-10`;
     }
 
-    function updateRatingDisplay(value) {
-        const display = document.getElementById('ratingDisplay');
-        if (display) {
-            if (!value || value === 0) {
-                display.textContent = '—';
-                display.className = 'rating-display rating-null';
+    window.updateRatingValue = function (value) {
+        const ratingInput = document.getElementById('ratingInput');
+        const ratingDisplay = document.getElementById('ratingDisplay');
+        if (ratingInput) ratingInput.value = value;
+        if (ratingDisplay) {
+            const numValue = parseFloat(value);
+            if (isNaN(numValue)) {
+                ratingDisplay.textContent = '—';
+                ratingDisplay.className = 'rating-display rating-null';
             } else {
-                const numValue = parseFloat(value);
-                display.textContent = numValue.toFixed(1);
-                display.className = `rating-display ${getRatingClass(numValue)}`;
+                ratingDisplay.textContent = numValue.toFixed(1);
+                ratingDisplay.className = `rating-display ${getRatingClass(numValue)}`;
             }
         }
-    }
+    };
+
+    window.updateRatingFromInput = function (value) {
+        const ratingSlider = document.getElementById('ratingSlider');
+        const ratingDisplay = document.getElementById('ratingDisplay');
+        let numValue = parseFloat(value);
+        if (isNaN(numValue)) numValue = 5;
+        if (numValue < 1) numValue = 1;
+        if (numValue > 10) numValue = 10;
+        if (ratingSlider) ratingSlider.value = numValue;
+        if (ratingDisplay) {
+            ratingDisplay.textContent = numValue.toFixed(1);
+            ratingDisplay.className = `rating-display ${getRatingClass(numValue)}`;
+        }
+    };
+
+    window.clearRating = function () {
+        const ratingSlider = document.getElementById('ratingSlider');
+        const ratingInput = document.getElementById('ratingInput');
+        const ratingDisplay = document.getElementById('ratingDisplay');
+        if (ratingSlider) ratingSlider.value = 5;
+        if (ratingInput) ratingInput.value = 5;
+        if (ratingDisplay) {
+            ratingDisplay.textContent = '—';
+            ratingDisplay.className = 'rating-display rating-null';
+        }
+    };
 
     window.openRatingModal = function (projectId, title, currentRating = null, currentNotes = '') {
         const project = watchedProjects.find(p => p.id === projectId);
@@ -951,19 +1050,26 @@
             if (currentRating) {
                 ratingSlider.value = currentRating;
                 ratingInput.value = currentRating;
-                updateRatingDisplay(currentRating);
+                window.updateRatingValue(currentRating);
             } else {
                 ratingSlider.value = 5;
                 ratingInput.value = 5;
-                updateRatingDisplay(null);
+                window.updateRatingValue(null);
             }
+
+            ratingSlider.oninput = function (e) {
+                window.updateRatingValue(e.target.value);
+            };
+            ratingInput.oninput = function (e) {
+                window.updateRatingFromInput(e.target.value);
+            };
         }
 
         if (ratingNotes) {
             ratingNotes.value = currentNotes || '';
         }
 
-        if (modal) modal.style.display = 'flex';
+        modal.style.display = 'flex';
         const overlay = document.getElementById('modalOverlay');
         if (overlay) overlay.style.display = 'block';
     };
@@ -974,26 +1080,6 @@
         if (modal) modal.style.display = 'none';
         if (overlay) overlay.style.display = 'none';
         currentRatingProject = null;
-    };
-
-    window.updateRatingValue = function (value) {
-        const ratingInput = document.getElementById('ratingInput');
-        if (ratingInput) ratingInput.value = value;
-        updateRatingDisplay(value);
-    };
-
-    window.updateRatingFromInput = function (value) {
-        const ratingSlider = document.getElementById('ratingSlider');
-        if (ratingSlider) ratingSlider.value = value;
-        updateRatingDisplay(value);
-    };
-
-    window.clearRating = function () {
-        const ratingSlider = document.getElementById('ratingSlider');
-        const ratingInput = document.getElementById('ratingInput');
-        if (ratingSlider) ratingSlider.value = 5;
-        if (ratingInput) ratingInput.value = 5;
-        updateRatingDisplay(null);
     };
 
     window.saveRating = async function () {
@@ -1262,11 +1348,9 @@
             const projectsResponse = await window.authFetch(`${API_URL}/api/groups/${groupId}/projects`);
             const projects = await projectsResponse.json();
 
-            const isAdmin = members.find(m => m.user_id === currentUser.id)?.role === 'admin';
-
             document.getElementById('groupInfoTitle').textContent = groupInfo.name;
             document.getElementById('groupInfoContent').innerHTML = `
-                <div class="invite-code" style="background:#1a1a1a; padding:15px; border-radius:16px; margin-bottom:16px; text-align:center;">
+                <div style="background:#1a1a1a; padding:15px; border-radius:16px; margin-bottom:16px; text-align:center;">
                     <strong style="color:#8B7355;">🔑 Код приглашения:</strong><br>
                     <span style="font-family: monospace; font-size:1.2rem; color:#D4A85C;">${groupInfo.invite_code}</span>
                     <button class="btn-outline small" style="margin-top:8px;" onclick="window.copyToClipboard('${groupInfo.invite_code}')">📋 Копировать</button>
@@ -1288,14 +1372,14 @@
                     <strong style="color:#8B7355;">🎬 Проекты группы (${projects.length})</strong>
                     <div style="margin-top:8px; max-height:150px; overflow-y:auto;">
                         ${projects.length === 0 ? '<div class="empty-state-small">Нет проектов</div>' :
-                            projects.slice(0, 10).map(p => {
-                                const data = p.data || {};
-                                return `
+                    projects.slice(0, 10).map(p => {
+                        const data = p.data || {};
+                        return `
                                     <div style="padding:8px; background:#1a1a1a; border-radius:30px; margin-bottom:4px;">
                                         ${escapeHtml(data.title_ru || data.title || p.project_id)}
                                     </div>
                                 `;
-                            }).join('')}
+                    }).join('')}
                         ${projects.length > 10 ? `<div class="empty-state-small">... и ещё ${projects.length - 10} проектов</div>` : ''}
                     </div>
                 </div>
@@ -1598,35 +1682,8 @@
         }
     };
 
-    // ========== ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК ==========
-    window.switchTab = function (tabId) {
-        // Обновляем активную кнопку
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.classList.remove('active');
-            if (btn.dataset.tab === tabId) {
-                btn.classList.add('active');
-            }
-        });
-        
-        // Обновляем активную панель
-        document.querySelectorAll('.tab-pane').forEach(pane => {
-            pane.classList.remove('active');
-        });
-        
-        const targetPane = document.getElementById(`tab-${tabId}`);
-        if (targetPane) {
-            targetPane.classList.add('active');
-        }
-        
-        // Если переключились на вкладку групп, обновляем список
-        if (tabId === 'groups') {
-            renderGroupsDetailedList();
-        }
-        
-        // Если переключились на вкладку голосований, обновляем информацию
-        if (tabId === 'votes') {
-            loadGroupVotingInfo();
-        }
+    window.goToCatalog = function () {
+        window.location.href = 'catalog.html';
     };
 
     // ========== ВЫХОД ==========
