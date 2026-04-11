@@ -6,15 +6,52 @@
     let pendingUsers = [];
     let allUsers = [];
     let currentRequestId = null;
+    let confirmAction = null;
 
     // ========== ПРОВЕРКА ПРИ ЗАГРУЗКЕ ==========
     document.addEventListener('DOMContentLoaded', async () => {
         console.log('📱 Админ-панель загружается...');
-        
-        setTimeout(async () => {
-            await checkAndInit();
-        }, 100);
+        setupModalHandlers();
+        setupEscapeHandler();
+        await checkAndInit();
     });
+
+    // ========== НАСТРОЙКА МОДАЛОК ==========
+    function setupModalHandlers() {
+        const overlay = document.getElementById('modalOverlay');
+        if (overlay) {
+            overlay.addEventListener('click', closeAllModals);
+        }
+    }
+
+    function setupEscapeHandler() {
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeAllModals();
+            }
+        });
+    }
+
+    function closeAllModals() {
+        const confirmModal = document.getElementById('confirmModal');
+        const viewModal = document.getElementById('viewModal');
+        const overlay = document.getElementById('modalOverlay');
+        
+        if (confirmModal) confirmModal.style.display = 'none';
+        if (viewModal) viewModal.style.display = 'none';
+        if (overlay) overlay.style.display = 'none';
+        
+        currentRequestId = null;
+        confirmAction = null;
+    }
+
+    window.closeConfirmModal = function() {
+        closeAllModals();
+    };
+
+    window.closeViewModal = function() {
+        closeAllModals();
+    };
 
     async function checkAndInit() {
         const token = localStorage.getItem('auth_token');
@@ -32,6 +69,10 @@
             if (data.authenticated && data.user.role === 'admin') {
                 currentUser = data.user;
                 console.log('✅ Админ авторизован:', currentUser.username);
+                
+                const userNameEl = document.getElementById('userName');
+                if (userNameEl) userNameEl.textContent = currentUser.username;
+                
                 hideLoginForm();
                 await loadDashboard();
             } else if (data.authenticated && data.user.role !== 'admin') {
@@ -55,41 +96,11 @@
         
         const statsGrid = document.querySelector('.stats-grid');
         const adminContainer = document.querySelector('.admin-container');
+        const loginContainer = document.getElementById('loginContainer');
         
         if (statsGrid) statsGrid.style.display = 'none';
         if (adminContainer) adminContainer.style.display = 'none';
-        
-        const existingForm = document.getElementById('adminLoginForm');
-        if (existingForm) existingForm.remove();
-        
-        const loginContainer = document.createElement('div');
-        loginContainer.className = 'login-container';
-        loginContainer.id = 'adminLoginForm';
-        loginContainer.innerHTML = `
-            <div class="login-box">
-                <h2>👑 Вход в админ-панель</h2>
-                <div class="login-form">
-                    <div class="form-group">
-                        <label for="adminUsername">Логин</label>
-                        <input type="text" id="adminUsername" class="login-input" placeholder="Введите логин" autocomplete="off">
-                    </div>
-                    <div class="form-group">
-                        <label for="adminPassword">Пароль</label>
-                        <input type="password" id="adminPassword" class="login-input" placeholder="Введите пароль">
-                    </div>
-                    <div class="login-actions">
-                        <button class="login-btn" id="submitLoginBtn">🔑 Войти</button>
-                        <button class="login-btn secondary" id="goHomeBtn">🏠 На главную</button>
-                    </div>
-                    <div class="login-hint">
-                        <p>Доступ только для администраторов</p>
-                        <p class="hint-small">Логин: admin, пароль: admin123</p>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        document.querySelector('.app').appendChild(loginContainer);
+        if (loginContainer) loginContainer.style.display = 'flex';
         
         setTimeout(() => {
             const submitBtn = document.getElementById('submitLoginBtn');
@@ -124,122 +135,16 @@
                 usernameInput.focus();
             }
         }, 100);
-        
-        addLoginStyles();
     }
 
     function hideLoginForm() {
-        const form = document.getElementById('adminLoginForm');
-        if (form) form.remove();
-        
+        const loginContainer = document.getElementById('loginContainer');
         const statsGrid = document.querySelector('.stats-grid');
         const adminContainer = document.querySelector('.admin-container');
         
+        if (loginContainer) loginContainer.style.display = 'none';
         if (statsGrid) statsGrid.style.display = 'grid';
         if (adminContainer) adminContainer.style.display = 'flex';
-    }
-
-    function addLoginStyles() {
-        if (document.getElementById('admin-login-styles')) return;
-        
-        const style = document.createElement('style');
-        style.id = 'admin-login-styles';
-        style.textContent = `
-            .login-container {
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                min-height: 60vh;
-                animation: fadeIn 0.5s ease;
-                padding: 20px;
-            }
-            .login-box {
-                background: #1a1f33;
-                border-radius: 40px;
-                padding: 40px;
-                width: 100%;
-                max-width: 400px;
-                border: 2px solid #5f4bb6;
-                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
-            }
-            .login-box h2 {
-                color: #ffd966;
-                text-align: center;
-                margin-bottom: 30px;
-                font-size: 1.8rem;
-            }
-            .form-group {
-                margin-bottom: 20px;
-            }
-            .form-group label {
-                display: block;
-                color: #a3b7f0;
-                margin-bottom: 8px;
-                font-size: 0.9rem;
-            }
-            .login-input {
-                width: 100%;
-                padding: 12px 20px;
-                background: #0c1020;
-                border: 2px solid #3d435b;
-                border-radius: 30px;
-                color: white;
-                font-size: 1rem;
-                outline: none;
-                transition: all 0.3s;
-                box-sizing: border-box;
-            }
-            .login-input:focus {
-                border-color: #5f4bb6;
-                box-shadow: 0 0 0 3px rgba(95, 75, 182, 0.3);
-            }
-            .login-actions {
-                display: flex;
-                gap: 15px;
-                margin-top: 30px;
-            }
-            .login-btn {
-                flex: 1;
-                padding: 12px;
-                background: #5f4bb6;
-                color: white;
-                border: none;
-                border-radius: 30px;
-                font-size: 1rem;
-                font-weight: 600;
-                cursor: pointer;
-                transition: all 0.3s;
-                border-bottom: 4px solid #352b66;
-            }
-            .login-btn:hover {
-                transform: translateY(-2px);
-                background: #6f5bc6;
-            }
-            .login-btn.secondary {
-                background: #283153;
-                border-bottom-color: #0e142b;
-            }
-            .login-btn.secondary:hover {
-                background: #323d62;
-            }
-            .login-hint {
-                margin-top: 25px;
-                text-align: center;
-                color: #a3b7f0;
-                font-size: 0.9rem;
-            }
-            .hint-small {
-                font-size: 0.8rem;
-                opacity: 0.7;
-                margin-top: 5px;
-                color: #ffd966;
-            }
-            @keyframes fadeIn {
-                from { opacity: 0; transform: translateY(-20px); }
-                to { opacity: 1; transform: translateY(0); }
-            }
-        `;
-        document.head.appendChild(style);
     }
 
     async function submitAdminLogin() {
@@ -269,6 +174,9 @@
                 localStorage.setItem('auth_token', data.token);
                 currentUser = data.user;
                 
+                const userNameEl = document.getElementById('userName');
+                if (userNameEl) userNameEl.textContent = currentUser.username;
+                
                 showNotification('✅ Добро пожаловать, администратор!');
                 hideLoading();
                 hideLoginForm();
@@ -293,56 +201,16 @@
         }
     }
 
-    function showLoading() {
-        hideLoading();
-        
-        const loader = document.createElement('div');
-        loader.id = 'admin-loader';
-        loader.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.9);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 10001;
-            backdrop-filter: blur(5px);
-        `;
-        
-        loader.innerHTML = `
-            <div style="width: 60px; height: 60px; border: 4px solid #5f4bb6; border-top-color: #ffd966; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px;"></div>
-            <div style="color: white; font-size: 1.2rem;">Загрузка...</div>
-            <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
-        `;
-        
-        document.body.appendChild(loader);
-    }
-
-    function hideLoading() {
-        const loader = document.getElementById('admin-loader');
-        if (loader) loader.remove();
-    }
-
+    // ========== ЗАГРУЗКА ДАННЫХ ==========
     async function loadDashboard() {
         try {
             showLoading();
             console.log('📊 Загрузка данных админ-панели...');
             
-            const token = localStorage.getItem('auth_token');
-            if (!token) {
-                console.log('❌ Нет токена');
-                hideLoading();
-                showLoginForm();
-                return;
-            }
-            
             await loadStats();
             await loadPendingUsers();
             await loadAllUsers();
+            setupSearch();
             
             hideLoading();
             console.log('✅ Все данные загружены');
@@ -408,7 +276,6 @@
             }
             
             allUsers = await response.json();
-            // Фильтруем: показываем только active и pending (rejected удалены из БД)
             const filteredUsers = allUsers.filter(user => user.status !== 'rejected');
             console.log('👥 Загружено пользователей (активные и ожидающие):', filteredUsers.length);
             renderUsersTable(filteredUsers);
@@ -424,6 +291,7 @@
         }
     }
 
+    // ========== ОТРИСОВКА ==========
     function renderPendingUsers() {
         const container = document.getElementById('requestsList');
         const pendingCountEl = document.getElementById('pendingCount');
@@ -433,7 +301,6 @@
         
         if (pendingCountEl) pendingCountEl.textContent = pendingUsers.length;
         
-        // Показываем/скрываем кнопку массового отклонения
         if (rejectAllBtn) {
             rejectAllBtn.style.display = pendingUsers.length > 0 ? 'flex' : 'none';
         }
@@ -473,7 +340,10 @@
             tbody.innerHTML = `
                 <tr>
                     <td colspan="8" style="text-align: center; padding: 40px;">
-                        Нет пользователей
+                        <div class="empty-state">
+                            <span>👥</span>
+                            <p>Нет пользователей</p>
+                        </div>
                     </td>
                 </tr>
             `;
@@ -509,7 +379,87 @@
         `).join('');
     }
 
-    // ========== МАССОВОЕ ОТКЛОНЕНИЕ ВСЕХ ЗАЯВОК ==========
+    // ========== ПОИСК ==========
+    function setupSearch() {
+        const searchInput = document.getElementById('userSearch');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                const search = e.target.value.toLowerCase();
+                const filtered = allUsers.filter(user => 
+                    user.status !== 'rejected' && user.username.toLowerCase().includes(search)
+                );
+                renderUsersTable(filtered);
+            });
+        }
+    }
+
+    // ========== ДЕЙСТВИЯ С ЗАЯВКАМИ ==========
+    window.approveUser = async function(userId) {
+        console.log('✅ Подтверждение пользователя:', userId);
+        
+        if (!confirm('Подтвердить регистрацию пользователя?')) {
+            return;
+        }
+        
+        showLoading();
+        
+        try {
+            const response = await window.authFetch(`${API_URL}/api/admin/users/${userId}/approve`, {
+                method: 'POST'
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok && data.success) {
+                showNotification('✅ Пользователь успешно подтвержден');
+                await loadPendingUsers();
+                await loadAllUsers();
+                await loadStats();
+            } else {
+                showNotification(data.error || '❌ Ошибка подтверждения', 'error');
+            }
+        } catch (error) {
+            console.error('❌ Ошибка:', error);
+            showNotification('❌ Ошибка сети: ' + error.message, 'error');
+        } finally {
+            hideLoading();
+            closeAllModals();
+        }
+    };
+
+    window.rejectUser = async function(userId) {
+        console.log('❌ Отклонение пользователя:', userId);
+        
+        if (!confirm('Отклонить регистрацию и УДАЛИТЬ пользователя? Это действие нельзя отменить.')) {
+            return;
+        }
+        
+        showLoading();
+        
+        try {
+            const response = await window.authFetch(`${API_URL}/api/admin/users/${userId}/reject`, {
+                method: 'POST'
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok && data.success) {
+                showNotification('✅ Пользователь удалён');
+                await loadPendingUsers();
+                await loadAllUsers();
+                await loadStats();
+            } else {
+                showNotification(data.error || '❌ Ошибка удаления', 'error');
+            }
+        } catch (error) {
+            console.error('❌ Ошибка:', error);
+            showNotification('❌ Ошибка сети: ' + error.message, 'error');
+        } finally {
+            hideLoading();
+            closeAllModals();
+        }
+    };
+
     window.rejectAllPending = async function() {
         if (pendingUsers.length === 0) {
             showNotification('Нет ожидающих заявок', 'error');
@@ -548,7 +498,6 @@
         
         hideLoading();
         
-        // Обновляем все данные
         await loadPendingUsers();
         await loadAllUsers();
         await loadStats();
@@ -557,99 +506,6 @@
             showNotification(`✅ Удалено ${successCount} заявок${errorCount > 0 ? `, ошибок: ${errorCount}` : ''}`);
         } else {
             showNotification(`❌ Ошибок: ${errorCount}`, 'error');
-        }
-    };
-
-    function escapeHtml(unsafe) {
-        if (!unsafe) return '';
-        return unsafe
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-    }
-
-    function setupSearch() {
-        const searchInput = document.getElementById('userSearch');
-        if (searchInput) {
-            searchInput.addEventListener('input', (e) => {
-                const search = e.target.value.toLowerCase();
-                // Фильтруем по логину (rejected уже отфильтрованы в allUsers)
-                const filtered = allUsers.filter(user => 
-                    user.status !== 'rejected' && user.username.toLowerCase().includes(search)
-                );
-                renderUsersTable(filtered);
-            });
-        }
-    }
-
-    // ========== ОСНОВНЫЕ ДЕЙСТВИЯ С ЗАЯВКАМИ ==========
-    window.approveUser = async function(userId) {
-        console.log('✅ Подтверждение пользователя:', userId);
-        
-        if (!confirm('Подтвердить регистрацию пользователя?')) {
-            return;
-        }
-        
-        showLoading();
-        
-        try {
-            const response = await window.authFetch(`${API_URL}/api/admin/users/${userId}/approve`, {
-                method: 'POST'
-            });
-            
-            const data = await response.json();
-            
-            if (response.ok && data.success) {
-                showNotification('✅ Пользователь успешно подтвержден');
-                await loadPendingUsers();
-                await loadAllUsers();
-                await loadStats();
-            } else {
-                showNotification(data.error || '❌ Ошибка подтверждения', 'error');
-            }
-        } catch (error) {
-            console.error('❌ Ошибка:', error);
-            showNotification('❌ Ошибка сети: ' + error.message, 'error');
-        } finally {
-            hideLoading();
-            closeConfirmModal();
-            closeViewModal();
-        }
-    };
-
-    window.rejectUser = async function(userId) {
-        console.log('❌ Отклонение пользователя:', userId);
-        
-        if (!confirm('Отклонить регистрацию и УДАЛИТЬ пользователя? Это действие нельзя отменить.')) {
-            return;
-        }
-        
-        showLoading();
-        
-        try {
-            const response = await window.authFetch(`${API_URL}/api/admin/users/${userId}/reject`, {
-                method: 'POST'
-            });
-            
-            const data = await response.json();
-            
-            if (response.ok && data.success) {
-                showNotification('✅ Пользователь удалён');
-                await loadPendingUsers();
-                await loadAllUsers();
-                await loadStats();
-            } else {
-                showNotification(data.error || '❌ Ошибка удаления', 'error');
-            }
-        } catch (error) {
-            console.error('❌ Ошибка:', error);
-            showNotification('❌ Ошибка сети: ' + error.message, 'error');
-        } finally {
-            hideLoading();
-            closeConfirmModal();
-            closeViewModal();
         }
     };
 
@@ -674,39 +530,32 @@
 
     window.approveFromView = function() {
         if (currentRequestId) {
-            approveUser(currentRequestId);
+            window.approveUser(currentRequestId);
         }
     };
 
     window.rejectFromView = function() {
         if (currentRequestId) {
-            rejectUser(currentRequestId);
+            window.rejectUser(currentRequestId);
         }
     };
 
-    function closeConfirmModal() {
-        const confirmModal = document.getElementById('confirmModal');
-        const modalOverlay = document.getElementById('modalOverlay');
-        
-        if (confirmModal) confirmModal.style.display = 'none';
-        if (modalOverlay) modalOverlay.style.display = 'none';
-        
-        window.confirmAction = null;
-        currentRequestId = null;
-    }
+    // ========== ВЫХОД ==========
+    window.logout = async function() {
+        localStorage.removeItem('auth_token');
+        window.location.href = 'index.html';
+    };
 
-    function closeViewModal() {
-        const viewModal = document.getElementById('viewModal');
-        const modalOverlay = document.getElementById('modalOverlay');
-        
-        if (viewModal) viewModal.style.display = 'none';
-        if (modalOverlay) modalOverlay.style.display = 'none';
-        
-        currentRequestId = null;
+    // ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
+    function escapeHtml(unsafe) {
+        if (!unsafe) return '';
+        return unsafe
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
     }
-
-    window.closeConfirmModal = closeConfirmModal;
-    window.closeViewModal = closeViewModal;
 
     function formatDate(dateString) {
         if (!dateString) return '—';
@@ -747,19 +596,57 @@
         return statusMap[status] || status;
     }
 
-    function showNotification(text, type = 'success') {
-        const notification = document.getElementById('notification');
-        if (!notification) return;
-        
-        notification.textContent = type === 'success' ? '✅ ' + text : '❌ ' + text;
-        notification.className = 'notification ' + (type === 'error' ? 'error' : '');
-        notification.style.display = 'block';
-        
-        setTimeout(() => {
-            notification.style.display = 'none';
-        }, 3000);
+    function showLoading() {
+        const loader = document.getElementById('admin-loader');
+        if (loader) loader.remove();
+
+        const newLoader = document.createElement('div');
+        newLoader.id = 'admin-loader';
+        newLoader.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10001;
+            backdrop-filter: blur(5px);
+        `;
+        newLoader.innerHTML = `
+            <div class="loading-spinner" style="width: 60px; height: 60px;"></div>
+            <div style="color: #e0e0e0; font-size: 1.2rem; margin-top: 16px;">Загрузка...</div>
+        `;
+        document.body.appendChild(newLoader);
     }
 
-    // Запускаем поиск после загрузки
-    setTimeout(setupSearch, 1000);
+    function hideLoading() {
+        const loader = document.getElementById('admin-loader');
+        if (loader) loader.remove();
+    }
+
+    function showNotification(text, type = 'success') {
+        const notification = document.getElementById(type === 'success' ? 'successMessage' : 'errorMessage');
+        if (notification) {
+            notification.textContent = text;
+            notification.style.display = 'block';
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
+        }
+    }
+
+    // Экспорт для глобального доступа
+    window.approveUser = approveUser;
+    window.rejectUser = rejectUser;
+    window.rejectAllPending = rejectAllPending;
+    window.viewRequest = viewRequest;
+    window.approveFromView = approveFromView;
+    window.rejectFromView = rejectFromView;
+    window.logout = logout;
+    window.closeConfirmModal = closeConfirmModal;
+    window.closeViewModal = closeViewModal;
 })();

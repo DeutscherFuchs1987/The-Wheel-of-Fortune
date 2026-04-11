@@ -1,26 +1,39 @@
 <!DOCTYPE html>
 <html lang="ru">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Админ-панель 👑</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Cinema Wheel | Админ-панель</title>
     <link rel="stylesheet" href="css/admin_style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
 </head>
-
 <body>
+
     <div class="app">
-        <!-- Шапка -->
-        <div class="header">
-            <h1>👑 АДМИН-ПАНЕЛЬ</h1>
-            <div class="nav-buttons">
-                <a href="index.html" class="nav-btn">🎡 Колесо</a>
-                <a href="catalog.html" class="nav-btn">📚 Каталог</a>
-                <a href="ratings.html" class="nav-btn">⭐ Оценки</a>
-                <a href="profile.html" class="nav-btn">👤 Профиль</a>
-                <a href="admin.html" class="nav-btn active">👑 Админка</a>
+        <!-- Верхняя навигация -->
+        <header class="site-header">
+            <div class="logo">
+                <span class="logo-icon">🎬</span>
+                <span class="logo-text">CINEMA WHEEL</span>
             </div>
-        </div>
+
+            <nav class="main-nav">
+                <a href="index.html" class="nav-link">Колесо</a>
+                <a href="catalog.html" class="nav-link">Каталог</a>
+                <a href="ratings.html" class="nav-link">Оценки</a>
+                <a href="profile.html" class="nav-link">Профиль</a>
+                <a href="admin.html" class="nav-link active">👑 Админка</a>
+            </nav>
+
+            <div class="auth-section">
+                <div class="user-info" id="userInfo">
+                    <span class="user-avatar">👑</span>
+                    <span class="user-name" id="userName">Загрузка...</span>
+                    <span class="user-badge">admin</span>
+                    <button class="btn-outline small" onclick="window.logout()">Выйти</button>
+                </div>
+            </div>
+        </header>
 
         <!-- Статистика -->
         <div class="stats-grid">
@@ -59,30 +72,40 @@
             <!-- Левая колонка - Заявки -->
             <div class="admin-left">
                 <div class="section-header">
-                    <h2>📝 ЗАЯВКИ НА РЕГИСТРАЦИЮ</h2>
+                    <div class="section-title">
+                        <span class="section-icon">📝</span>
+                        <h2>Заявки на регистрацию</h2>
+                    </div>
                     <span class="section-count" id="pendingCount">0</span>
                 </div>
 
                 <!-- Кнопка массового отклонения -->
-                <button class="reject-all-btn" id="rejectAllBtn" onclick="rejectAllPending()" style="display: none;">
-                    🗑️ Отклонить все заявки
+                <button class="reject-all-btn" id="rejectAllBtn" onclick="window.rejectAllPending()" style="display: none;">
+                    <span>🗑️</span> Отклонить все заявки
                 </button>
 
                 <div class="requests-list" id="requestsList">
-                    <!-- Данные через JS -->
+                    <div class="loading-state-small">
+                        <div class="loading-spinner-small"></div>
+                        <span>Загрузка заявок...</span>
+                    </div>
                 </div>
             </div>
 
             <!-- Правая колонка - Пользователи -->
             <div class="admin-right">
                 <div class="section-header">
-                    <h2>👥 ВСЕ ПОЛЬЗОВАТЕЛИ</h2>
+                    <div class="section-title">
+                        <span class="section-icon">👥</span>
+                        <h2>Все пользователи</h2>
+                    </div>
                     <span class="section-count" id="usersCount">0</span>
                 </div>
 
                 <!-- Поиск -->
                 <div class="search-box">
-                    <input type="text" id="userSearch" placeholder="🔍 Поиск по логину..." class="search-input">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="userSearch" placeholder="Поиск по логину..." class="search-input">
                 </div>
 
                 <!-- Таблица пользователей -->
@@ -101,7 +124,14 @@
                             </tr>
                         </thead>
                         <tbody id="usersTableBody">
-                            <!-- Данные через JS -->
+                            <tr>
+                                <td colspan="8" class="loading-state-cell">
+                                    <div class="loading-state-small">
+                                        <div class="loading-spinner-small"></div>
+                                        <span>Загрузка пользователей...</span>
+                                    </div>
+                                </td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -109,15 +139,17 @@
         </div>
     </div>
 
-    <!-- Модалка подтверждения -->
+    <!-- МОДАЛЬНЫЕ ОКНА -->
     <div class="modal-overlay" id="modalOverlay" style="display: none;"></div>
+
+    <!-- Модалка подтверждения -->
     <div class="confirm-modal" id="confirmModal">
         <div class="confirm-modal-content">
-            <h3 id="confirmTitle">Подтверждение</h3>
+            <h3>Подтверждение</h3>
             <p id="confirmMessage">Вы уверены?</p>
             <div class="confirm-buttons">
                 <button class="confirm-btn yes" id="confirmYes">Да</button>
-                <button class="confirm-btn no" onclick="closeConfirmModal()">Нет</button>
+                <button class="confirm-btn no" onclick="window.closeConfirmModal()">Нет</button>
             </div>
         </div>
     </div>
@@ -125,6 +157,7 @@
     <!-- Модалка просмотра заявки -->
     <div class="view-modal" id="viewModal">
         <div class="view-modal-content">
+            <button class="modal-close" onclick="window.closeViewModal()">✕</button>
             <h3>👤 Детали заявки</h3>
             <div class="view-details">
                 <div class="detail-row">
@@ -141,20 +174,45 @@
                 </div>
             </div>
             <div class="view-actions">
-                <button class="action-btn approve" onclick="approveFromView()">✅ Подтвердить</button>
-                <button class="action-btn reject" onclick="rejectFromView()">❌ Отклонить</button>
-                <button class="close-btn" onclick="closeViewModal()">Закрыть</button>
+                <button class="action-btn approve" onclick="window.approveFromView()">✅ Подтвердить</button>
+                <button class="action-btn reject" onclick="window.rejectFromView()">❌ Отклонить</button>
+                <button class="action-btn close" onclick="window.closeViewModal()">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Форма входа (если не админ) -->
+    <div class="login-container" id="loginContainer" style="display: none;">
+        <div class="login-box">
+            <div class="login-header">
+                <span class="login-icon">👑</span>
+                <h2>Вход в админ-панель</h2>
+            </div>
+            <div class="login-form">
+                <div class="form-group">
+                    <label for="adminUsername">Логин</label>
+                    <input type="text" id="adminUsername" class="login-input" placeholder="Введите логин" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label for="adminPassword">Пароль</label>
+                    <input type="password" id="adminPassword" class="login-input" placeholder="Введите пароль">
+                </div>
+                <div class="login-actions">
+                    <button class="login-btn" id="submitLoginBtn">🔑 Войти</button>
+                    <button class="login-btn secondary" id="goHomeBtn">🏠 На главную</button>
+                </div>
+                <div class="login-hint">
+                    <p>Доступ только для администраторов</p>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- Уведомления -->
-    <div class="notification" id="notification"></div>
+    <div class="toast-message success" id="successMessage"></div>
+    <div class="toast-message error" id="errorMessage"></div>
 
     <script src="js/auth.js"></script>
     <script src="js/admin.js"></script>
 </body>
-
-
-
 </html>

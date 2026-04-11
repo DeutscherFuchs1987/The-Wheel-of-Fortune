@@ -1400,3 +1400,237 @@ body {
         flex-wrap: wrap;
     }
 }
+
+
+/* ========== АВАТАРКИ ========== */
+
+/* Кликабельная аватарка в профиле */
+.profile-avatar {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    margin: 0 auto 16px;
+    cursor: pointer;
+    border-radius: 50%;
+    overflow: hidden;
+    background: linear-gradient(135deg, #1a1a1a, #0f0f0f);
+    border: 3px solid #8B7355;
+    transition: transform 0.2s, border-color 0.2s;
+}
+
+.profile-avatar:hover {
+    transform: scale(1.02);
+    border-color: #D4A85C;
+}
+
+.avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.profile-avatar:hover .avatar-overlay {
+    opacity: 1;
+}
+
+.avatar-overlay span {
+    font-size: 2rem;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+}
+
+/* Модалка аватарки */
+.avatar-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10000;
+    display: none;
+    width: 90%;
+    max-width: 450px;
+}
+
+.avatar-modal-content {
+    background: #111;
+    border-radius: 24px;
+    border: 1px solid #2a2a2a;
+    padding: 24px;
+    position: relative;
+}
+
+.avatar-modal h3 {
+    color: #8B7355;
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: 1.3rem;
+}
+
+/* Превью аватарки */
+.avatar-preview {
+    width: 150px;
+    height: 150px;
+    margin: 0 auto 20px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #1a1a1a;
+    border: 2px solid #8B7355;
+}
+
+.avatar-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Область загрузки */
+.avatar-upload-area {
+    border: 2px dashed #2a2a2a;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.avatar-upload-area:hover {
+    border-color: #8B7355;
+    background: #1a1a1a;
+}
+
+.upload-icon {
+    font-size: 2rem;
+    display: block;
+    margin-bottom: 8px;
+}
+
+.upload-hint {
+    font-size: 0.7rem;
+    color: #666;
+    margin-top: 8px;
+}
+
+/* Кнопки действий с аватаркой */
+.avatar-actions {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.avatar-actions .btn-outline,
+.avatar-actions .btn-primary {
+    flex: 1;
+    justify-content: center;
+}
+
+/* Аватарки в списках */
+.user-avatar-img {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #8B7355;
+}
+
+.user-avatar-img.small {
+    width: 28px;
+    height: 28px;
+}
+
+.user-avatar-img.large {
+    width: 48px;
+    height: 48px;
+}
+
+.user-avatar-img.xlarge {
+    width: 80px;
+    height: 80px;
+    border-width: 3px;
+}
+
+/* Аватарка в шапке */
+.user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #8B7355, #6B5B4A);
+    font-size: 1rem;
+}
+
+/* Аватарки участников в группах */
+.member-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-right: 10px;
+}
+
+.group-member-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: #1a1a1a;
+    border-radius: 30px;
+    margin-bottom: 6px;
+}
+
+.group-member-name {
+    flex: 1;
+    font-size: 0.85rem;
+    color: #e0e0e0;
+}
+
+.group-member-role {
+    font-size: 0.7rem;
+    color: #8B7355;
+}
+
+/* Аватарки в оценках */
+.rating-user-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-right: 10px;
+}
+
+.rating-user-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Аватарки в голосованиях */
+.voter-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-right: 8px;
+}
+
+.voter-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}

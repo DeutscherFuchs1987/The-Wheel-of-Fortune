@@ -49,9 +49,11 @@
             <aside class="profile-sidebar">
                 <!-- Карточка пользователя -->
                 <div class="profile-card">
-                    <div class="profile-avatar">
-                        <span class="avatar-emoji" id="avatarEmoji">🎬</span>
-                        <div class="avatar-status" id="avatarStatus"></div>
+                    <div class="profile-avatar" onclick="window.openAvatarModal()">
+                        <img class="avatar-img" id="profileAvatar" src="" alt="Аватар">
+                        <div class="avatar-overlay">
+                            <span>📷</span>
+                        </div>
                     </div>
                     <h2 id="profileUsername">Загрузка...</h2>
                     <div class="profile-badge" id="profileBadge"></div>
@@ -307,6 +309,34 @@
 
     <!-- МОДАЛЬНЫЕ ОКНА -->
     <div class="modal-overlay" id="modalOverlay" style="display: none;"></div>
+
+    <!-- Модалка аватарки -->
+    <div class="avatar-modal" id="avatarModal">
+        <div class="avatar-modal-content">
+            <button class="modal-close" onclick="window.closeAvatarModal()">✕</button>
+            <h3>📸 Сменить аватарку</h3>
+            
+            <div class="avatar-preview" id="avatarPreview">
+                <img id="previewImage" src="" alt="Предпросмотр">
+            </div>
+            
+            <div class="avatar-upload-area" id="uploadArea" onclick="document.getElementById('avatarInput').click()">
+                <span class="upload-icon">📷</span>
+                <p>Нажмите или перетащите изображение</p>
+                <p class="upload-hint">Рекомендуемый размер: 200x200px</p>
+                <input type="file" id="avatarInput" accept="image/jpeg,image/png,image/gif" style="display: none;">
+            </div>
+            
+            <div class="avatar-actions">
+                <button class="btn-outline" id="deleteAvatarBtn" onclick="window.deleteAvatar()">🗑️ Удалить</button>
+                <button class="btn-primary" id="saveAvatarBtn" onclick="window.saveAvatar()" disabled>Сохранить</button>
+            </div>
+            
+            <div class="modal-buttons">
+                <button class="btn-outline" onclick="window.closeAvatarModal()">Отмена</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Модалка изменения статуса -->
     <div class="status-modal" id="statusModal">
