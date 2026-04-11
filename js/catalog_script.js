@@ -265,6 +265,29 @@
         newToggle.classList.toggle('group-mode', currentMode === 'group');
     }
 
+    // Функция для получения HTML аватарки
+    function getAvatarHtml(username, avatar, size = 32) {
+        if (avatar) {
+            return `<img src="${avatar}" class="user-avatar-img" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;flex-shrink:0;">`;
+        } else {
+            const initials = username.substring(0, 2).toUpperCase();
+            return `<div class="user-avatar-placeholder" style="width:${size}px;height:${size}px;border-radius:50%;background:linear-gradient(135deg,#8B7355,#6B5B4A);display:flex;align-items:center;justify-content:center;color:white;font-size:${size/2}px;font-weight:600;flex-shrink:0;">${initials}</div>`;
+        }
+    }
+
+    // Обновление аватарки в шапке
+    function updateHeaderAvatar() {
+        const userAvatarSpan = document.querySelector('.user-avatar');
+        if (!userAvatarSpan || !currentUser) return;
+        
+        if (currentUser.avatar) {
+            userAvatarSpan.innerHTML = `<img src="${currentUser.avatar}" class="header-avatar" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">`;
+        } else {
+            const initials = currentUser.username.substring(0, 2).toUpperCase();
+            userAvatarSpan.innerHTML = `<div class="header-avatar-placeholder" style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#8B7355,#6B5B4A);display:flex;align-items:center;justify-content:center;color:white;font-size:14px;font-weight:600;">${initials}</div>`;
+        }
+    }
+
     async function loadCurrentUser() {
         try {
             if (typeof window.authFetch !== 'function') {
@@ -289,6 +312,7 @@
                         userBadge.style.display = currentUser.role === 'admin' ? 'inline-block' : 'none';
                     }
                 }
+                updateHeaderAvatar();
                 return true;
             }
             return false;

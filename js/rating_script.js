@@ -50,12 +50,29 @@
                         userBadge.style.display = currentUser.role === 'admin' ? 'inline-block' : 'none';
                     }
                 }
+                
+                // Обновляем аватарку в шапке
+                updateHeaderAvatar();
+                
                 return true;
             }
             return false;
         } catch (error) {
             console.error('Ошибка загрузки пользователя:', error);
             return false;
+        }
+    }
+
+    // Обновление аватарки в шапке
+    function updateHeaderAvatar() {
+        const userAvatarSpan = document.querySelector('.user-avatar');
+        if (!userAvatarSpan || !currentUser) return;
+        
+        if (currentUser.avatar) {
+            userAvatarSpan.innerHTML = `<img src="${currentUser.avatar}" class="header-avatar" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">`;
+        } else {
+            const initials = currentUser.username.substring(0, 2).toUpperCase();
+            userAvatarSpan.innerHTML = `<div class="header-avatar-placeholder" style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#8B7355,#6B5B4A);display:flex;align-items:center;justify-content:center;color:white;font-size:14px;font-weight:600;">${initials}</div>`;
         }
     }
 
@@ -84,7 +101,8 @@
             console.log(`👥 Загружаем оценки группы ${selectedGroupId}...`);
             const response = await window.authFetch(`${API_URL}/api/groups/${selectedGroupId}/ratings`);
             if (response.ok) {
-                groupRatings = await response.json();
+                const data = await response.json();
+                groupRatings = data;
                 console.log('⭐ Загружены оценки группы:', groupRatings);
             } else if (response.status === 403) {
                 console.warn('Нет доступа к оценкам группы');
@@ -350,6 +368,16 @@
         return rating.toFixed(1);
     }
 
+    // Функция для получения HTML аватарки
+    function getAvatarHtml(username, avatar, size = 32) {
+        if (avatar) {
+            return `<img src="${avatar}" class="rating-user-avatar" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;flex-shrink:0;">`;
+        } else {
+            const initials = username.substring(0, 2).toUpperCase();
+            return `<div class="rating-user-avatar-placeholder" style="width:${size}px;height:${size}px;border-radius:50%;background:linear-gradient(135deg,#8B7355,#6B5B4A);display:flex;align-items:center;justify-content:center;color:white;font-size:${size/2}px;font-weight:600;flex-shrink:0;">${initials}</div>`;
+        }
+    }
+
     // ========== ОТКРЫТИЕ МОДАЛКИ С ОЦЕНКАМИ ==========
     window.openRatingModal = function (projectId) {
         const project = myProjects.find(p => p.id === projectId);
@@ -365,17 +393,39 @@
             ? `<div class="modal-poster" style="background-image: url('${project.poster}');"></div>`
             : `<div class="modal-poster no-poster">${posterEmoji}</div>`;
 
-        const ratingsSource = (currentMode === 'group' && selectedGroupId) ? groupRatings : { [currentUser?.username]: userRatings };
+        // Получаем оценки из правильного источника
+        let ratingsSource = {};
+        
+        if (currentMode === 'group' && selectedGroupId) {
+            for (const [username, userData] of Object.entries(groupRatings)) {
+                if (userData.ratings && userData.ratings[projectId]) {
+                    ratingsSource[username] = {
+                        rating: userData.ratings[projectId].rating,
+                        notes: userData.ratings[projectId].notes || '',
+                        avatar: userData.avatar,
+                        avatar_type: userData.avatar_type
+                    };
+                }
+            }
+        } else {
+            if (userRatings[projectId]) {
+                ratingsSource[currentUser?.username] = {
+                    rating: userRatings[projectId].rating,
+                    notes: userRatings[projectId].notes || '',
+                    avatar: currentUser?.avatar,
+                    avatar_type: currentUser?.avatar_type
+                };
+            }
+        }
 
         const usersWithRatings = [];
-        for (const [username, ratings] of Object.entries(ratingsSource)) {
-            if (ratings[projectId]) {
-                usersWithRatings.push({
-                    username: username,
-                    rating: ratings[projectId].rating,
-                    notes: ratings[projectId].notes
-                });
-            }
+        for (const [username, ratingData] of Object.entries(ratingsSource)) {
+            usersWithRatings.push({
+                username: username,
+                rating: ratingData.rating,
+                notes: ratingData.notes || '',
+                avatar: ratingData.avatar
+            });
         }
 
         usersWithRatings.sort((a, b) => (b.rating || 0) - (a.rating || 0));
@@ -383,17 +433,23 @@
         const currentUserRating = userRatings[projectId];
 
         const ratingsHtml = usersWithRatings.length > 0
-            ? usersWithRatings.map(user => `
-                <div class="rating-row">
-                    <div class="rating-header">
-                        <span class="rating-name">${escapeHtml(user.username)} ${user.username === currentUser?.username ? '(Вы)' : ''}</span>
-                        <span class="rating-display ${getRatingClass(user.rating)}">
-                            ${formatRating(user.rating)}
-                        </span>
+            ? usersWithRatings.map(user => {
+                const avatarHtml = getAvatarHtml(user.username, user.avatar, 46);
+                return `
+                    <div class="rating-row">
+                        <div class="rating-header">
+                            <div class="rating-user-info" style="display:flex;align-items:center;gap:10px;">
+                                ${avatarHtml}
+                                <span class="rating-name">${escapeHtml(user.username)} ${user.username === currentUser?.username ? '(Вы)' : ''}</span>
+                            </div>
+                            <span class="rating-display ${getRatingClass(user.rating)}">
+                                ${formatRating(user.rating)}
+                            </span>
+                        </div>
+                        ${user.notes ? `<div class="rating-notes">📝 ${escapeHtml(user.notes)}</div>` : ''}
                     </div>
-                    ${user.notes ? `<div class="rating-notes">📝 ${escapeHtml(user.notes)}</div>` : ''}
-                </div>
-            `).join('')
+                `;
+            }).join('')
             : '<div class="rating-row"><div class="rating-header"><span class="rating-name">Пока нет оценок</span></div></div>';
 
         modalContent.innerHTML = `
@@ -416,7 +472,10 @@
                     <h3>🎯 Ваша оценка</h3>
                     <div class="rating-row">
                         <div class="rating-header">
-                            <span class="rating-name">${escapeHtml(currentUser.username)}</span>
+                            <div class="rating-user-info" style="display:flex;align-items:center;gap:10px;">
+                                ${getAvatarHtml(currentUser.username, currentUser?.avatar, 56)}
+                                <span class="rating-name">${escapeHtml(currentUser.username)}</span>
+                            </div>
                             <span class="rating-display ${getRatingClass(currentUserRating.rating)}">
                                 ${formatRating(currentUserRating.rating)}
                             </span>
@@ -495,16 +554,24 @@
             else if (project.type === 'Сериал') posterEmoji = '📺';
             else if (project.type === 'Мультфильм') posterEmoji = '🖍️';
 
-            const ratingsSource = (currentMode === 'group' && selectedGroupId) ? groupRatings : { [currentUser?.username]: userRatings };
-
+            // Получаем оценки из правильного источника
             let totalRating = 0;
             let ratingCount = 0;
-            for (const [username, ratings] of Object.entries(ratingsSource)) {
-                if (ratings[project.id] && ratings[project.id].rating) {
-                    totalRating += ratings[project.id].rating;
+            
+            if (currentMode === 'group' && selectedGroupId) {
+                for (const [username, userData] of Object.entries(groupRatings)) {
+                    if (userData.ratings && userData.ratings[project.id] && userData.ratings[project.id].rating) {
+                        totalRating += userData.ratings[project.id].rating;
+                        ratingCount++;
+                    }
+                }
+            } else {
+                if (userRatings[project.id] && userRatings[project.id].rating) {
+                    totalRating += userRatings[project.id].rating;
                     ratingCount++;
                 }
             }
+            
             const averageRating = ratingCount > 0 ? (totalRating / ratingCount).toFixed(1) : null;
             const userHasRated = userRatings[project.id] !== undefined;
 

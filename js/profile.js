@@ -10,6 +10,7 @@
     let watchedProjects = [];
     let currentMode = localStorage.getItem('profile_mode') || 'personal';
     let selectedGroupId = localStorage.getItem('selected_group') || null;
+    let selectedFile = null;
 
     // Переменные для голосования
     let currentVotingCycle = null;
@@ -22,7 +23,193 @@
         await loadCurrentUser();
         setupModalHandlers();
         setupEscapeHandler();
+        setupAvatarUpload();
     });
+
+    // ========== РАБОТА С АВАТАРКАМИ ==========
+    function setupAvatarUpload() {
+        const avatarInput = document.getElementById('avatarInput');
+        if (avatarInput) {
+            avatarInput.addEventListener('change', handleAvatarFileSelect);
+        }
+    }
+
+    function handleAvatarFileSelect(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        if (!file.type.startsWith('image/')) {
+            showError('Пожалуйста, выберите изображение');
+            return;
+        }
+        
+        if (file.size > 5 * 1024 * 1024) {
+            showError('Размер изображения не должен превышать 5MB');
+            return;
+        }
+        
+        selectedFile = file;
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const previewImage = document.getElementById('previewImage');
+            if (previewImage) {
+                previewImage.src = e.target.result;
+            }
+            const saveBtn = document.getElementById('saveAvatarBtn');
+            if (saveBtn) saveBtn.disabled = false;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    async function resizeAndConvertImage(file, maxSize = 200) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    
+                    if (width > height) {
+                        if (width > maxSize) {
+                            height *= maxSize / width;
+                            width = maxSize;
+                        }
+                    } else {
+                        if (height > maxSize) {
+                            width *= maxSize / height;
+                            height = maxSize;
+                        }
+                    }
+                    
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    const base64 = canvas.toDataURL('image/jpeg', 0.8);
+                    resolve(base64);
+                };
+                img.onerror = reject;
+                img.src = e.target.result;
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    }
+
+    window.openAvatarModal = function() {
+        const modal = document.getElementById('avatarModal');
+        const overlay = document.getElementById('modalOverlay');
+        if (modal) modal.style.display = 'flex';
+        if (overlay) overlay.style.display = 'block';
+        
+        // Сброс выбора
+        selectedFile = null;
+        const previewImage = document.getElementById('previewImage');
+        const avatarInput = document.getElementById('avatarInput');
+        const saveBtn = document.getElementById('saveAvatarBtn');
+        
+        if (previewImage && currentUser?.avatar) {
+            previewImage.src = currentUser.avatar;
+        } else if (previewImage) {
+            previewImage.src = '';
+        }
+        if (avatarInput) avatarInput.value = '';
+        if (saveBtn) saveBtn.disabled = true;
+    };
+
+    window.closeAvatarModal = function() {
+        const modal = document.getElementById('avatarModal');
+        const overlay = document.getElementById('modalOverlay');
+        if (modal) modal.style.display = 'none';
+        if (overlay) overlay.style.display = 'none';
+        selectedFile = null;
+    };
+
+    window.saveAvatar = async function() {
+        if (!selectedFile) {
+            showError('Выберите изображение');
+            return;
+        }
+        
+        showLoading();
+        
+        try {
+            const base64 = await resizeAndConvertImage(selectedFile);
+            const response = await window.authFetch(`${API_URL}/api/user/avatar`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ avatar: base64, type: selectedFile.type })
+            });
+            
+            const data = await response.json();
+            if (data.success) {
+                showSuccess('Аватарка обновлена!');
+                await loadCurrentUser();
+                updateAvatarDisplay();
+                closeAvatarModal();
+            } else {
+                showError(data.error || 'Ошибка загрузки аватарки');
+            }
+        } catch (error) {
+            console.error('Ошибка:', error);
+            showError('Ошибка сети');
+        } finally {
+            hideLoading();
+        }
+    };
+
+    window.deleteAvatar = async function() {
+        if (!confirm('Удалить аватарку?')) return;
+        
+        showLoading();
+        
+        try {
+            const response = await window.authFetch(`${API_URL}/api/user/avatar`, {
+                method: 'DELETE'
+            });
+            
+            const data = await response.json();
+            if (data.success) {
+                showSuccess('Аватарка удалена');
+                await loadCurrentUser();
+                updateAvatarDisplay();
+                closeAvatarModal();
+            } else {
+                showError(data.error || 'Ошибка удаления аватарки');
+            }
+        } catch (error) {
+            console.error('Ошибка:', error);
+            showError('Ошибка сети');
+        } finally {
+            hideLoading();
+        }
+    };
+
+    function updateAvatarDisplay() {
+        const profileAvatar = document.getElementById('profileAvatar');
+        if (profileAvatar && currentUser) {
+            if (currentUser.avatar) {
+                profileAvatar.src = currentUser.avatar;
+            } else {
+                const initials = currentUser.username.substring(0, 2).toUpperCase();
+                profileAvatar.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=8B7355&color=fff&size=120&rounded=true&bold=true&length=2`;
+            }
+        }
+        
+        // Обновляем аватарку в шапке
+        const userAvatarSpan = document.querySelector('.user-avatar');
+        if (userAvatarSpan && currentUser) {
+            if (currentUser.avatar) {
+                userAvatarSpan.innerHTML = `<img src="${currentUser.avatar}" class="user-avatar-img" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">`;
+            } else {
+                userAvatarSpan.innerHTML = '👤';
+            }
+        }
+    }
 
     // ========== НАСТРОЙКА МОДАЛОК ==========
     function setupModalHandlers() {
@@ -41,7 +228,7 @@
     }
 
     function closeAllModals() {
-        const modals = ['statusModal', 'createGroupModal', 'groupInfoModal', 'ratingModal', 'voteModal', 'voteDetailsModal'];
+        const modals = ['avatarModal', 'statusModal', 'createGroupModal', 'groupInfoModal', 'ratingModal', 'voteModal', 'voteDetailsModal'];
         modals.forEach(modalId => {
             const modal = document.getElementById(modalId);
             if (modal && modal.style.display === 'flex') {
@@ -53,6 +240,7 @@
         currentProject = null;
         currentRatingProject = null;
         currentVoteSelections = [];
+        selectedFile = null;
     }
 
     async function loadCurrentUser() {
@@ -65,16 +253,17 @@
                 const usernameEl = document.getElementById('profileUsername');
                 if (usernameEl) usernameEl.textContent = currentUser.username;
 
+                const userNameHeader = document.getElementById('userName');
+                if (userNameHeader) userNameHeader.textContent = currentUser.username;
+
                 if (currentUser.role === 'admin') {
                     const badgeEl = document.getElementById('profileBadge');
                     if (badgeEl) badgeEl.innerHTML = '<span>ADMIN</span>';
+                    const userBadge = document.getElementById('userBadge');
+                    if (userBadge) userBadge.textContent = 'admin';
                 }
 
-                const avatarEl = document.getElementById('avatarEmoji');
-                if (avatarEl) {
-                    avatarEl.textContent = currentUser.role === 'admin' ? '👑' : '🎬';
-                }
-
+                updateAvatarDisplay();
                 await loadUserGroups();
                 await loadUserRatings();
                 setupModeToggle();
@@ -589,7 +778,6 @@
             }
         }
 
-        // Удаляем старый обработчик
         const newToggle = catalogModeToggle.cloneNode(true);
         catalogModeToggle.parentNode.replaceChild(newToggle, catalogModeToggle);
 
@@ -601,7 +789,6 @@
                 return;
             }
 
-            // Анимация
             newToggle.style.transform = 'scale(0.95)';
             setTimeout(() => {
                 newToggle.style.transform = '';
@@ -1360,8 +1547,11 @@
                     <strong style="color:#8B7355;">👥 Участники (${members.length})</strong>
                     <div style="margin-top:8px; max-height:200px; overflow-y:auto;">
                         ${members.map(m => `
-                            <div style="display:flex; justify-content:space-between; padding:8px; background:#1a1a1a; border-radius:30px; margin-bottom:4px;">
-                                <span>${escapeHtml(m.username)}</span>
+                            <div style="display:flex; justify-content:space-between; align-items:center; padding:8px; background:#1a1a1a; border-radius:30px; margin-bottom:4px;">
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    ${m.avatar ? `<img src="${m.avatar}" class="user-avatar-img small" style="width:28px;height:28px;">` : `<div class="user-avatar-img small" style="width:28px;height:28px;background:#8B7355;border-radius:50%;display:flex;align-items:center;justify-content:center;">${m.username.charAt(0).toUpperCase()}</div>`}
+                                    <span>${escapeHtml(m.username)}</span>
+                                </div>
                                 <span style="color:#8B7355; font-size:0.7rem;">${m.role === 'admin' ? 'admin' : 'участник'}</span>
                             </div>
                         `).join('')}
@@ -1434,8 +1624,12 @@
             } else {
                 let html = '';
                 for (const [username, films] of Object.entries(data.votes)) {
+                    const userData = data.voters_info?.[username] || {};
                     html += `<div class="vote-detail-group">
-                        <div class="vote-detail-user">👤 ${escapeHtml(username)}</div>`;
+                        <div class="vote-detail-user">
+                            ${userData.avatar ? `<img src="${userData.avatar}" class="voter-avatar">` : `<span class="voter-avatar" style="display:inline-flex;align-items:center;justify-content:center;background:#8B7355;border-radius:50%;">${username.charAt(0).toUpperCase()}</span>`}
+                            ${escapeHtml(username)}
+                        </div>`;
                     for (const film of films) {
                         const project = allProjects.find(p => p.id === film.film_id);
                         const filmTitle = project?.title_ru || project?.title || film.film_id;

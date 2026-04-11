@@ -26,15 +26,15 @@
     let userGroups = [];
 
     const colorPalette = [
-        '#C75C5C', // насыщенный терракотовый (не ярко-красный)
-        '#5C9E5C', // травяной зеленый (не кислотный)
-        '#D4A85C', // теплый золотой (не лимонный)
-        '#5C7EC4', // приглушенный синий (не электрик)
-        '#B57CB5', // лавандовый (не неоновый)
+        '#C75C5C', // насыщенный терракотовый
+        '#5C9E5C', // травяной зеленый
+        '#D4A85C', // теплый золотой
+        '#5C7EC4', // приглушенный синий
+        '#B57CB5', // лавандовый
         '#7CB85C', // оливково-зеленый
         '#D4885C', // янтарный
-        '#5CB8B8', // бирюзовый (не аквамарин)
-        '#C45C8C', // розовый (не фуксия)
+        '#5CB8B8', // бирюзовый
+        '#C45C8C', // розовый
         '#7C6CC4', // сиреневый
         '#B8B85C', // горчичный
         '#5CB89C', // мятный
@@ -48,7 +48,7 @@
         '#C48C5C'  // медный
     ];
 
-    // ========== DOM ЭЛЕМЕНТЫ (НОВЫЕ КЛАССЫ) ==========
+    // ========== DOM ЭЛЕМЕНТЫ ==========
     const canvas = document.getElementById('wheelCanvas');
     const ctx = canvas.getContext('2d');
     const filterDiv = document.getElementById('filter-buttons');
@@ -80,6 +80,29 @@
     const loginModal = document.getElementById('loginModal');
     const registerModal = document.getElementById('registerModal');
 
+    // Функция для получения HTML аватарки
+    function getAvatarHtml(username, avatar, size = 32) {
+        if (avatar) {
+            return `<img src="${avatar}" class="user-avatar-img" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;flex-shrink:0;">`;
+        } else {
+            const initials = username.substring(0, 2).toUpperCase();
+            return `<div class="user-avatar-placeholder" style="width:${size}px;height:${size}px;border-radius:50%;background:linear-gradient(135deg,#8B7355,#6B5B4A);display:flex;align-items:center;justify-content:center;color:white;font-size:${size/2}px;font-weight:600;flex-shrink:0;">${initials}</div>`;
+        }
+    }
+
+    // Обновление аватарки в шапке
+    function updateHeaderAvatar() {
+        const userAvatarSpan = document.querySelector('.user-avatar');
+        if (!userAvatarSpan || !window.currentUser) return;
+        
+        if (window.currentUser.avatar) {
+            userAvatarSpan.innerHTML = `<img src="${window.currentUser.avatar}" class="header-avatar" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">`;
+        } else {
+            const initials = window.currentUser.username.substring(0, 2).toUpperCase();
+            userAvatarSpan.innerHTML = `<div class="header-avatar-placeholder" style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#8B7355,#6B5B4A);display:flex;align-items:center;justify-content:center;color:white;font-size:14px;font-weight:600;">${initials}</div>`;
+        }
+    }
+
     // ========== ФУНКЦИИ АВТОРИЗАЦИИ ==========
     async function loadCurrentUser() {
         try {
@@ -89,6 +112,7 @@
             if (data.authenticated) {
                 window.currentUser = data.user;
                 updateAuthUI();
+                updateHeaderAvatar();
                 console.log(`👤 Авторизован как: ${window.currentUser.username} (${window.currentUser.role})`);
             } else {
                 window.currentUser = null;
@@ -110,6 +134,7 @@
             userName.textContent = window.currentUser.username;
             userBadge.textContent = window.currentUser.role === 'admin' ? 'admin' : '';
             userBadge.style.display = window.currentUser.role === 'admin' ? 'inline-block' : 'none';
+            updateHeaderAvatar();
         } else {
             authButtons.style.display = 'flex';
             userInfo.style.display = 'none';
@@ -193,6 +218,7 @@
                 localStorage.setItem('auth_token', data.token);
                 window.currentUser = data.user;
                 updateAuthUI();
+                updateHeaderAvatar();
                 window.closeAuthModal();
                 showSuccess(`✅ Добро пожаловать, ${window.currentUser.username}!`);
                 await loadGroupBoosts();
@@ -644,8 +670,7 @@
                 ctx.translate(centerX, centerY);
                 ctx.rotate(startAngle + angle / 2);
 
-                // Яркий золотой для звёзд с тенью для заметности
-                ctx.fillStyle = '#FFD700'; // Золотой
+                ctx.fillStyle = '#FFD700';
                 ctx.shadowColor = 'rgba(0,0,0,0.5)';
                 ctx.shadowBlur = 4;
                 ctx.font = 'bold 14px "Segoe UI", Inter, sans-serif';
@@ -657,7 +682,7 @@
                     ctx.fillText(`★${votes}`, radius - 42, -8);
                 }
 
-                ctx.shadowBlur = 0; // Сбрасываем тень
+                ctx.shadowBlur = 0;
                 ctx.restore();
             }
 
@@ -943,11 +968,7 @@
         });
     }
 
-
     console.log('🚀 Запуск колеса фортуны...');
-
-
-    
 
     initModeToggle();
     loadCurrentUser();
