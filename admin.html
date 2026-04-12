@@ -1,12 +1,16 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>Cinema Wheel | Админ-панель</title>
     <link rel="stylesheet" href="css/admin_style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap"
+        rel="stylesheet">
 </head>
+
 <body>
 
     <div class="app">
@@ -80,7 +84,8 @@
                 </div>
 
                 <!-- Кнопка массового отклонения -->
-                <button class="reject-all-btn" id="rejectAllBtn" onclick="window.rejectAllPending()" style="display: none;">
+                <button class="reject-all-btn" id="rejectAllBtn" onclick="window.rejectAllPending()"
+                    style="display: none;">
                     <span>🗑️</span> Отклонить все заявки
                 </button>
 
@@ -134,6 +139,38 @@
                             </tr>
                         </tbody>
                     </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Секция управления демо-фильмами -->
+        <div class="demo-section">
+            <div class="section-header">
+                <div class="section-title">
+                    <span class="section-icon">🎬</span>
+                    <h2>Демо-фильмы</h2>
+                </div>
+                <span class="section-count" id="demoMoviesCount">0</span>
+            </div>
+
+            <!-- Поиск для добавления новых демо-фильмов -->
+            <div class="demo-search-container">
+                <div class="search-wrapper">
+                    <input type="text" id="demoMovieSearch" class="search-input"
+                        placeholder="Поиск фильмов на Кинопоиске для добавления в демо-список...">
+                </div>
+                <div id="demoSearchResults" class="demo-search-results"></div>
+            </div>
+
+            <!-- Список текущих демо-фильмов -->
+            <div class="demo-movies-header">
+                <span>📋 Текущие демо-фильмы</span>
+                <button class="btn-icon" onclick="window.refreshDemoList()" title="Обновить">🔄</button>
+            </div>
+            <div class="demo-movies-list" id="demoMoviesList">
+                <div class="loading-state-small">
+                    <div class="loading-spinner-small"></div>
+                    <span>Загрузка демо-фильмов...</span>
                 </div>
             </div>
         </div>
@@ -191,7 +228,8 @@
             <div class="login-form">
                 <div class="form-group">
                     <label for="adminUsername">Логин</label>
-                    <input type="text" id="adminUsername" class="login-input" placeholder="Введите логин" autocomplete="off">
+                    <input type="text" id="adminUsername" class="login-input" placeholder="Введите логин"
+                        autocomplete="off">
                 </div>
                 <div class="form-group">
                     <label for="adminPassword">Пароль</label>
@@ -215,4 +253,5 @@
     <script src="js/auth.js"></script>
     <script src="js/admin.js"></script>
 </body>
+
 </html>

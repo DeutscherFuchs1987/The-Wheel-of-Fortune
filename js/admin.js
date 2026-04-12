@@ -2,11 +2,14 @@
     'use strict';
     
     const API_URL = 'https://movie-server-deutscherfuchs.amvera.io';
+    const KINOPOISK_TOKEN = 'ea7304c3-e5e9-43cd-aca0-f47d1abd3621';
     let currentUser = null;
     let pendingUsers = [];
     let allUsers = [];
     let currentRequestId = null;
     let confirmAction = null;
+    let demoMovies = [];
+    let demoSearchTimeout;
 
     // ========== ПРОВЕРКА ПРИ ЗАГРУЗКЕ ==========
     document.addEventListener('DOMContentLoaded', async () => {
@@ -75,6 +78,8 @@
                 
                 hideLoginForm();
                 await loadDashboard();
+                await loadDemoMovies();
+                setupDemoSearch();
             } else if (data.authenticated && data.user.role !== 'admin') {
                 console.log('❌ Пользователь не админ');
                 showLoginForm();
@@ -96,10 +101,12 @@
         
         const statsGrid = document.querySelector('.stats-grid');
         const adminContainer = document.querySelector('.admin-container');
+        const demoSection = document.querySelector('.demo-section');
         const loginContainer = document.getElementById('loginContainer');
         
         if (statsGrid) statsGrid.style.display = 'none';
         if (adminContainer) adminContainer.style.display = 'none';
+        if (demoSection) demoSection.style.display = 'none';
         if (loginContainer) loginContainer.style.display = 'flex';
         
         setTimeout(() => {
@@ -141,10 +148,12 @@
         const loginContainer = document.getElementById('loginContainer');
         const statsGrid = document.querySelector('.stats-grid');
         const adminContainer = document.querySelector('.admin-container');
+        const demoSection = document.querySelector('.demo-section');
         
         if (loginContainer) loginContainer.style.display = 'none';
         if (statsGrid) statsGrid.style.display = 'grid';
         if (adminContainer) adminContainer.style.display = 'flex';
+        if (demoSection) demoSection.style.display = 'block';
     }
 
     async function submitAdminLogin() {
@@ -183,6 +192,7 @@
                 
                 setTimeout(async () => {
                     await loadDashboard();
+                    await loadDemoMovies();
                 }, 500);
                 
             } else if (data.success && data.user.role !== 'admin') {
@@ -540,6 +550,251 @@
         }
     };
 
+    // ========== УПРАВЛЕНИЕ ДЕМО-ФИЛЬМАМИ ==========
+    
+    async function loadDemoMovies() {
+        try {
+            const response = await window.authFetch(`${API_URL}/api/admin/demo/movies`);
+            if (response.ok) {
+                demoMovies = await response.json();
+                renderDemoMoviesList();
+                
+                const countEl = document.getElementById('demoMoviesCount');
+                if (countEl) countEl.textContent = demoMovies.length;
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки демо-фильмов:', error);
+            showNotification('Ошибка загрузки демо-фильмов', 'error');
+        }
+    }
+
+    function renderDemoMoviesList(moviesToShow = null) {
+        const container = document.getElementById('demoMoviesList');
+        if (!container) return;
+        
+        const movies = moviesToShow || demoMovies;
+        
+        if (movies.length === 0) {
+            container.innerHTML = '<div class="empty-state"><span>🎬</span><p>Нет демо-фильмов</p><p class="hint">Найдите фильм в поиске выше и нажмите на результат, чтобы добавить</p></div>';
+            return;
+        }
+        
+        container.innerHTML = movies.map(movie => `
+            <div class="demo-movie-card" data-id="${movie.id}">
+                <div class="demo-movie-poster" style="background-image: url('${movie.posterUrlPreview || ''}')">
+                    ${!movie.posterUrlPreview ? '<span>🎬</span>' : ''}
+                </div>
+                <div class="demo-movie-info">
+                    <div class="demo-movie-title">${escapeHtml(movie.nameRu || movie.nameEn || 'Без названия')}</div>
+                    <div class="demo-movie-meta">
+                        <span>📅 ${movie.year || '—'}</span>
+                        <span>⭐ ${movie.rating || '—'}</span>
+                        <span>🆔 ${movie.kinopoisk_id}</span>
+                    </div>
+                </div>
+                <div class="demo-movie-actions">
+                    <button class="table-btn refresh" onclick="window.refreshDemoMovie('${movie.kinopoisk_id}')" title="Обновить данные">🔄</button>
+                    <button class="table-btn delete" onclick="window.deleteDemoMovie(${movie.id})" title="Удалить">🗑️</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    window.refreshDemoList = function() {
+        loadDemoMovies();
+        showNotification('Список демо-фильмов обновлён');
+    };
+
+    window.deleteDemoMovie = async function(movieId) {
+        if (!confirm('Удалить фильм из демо-списка?')) return;
+        
+        showLoading();
+        
+        try {
+            const response = await window.authFetch(`${API_URL}/api/admin/demo/movies/${movieId}`, {
+                method: 'DELETE'
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showNotification('Фильм удалён из демо-списка');
+                await loadDemoMovies();
+            } else {
+                showNotification(data.error || 'Ошибка удаления', 'error');
+            }
+        } catch (error) {
+            console.error('Ошибка:', error);
+            showNotification('Ошибка сети', 'error');
+        } finally {
+            hideLoading();
+        }
+    };
+
+    window.refreshDemoMovie = async function(kinopoiskId) {
+        showLoading();
+        
+        try {
+            const response = await window.authFetch(`${API_URL}/api/admin/demo/movies/refresh`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ kinopoisk_id: kinopoiskId })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showNotification('Данные фильма обновлены');
+                await loadDemoMovies();
+            } else {
+                showNotification(data.error || 'Ошибка обновления', 'error');
+            }
+        } catch (error) {
+            console.error('Ошибка:', error);
+            showNotification('Ошибка сети', 'error');
+        } finally {
+            hideLoading();
+        }
+    };
+
+    // Поиск фильмов для добавления в демо-список (как в каталоге)
+    function setupDemoSearch() {
+        const searchInput = document.getElementById('demoMovieSearch');
+        if (!searchInput) return;
+        
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(demoSearchTimeout);
+            const query = e.target.value.trim();
+            
+            if (query.length < 2) {
+                const resultsDiv = document.getElementById('demoSearchResults');
+                if (resultsDiv) {
+                    resultsDiv.innerHTML = '';
+                    resultsDiv.classList.remove('active');
+                }
+                return;
+            }
+            
+            demoSearchTimeout = setTimeout(async () => {
+                try {
+                    const resultsDiv = document.getElementById('demoSearchResults');
+                    if (!resultsDiv) return;
+                    
+                    resultsDiv.innerHTML = '<div class="search-loading">🔍 Поиск...</div>';
+                    resultsDiv.classList.add('active');
+                    
+                    const response = await fetch(`https://kinopoiskapiunofficial.tech/api/v2.1/films/search-by-keyword?keyword=${encodeURIComponent(query)}`, {
+                        headers: { 'X-API-KEY': KINOPOISK_TOKEN }
+                    });
+                    
+                    if (!response.ok) throw new Error('Ошибка поиска');
+                    
+                    const data = await response.json();
+                    
+                    if (!data.films?.length) {
+                        resultsDiv.innerHTML = '<div class="search-empty">Ничего не найдено</div>';
+                        return;
+                    }
+                    
+                    resultsDiv.innerHTML = data.films.slice(0, 8).map(film => `
+                        <div class="search-result-item" onclick="window.addDemoMovieFromSearch(${film.filmId})">
+                            <div class="result-poster-mini" style="background-image: url('${film.posterUrlPreview || ''}')">
+                                ${!film.posterUrlPreview ? '🎬' : ''}
+                            </div>
+                            <div class="result-info">
+                                <div class="result-title">${escapeHtml(film.nameRu || film.nameEn)}</div>
+                                <div class="result-meta">
+                                    <span>📅 ${film.year || '?'}</span>
+                                    <span>⭐ ${film.rating || '—'}</span>
+                                </div>
+                            </div>
+                            <button class="add-demo-btn" title="Добавить в демо-список">➕</button>
+                        </div>
+                    `).join('');
+                } catch (error) {
+                    console.error('Ошибка поиска:', error);
+                    const resultsDiv = document.getElementById('demoSearchResults');
+                    if (resultsDiv) {
+                        resultsDiv.innerHTML = `<div class="search-error">❌ Ошибка: ${error.message}</div>`;
+                    }
+                }
+            }, 400);
+        });
+        
+        // Закрываем результаты при клике вне
+        document.addEventListener('click', (e) => {
+            const resultsDiv = document.getElementById('demoSearchResults');
+            const searchInputEl = document.getElementById('demoMovieSearch');
+            if (resultsDiv && searchInputEl && !searchInputEl.contains(e.target) && !resultsDiv.contains(e.target)) {
+                resultsDiv.classList.remove('active');
+            }
+        });
+    }
+
+    window.addDemoMovieFromSearch = async function(kinopoiskId) {
+        showLoading();
+        
+        // Очищаем поиск и закрываем результаты
+        const searchInput = document.getElementById('demoMovieSearch');
+        const resultsDiv = document.getElementById('demoSearchResults');
+        if (searchInput) searchInput.value = '';
+        if (resultsDiv) resultsDiv.classList.remove('active');
+        
+        try {
+            // Проверяем, есть ли уже такой фильм
+            const existing = demoMovies.find(m => m.kinopoisk_id == kinopoiskId);
+            if (existing) {
+                showNotification('Этот фильм уже есть в демо-списке', 'error');
+                hideLoading();
+                return;
+            }
+            
+            // Получаем данные фильма с Кинопоиска
+            const searchResponse = await fetch(`https://kinopoiskapiunofficial.tech/api/v2.2/films/${kinopoiskId}`, {
+                headers: { 'X-API-KEY': KINOPOISK_TOKEN }
+            });
+            
+            if (!searchResponse.ok) {
+                throw new Error(`Фильм с ID ${kinopoiskId} не найден`);
+            }
+            
+            const filmData = await searchResponse.json();
+            
+            const movieData = {
+                nameRu: filmData.nameRu,
+                nameEn: filmData.nameEn,
+                year: filmData.year,
+                rating: filmData.ratingImdb || filmData.ratingKinopoisk,
+                posterUrlPreview: filmData.posterUrlPreview,
+                posterUrl: filmData.posterUrl,
+                genres: filmData.genres || []
+            };
+            
+            const response = await window.authFetch(`${API_URL}/api/admin/demo/movies`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    kinopoisk_id: kinopoiskId.toString(),
+                    movie_data: movieData
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showNotification('Фильм добавлен в демо-список');
+                await loadDemoMovies();
+            } else {
+                showNotification(data.error || 'Ошибка добавления', 'error');
+            }
+        } catch (error) {
+            console.error('Ошибка:', error);
+            showNotification(error.message || 'Ошибка добавления фильма', 'error');
+        } finally {
+            hideLoading();
+        }
+    };
+
     // ========== ВЫХОД ==========
     window.logout = async function() {
         localStorage.removeItem('auth_token');
@@ -649,4 +904,8 @@
     window.logout = logout;
     window.closeConfirmModal = closeConfirmModal;
     window.closeViewModal = closeViewModal;
+    window.deleteDemoMovie = deleteDemoMovie;
+    window.refreshDemoMovie = refreshDemoMovie;
+    window.refreshDemoList = refreshDemoList;
+    window.addDemoMovieFromSearch = addDemoMovieFromSearch;
 })();

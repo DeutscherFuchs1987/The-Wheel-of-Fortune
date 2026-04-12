@@ -142,7 +142,11 @@ body {
 }
 
 .user-avatar {
-    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
 }
 
 .user-name {
@@ -157,6 +161,28 @@ body {
     border-radius: 20px;
     font-size: 0.7rem;
     color: #8B7355;
+}
+
+/* Аватарка в шапке */
+.header-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid #8B7355;
+}
+
+.header-avatar-placeholder {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #8B7355, #6B5B4A);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 12px;
+    font-weight: 600;
 }
 
 /* ========== ПАНЕЛЬ РЕЖИМОВ ========== */
@@ -570,6 +596,7 @@ body {
     display: none;
 }
 
+/* ========== УЛУЧШЕННЫЕ МОДАЛЬНЫЕ ОКНА АВТОРИЗАЦИИ ========== */
 .auth-modal {
     position: fixed;
     top: 50%;
@@ -581,21 +608,69 @@ body {
 
 .auth-modal-content {
     background: #111;
-    border-radius: 20px;
+    border-radius: 24px;
     width: 90%;
-    max-width: 450px;
+    max-width: 420px;
     border: 1px solid #2a2a2a;
+    position: relative;
     overflow: hidden;
 }
 
-.auth-modal h3 {
-    background: #0c0c0c;
-    padding: 20px;
-    font-size: 1.2rem;
-    font-weight: 500;
+.modal-close.auth-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 32px;
+    height: 32px;
+    background: #2a2a2a;
+    border: none;
+    border-radius: 50%;
+    color: #888;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-close.auth-close:hover {
+    background: #C75C5C;
+    color: white;
+    transform: rotate(90deg);
+}
+
+.auth-modal-header {
+    text-align: center;
+    padding: 30px 30px 0 30px;
+}
+
+.auth-modal-icon {
+    font-size: 3rem;
+    display: block;
+    margin-bottom: 12px;
+}
+
+.auth-modal-header h3 {
+    font-size: 1.3rem;
+    font-weight: 600;
     color: #e0e0e0;
-    border-bottom: 1px solid #1e1e1e;
     margin: 0;
+}
+
+.auth-modal-body {
+    padding: 24px 30px;
+}
+
+.auth-error {
+    background: rgba(199, 92, 92, 0.2);
+    border-left: 3px solid #C75C5C;
+    padding: 10px 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-size: 0.85rem;
+    color: #C75C5C;
+    display: none;
 }
 
 .auth-input {
@@ -604,9 +679,10 @@ body {
     margin-bottom: 16px;
     background: #0a0a0a;
     border: 1px solid #2a2a2a;
-    border-radius: 8px;
+    border-radius: 30px;
     color: #e0e0e0;
     font-size: 0.9rem;
+    transition: all 0.3s;
 }
 
 .auth-input:focus {
@@ -615,26 +691,40 @@ body {
 }
 
 .auth-hint {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: #666;
-    margin-bottom: 20px;
     text-align: center;
+    margin-top: 8px;
 }
 
-.auth-buttons {
+.auth-modal-footer {
     display: flex;
     gap: 12px;
-    justify-content: flex-end;
-    margin-top: 20px;
+    padding: 0 30px 24px 30px;
 }
 
-.auth-link {
+.auth-modal-footer .btn-outline,
+.auth-modal-footer .btn-primary {
+    flex: 1;
+    justify-content: center;
+}
+
+.auth-modal-link {
     text-align: center;
     padding: 16px;
     border-top: 1px solid #1e1e1e;
+    font-size: 0.85rem;
+    color: #888;
+}
+
+.auth-modal-link span {
     color: #8B7355;
     cursor: pointer;
-    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.auth-modal-link span:hover {
+    text-decoration: underline;
 }
 
 /* ========== МОДАЛКА ОЦЕНОК ========== */
@@ -843,6 +933,37 @@ body {
     padding: 10px 30px;
 }
 
+/* ========== УЛУЧШЕННОЕ ОТОБРАЖЕНИЕ АВАТАРОК В МОДАЛКЕ ========== */
+.rating-user-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.rating-user-avatar,
+.rating-user-avatar-placeholder {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.rating-user-avatar {
+    object-fit: cover;
+    border: 2px solid #8B7355;
+}
+
+.rating-user-avatar-placeholder {
+    background: linear-gradient(135deg, #8B7355, #6B5B4A);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 600;
+    font-size: 14px;
+    border: 2px solid #D4A85C;
+}
+
 /* ========== СКРОЛЛБАРЫ ========== */
 ::-webkit-scrollbar {
     width: 6px;
@@ -916,6 +1037,18 @@ body {
     .rating-modal {
         width: 95%;
     }
+    
+    .auth-modal-header {
+        padding: 20px 20px 0 20px;
+    }
+    
+    .auth-modal-body {
+        padding: 16px 20px;
+    }
+    
+    .auth-modal-footer {
+        padding: 0 20px 20px 20px;
+    }
 }
 
 @media (max-width: 480px) {
@@ -926,66 +1059,4 @@ body {
     .delete-btn {
         opacity: 1;
     }
-}
-
-/* ========== УЛУЧШЕННОЕ ОТОБРАЖЕНИЕ АВАТАРОК В МОДАЛКЕ ========== */
-.rating-user-info {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.rating-user-avatar,
-.rating-user-avatar-placeholder {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    flex-shrink: 0;
-}
-
-.rating-user-avatar {
-    object-fit: cover;
-    border: 2px solid #8B7355;
-}
-
-.rating-user-avatar-placeholder {
-    background: linear-gradient(135deg, #8B7355, #6B5B4A);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-weight: 600;
-    font-size: 14px;
-    border: 2px solid #D4A85C;
-}
-
-/* Аватарка в шапке */
-.header-avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 1px solid #8B7355;
-}
-
-.header-avatar-placeholder {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #8B7355, #6B5B4A);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 12px;
-    font-weight: 600;
-}
-
-/* Стили для шапки */
-.user-avatar {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
 }

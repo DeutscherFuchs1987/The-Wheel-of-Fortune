@@ -35,6 +35,29 @@ async function authFetch(url, options = {}) {
     });
 }
 
+// Показать ошибку внутри модалки
+function showModalError(modalId, message) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        const errorDiv = modal.querySelector('.auth-error');
+        if (errorDiv) {
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 3000);
+        }
+    }
+}
+
+// Очистить ошибки в модалках
+function clearModalErrors() {
+    document.querySelectorAll('.auth-error').forEach(error => {
+        error.style.display = 'none';
+        error.textContent = '';
+    });
+}
+
 // Загружаем информацию о текущем пользователе
 async function loadCurrentUser() {
     const token = getToken();
@@ -78,9 +101,11 @@ function updateAuthUI() {
     if (currentUser) {
         authButtons.style.display = 'none';
         userInfo.style.display = 'flex';
-        userName.textContent = currentUser.username;
-        userBadge.textContent = currentUser.role === 'admin' ? 'admin' : '';
-        userBadge.style.display = currentUser.role === 'admin' ? 'inline-block' : 'none';
+        if (userName) userName.textContent = currentUser.username;
+        if (userBadge) {
+            userBadge.textContent = currentUser.role === 'admin' ? 'admin' : '';
+            userBadge.style.display = currentUser.role === 'admin' ? 'inline-block' : 'none';
+        }
     } else {
         authButtons.style.display = 'flex';
         userInfo.style.display = 'none';
@@ -89,19 +114,57 @@ function updateAuthUI() {
 
 // Показать модалку входа
 function showLoginModal() {
+    clearModalErrors();
     const overlay = document.getElementById('modalOverlay');
-    const modal = document.getElementById('loginModal');
+    const loginModal = document.getElementById('loginModal');
+    const registerModal = document.getElementById('registerModal');
+    
     if (overlay) overlay.style.display = 'block';
-    if (modal) modal.style.display = 'flex';
+    if (loginModal) loginModal.style.display = 'flex';
+    if (registerModal) registerModal.style.display = 'none';
+    
+    // Очищаем поля
+    const loginUsername = document.getElementById('loginUsername');
+    const loginPassword = document.getElementById('loginPassword');
+    if (loginUsername) loginUsername.value = '';
+    if (loginPassword) loginPassword.value = '';
 }
 
 // Показать модалку регистрации
 function showRegisterModal() {
+    clearModalErrors();
     const overlay = document.getElementById('modalOverlay');
-    const modal = document.getElementById('registerModal');
+    const loginModal = document.getElementById('loginModal');
+    const registerModal = document.getElementById('registerModal');
+    
     if (overlay) overlay.style.display = 'block';
-    if (modal) modal.style.display = 'flex';
+    if (registerModal) registerModal.style.display = 'flex';
+    if (loginModal) loginModal.style.display = 'none';
+    
+    // Очищаем поля
+    const regUsername = document.getElementById('regUsername');
+    const regPassword = document.getElementById('regPassword');
+    if (regUsername) regUsername.value = '';
+    if (regPassword) regPassword.value = '';
 }
+
+// Переключение с регистрации на вход
+window.switchToLogin = function() {
+    clearModalErrors();
+    const loginModal = document.getElementById('loginModal');
+    const registerModal = document.getElementById('registerModal');
+    if (loginModal) loginModal.style.display = 'flex';
+    if (registerModal) registerModal.style.display = 'none';
+};
+
+// Переключение со входа на регистрацию
+window.switchToRegister = function() {
+    clearModalErrors();
+    const loginModal = document.getElementById('loginModal');
+    const registerModal = document.getElementById('registerModal');
+    if (loginModal) loginModal.style.display = 'none';
+    if (registerModal) registerModal.style.display = 'flex';
+};
 
 // Закрыть все модалки авторизации
 function closeAuthModal() {
@@ -112,6 +175,7 @@ function closeAuthModal() {
     if (overlay) overlay.style.display = 'none';
     if (loginModal) loginModal.style.display = 'none';
     if (registerModal) registerModal.style.display = 'none';
+    clearModalErrors();
 }
 
 // Отправка регистрации
@@ -120,17 +184,17 @@ async function submitRegistration() {
     const password = document.getElementById('regPassword')?.value;
     
     if (!username || !password) {
-        showError('Заполните все поля');
+        showModalError('registerModal', 'Заполните все поля');
         return;
     }
     
     if (username.length < 3) {
-        showError('Логин должен быть минимум 3 символа');
+        showModalError('registerModal', 'Логин должен быть минимум 3 символа');
         return;
     }
     
     if (password.length < 4) {
-        showError('Пароль должен быть минимум 4 символа');
+        showModalError('registerModal', 'Пароль должен быть минимум 4 символа');
         return;
     }
     
@@ -144,13 +208,16 @@ async function submitRegistration() {
         const data = await response.json();
         
         if (data.success) {
-            showSuccess('✅ Заявка отправлена! Ждите подтверждения админа.');
-            closeAuthModal();
+            showModalError('registerModal', '✅ Заявка отправлена! Ждите подтверждения админа.');
+            setTimeout(() => {
+                closeAuthModal();
+                showLoginModal();
+            }, 2000);
         } else {
-            showError(data.error || 'Ошибка регистрации');
+            showModalError('registerModal', data.error || 'Ошибка регистрации');
         }
     } catch (error) {
-        showError('Ошибка сети');
+        showModalError('registerModal', 'Ошибка сети. Попробуйте позже.');
     }
 }
 
@@ -160,7 +227,7 @@ async function submitLogin() {
     const password = document.getElementById('loginPassword')?.value;
     
     if (!username || !password) {
-        showError('Заполните все поля');
+        showModalError('loginModal', 'Заполните все поля');
         return;
     }
     
@@ -178,22 +245,22 @@ async function submitLogin() {
             currentUser = data.user;
             updateAuthUI();
             closeAuthModal();
-            showSuccess(`✅ Добро пожаловать, ${currentUser.username}!`);
+            showSuccessMessage(`Добро пожаловать, ${currentUser.username}!`);
             
             // Обновляем страницу, если нужно
-            if (typeof loadUserVotes === 'function') loadUserVotes();
-            if (typeof updateVotingUI === 'function') updateVotingUI();
-            if (typeof loadDashboard === 'function') loadDashboard();
-            
-            // Если это админка, перезагружаем данные
-            if (window.location.pathname.includes('admin.html')) {
+            if (typeof loadProjectsByMode === 'function') {
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500);
+            } else {
                 setTimeout(() => window.location.reload(), 500);
             }
         } else {
-            showError(data.error || 'Ошибка входа');
+            // Обобщённое сообщение об ошибке
+            showModalError('loginModal', 'Неверный логин или пароль');
         }
     } catch (error) {
-        showError('Ошибка сети');
+        showModalError('loginModal', 'Ошибка сети. Попробуйте позже.');
     }
 }
 
@@ -202,28 +269,28 @@ async function logout() {
     saveToken(null);
     currentUser = null;
     updateAuthUI();
-    showSuccess('👋 До свидания!');
+    showSuccessMessage('До свидания!');
     
-    // Обновляем страницу, если нужно
-    if (typeof loadUserVotes === 'function') loadUserVotes();
-    if (typeof updateVotingUI === 'function') updateVotingUI();
-    if (typeof loadDashboard === 'function') loadDashboard();
-    
-    // Если это админка или профиль, переходим на главную
-    if (window.location.pathname.includes('admin.html') || window.location.pathname.includes('profile.html')) {
+    setTimeout(() => {
+        window.location.reload();
+    }, 500);
+}
+
+// Показать сообщение об успехе (тост)
+function showSuccessMessage(text) {
+    const successDiv = document.getElementById('successMessage');
+    if (successDiv) {
+        successDiv.textContent = text;
+        successDiv.style.display = 'block';
         setTimeout(() => {
-            window.location.href = 'index.html';
-        }, 500);
-    } else {
-        // Просто перезагружаем текущую страницу
-        setTimeout(() => window.location.reload(), 500);
+            successDiv.style.display = 'none';
+        }, 3000);
     }
 }
 
 // Проверка авторизации для действий
 function requireAuth() {
     if (!currentUser) {
-        showError('🔒 Требуется авторизация');
         showLoginModal();
         return false;
     }
@@ -233,59 +300,35 @@ function requireAuth() {
 // Проверка прав администратора
 function requireAdmin() {
     if (!currentUser) {
-        showError('🔒 Требуется авторизация');
         showLoginModal();
         return false;
     }
     if (currentUser.role !== 'admin') {
-        showError('⛔ Требуются права администратора');
+        alert('⛔ Требуются права администратора');
         return false;
     }
     return true;
 }
 
-// Показать сообщение об ошибке
-function showError(text) {
-    console.error('Ошибка:', text);
-    const errorDiv = document.getElementById('errorMessage');
-    if (errorDiv) {
-        errorDiv.style.display = 'block';
-        errorDiv.textContent = '❌ ' + text;
-        setTimeout(() => errorDiv.style.display = 'none', 3000);
-    } else {
-        alert('❌ ' + text);
-    }
-}
-
-// Показать сообщение об успехе
-function showSuccess(text) {
-    console.log('Успех:', text);
-    const successDiv = document.getElementById('successMessage');
-    if (successDiv) {
-        successDiv.style.display = 'block';
-        successDiv.textContent = '✅ ' + text;
-        setTimeout(() => successDiv.style.display = 'none', 2000);
-    }
-}
-
-// Добавить в конец auth.js
-window.setGlobalMode = function(mode, groupId) {
-    localStorage.setItem('catalog_mode', mode);
-    if (groupId) localStorage.setItem('selected_group', groupId);
-    window.dispatchEvent(new CustomEvent('modeChanged', { 
-        detail: { mode: mode, groupId: groupId } 
-    }));
-};
-
-window.getGlobalMode = function() {
-    return {
-        mode: localStorage.getItem('catalog_mode') || 'personal',
-        groupId: localStorage.getItem('selected_group') || null
-    };
-};
-
 // Загружаем пользователя при старте
-document.addEventListener('DOMContentLoaded', loadCurrentUser);
+document.addEventListener('DOMContentLoaded', () => {
+    loadCurrentUser();
+    setupModalCloseHandlers();
+});
+
+// Настройка закрытия модалок
+function setupModalCloseHandlers() {
+    const overlay = document.getElementById('modalOverlay');
+    if (overlay) {
+        overlay.addEventListener('click', closeAuthModal);
+    }
+    
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeAuthModal();
+        }
+    });
+}
 
 // Экспортируем функции в глобальную область
 window.showLoginModal = showLoginModal;
@@ -298,4 +341,5 @@ window.requireAuth = requireAuth;
 window.requireAdmin = requireAdmin;
 window.authFetch = authFetch;
 window.currentUser = currentUser;
-
+window.switchToLogin = switchToLogin;
+window.switchToRegister = switchToRegister;

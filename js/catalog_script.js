@@ -118,7 +118,75 @@
         }
     }
 
+    // Обновление видимости ссылки на профиль
+    function updateProfileLinkVisibility() {
+        const profileLink = document.getElementById('profileLink');
+        if (!profileLink) return;
+        profileLink.style.display = currentUser ? 'inline-block' : 'none';
+    }
+
+    // ========== ДЕМО-РЕЖИМ ДЛЯ НЕЗАРЕГИСТРИРОВАННЫХ ==========
+    async function loadDemoProjects() {
+        try {
+            console.log('🎬 Загружаем демо-фильмы для незарегистрированного пользователя...');
+            const response = await fetch(`${API_URL}/api/demo/movies`);
+            const movies = await response.json();
+
+            myProjects = movies.map(film => ({
+                id: 'kp_' + film.filmId,
+                title_ru: film.nameRu,
+                title: film.nameEn || film.nameRu,
+                year: film.year,
+                rating: film.rating,
+                poster: film.posterUrlPreview || film.posterUrl,
+                type: detectTypeByGenres(film),
+                inProgress: false,
+                watched: false,
+                is_demo: true
+            }));
+
+            showDemoBanner();
+            renderProjects();
+            updateStats();
+        } catch (error) {
+            console.error('Ошибка загрузки демо-фильмов:', error);
+            myProjects = [];
+            renderProjects();
+        }
+    }
+
+    function showDemoBanner() {
+        const existingBanner = document.getElementById('demoBanner');
+        if (existingBanner) existingBanner.remove();
+
+        const banner = document.createElement('div');
+        banner.id = 'demoBanner';
+        banner.className = 'demo-banner';
+        banner.innerHTML = `
+            <div class="demo-banner-content">
+                <span class="demo-icon">🎬</span>
+                <div class="demo-text">
+                    <strong>Демо-режим</strong> — здесь показаны популярные фильмы
+                </div>
+                <button class="demo-register-btn" onclick="window.showRegisterModal()">
+                    🔐 Зарегистрироваться
+                </button>
+                <button class="demo-close" onclick="this.closest('.demo-banner').remove()">✕</button>
+            </div>
+        `;
+
+        const searchSection = document.querySelector('.search-section');
+        if (searchSection) {
+            searchSection.insertAdjacentElement('afterend', banner);
+        }
+    }
+
     async function loadProjectsByMode() {
+        if (!currentUser) {
+            await loadDemoProjects();
+            return;
+        }
+
         if (currentMode === 'personal') {
             await loadPersonalProjects();
         } else if (selectedGroupId) {
@@ -265,21 +333,19 @@
         newToggle.classList.toggle('group-mode', currentMode === 'group');
     }
 
-    // Функция для получения HTML аватарки
     function getAvatarHtml(username, avatar, size = 32) {
         if (avatar) {
             return `<img src="${avatar}" class="user-avatar-img" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;flex-shrink:0;">`;
         } else {
             const initials = username.substring(0, 2).toUpperCase();
-            return `<div class="user-avatar-placeholder" style="width:${size}px;height:${size}px;border-radius:50%;background:linear-gradient(135deg,#8B7355,#6B5B4A);display:flex;align-items:center;justify-content:center;color:white;font-size:${size/2}px;font-weight:600;flex-shrink:0;">${initials}</div>`;
+            return `<div class="user-avatar-placeholder" style="width:${size}px;height:${size}px;border-radius:50%;background:linear-gradient(135deg,#8B7355,#6B5B4A);display:flex;align-items:center;justify-content:center;color:white;font-size:${size / 2}px;font-weight:600;flex-shrink:0;">${initials}</div>`;
         }
     }
 
-    // Обновление аватарки в шапке
     function updateHeaderAvatar() {
         const userAvatarSpan = document.querySelector('.user-avatar');
         if (!userAvatarSpan || !currentUser) return;
-        
+
         if (currentUser.avatar) {
             userAvatarSpan.innerHTML = `<img src="${currentUser.avatar}" class="header-avatar" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">`;
         } else {
@@ -313,11 +379,15 @@
                     }
                 }
                 updateHeaderAvatar();
+                updateProfileLinkVisibility();
                 return true;
+            } else {
+                updateProfileLinkVisibility();
+                return false;
             }
-            return false;
         } catch (error) {
             console.error('Ошибка загрузки пользователя:', error);
+            updateProfileLinkVisibility();
             return false;
         }
     }
@@ -338,7 +408,9 @@
         if (errorMessageDiv) {
             errorMessageDiv.textContent = text;
             errorMessageDiv.style.display = 'block';
-            setTimeout(() => errorMessageDiv.style.display = 'none', 3000);
+            setTimeout(() => {
+                errorMessageDiv.style.display = 'none';
+            }, 3000);
         }
     }
 
@@ -347,7 +419,9 @@
         if (successMessageDiv) {
             successMessageDiv.textContent = text;
             successMessageDiv.style.display = 'block';
-            setTimeout(() => successMessageDiv.style.display = 'none', 2000);
+            setTimeout(() => {
+                successMessageDiv.style.display = 'none';
+            }, 2000);
         }
     }
 
@@ -398,6 +472,7 @@
     async function addProject(film) {
         if (!currentUser) {
             showError('Сначала войдите в аккаунт');
+            window.showLoginModal();
             return;
         }
 
@@ -563,6 +638,12 @@
     }
 
     async function deleteProject(projectId) {
+        if (!currentUser) {
+            showError('Требуется авторизация');
+            window.showLoginModal();
+            return;
+        }
+
         if (!confirm('Удалить проект?')) return;
 
         showLoading();
@@ -612,12 +693,22 @@
     }
 
     async function toggleInProgress(projectId) {
+        if (!currentUser) {
+            showError('Требуется авторизация');
+            window.showLoginModal();
+            return;
+        }
         const project = myProjects.find(p => p.id === projectId);
         if (!project) return;
         await updateProjectStatus(projectId, project.inProgress ? 'planned' : 'in_progress');
     }
 
     async function markAsWatched(projectId) {
+        if (!currentUser) {
+            showError('Требуется авторизация');
+            window.showLoginModal();
+            return;
+        }
         const project = myProjects.find(p => p.id === projectId);
         if (!project) return;
 
@@ -676,6 +767,11 @@
     }
 
     async function changeProjectType(projectId, newType) {
+        if (!currentUser) {
+            showError('Требуется авторизация');
+            window.showLoginModal();
+            return;
+        }
         try {
             const projectIndex = myProjects.findIndex(p => p.id === projectId);
             if (projectIndex !== -1) {
@@ -842,19 +938,93 @@
         if (seasonDiv) seasonDiv.style.display = forceOpen ? 'grid' : seasonDiv.style.display === 'none' ? 'grid' : 'none';
     };
 
+    // Функции для работы с модалкой требования авторизации (используем существующий HTML)
+    window.showAuthRequiredModal = function () {
+        const modal = document.getElementById('authRequiredModal');
+        const overlay = document.getElementById('modalOverlay');
+        if (modal) {
+            modal.style.display = 'flex';
+            if (overlay) overlay.style.display = 'block';
+            document.body.classList.add('modal-open');
+        }
+    };
+
+    window.closeAuthRequiredModal = function () {
+        const modal = document.getElementById('authRequiredModal');
+        const overlay = document.getElementById('modalOverlay');
+        if (modal) modal.style.display = 'none';
+        if (overlay) overlay.style.display = 'none';
+        document.body.classList.remove('modal-open');
+    };
+
+
+    function setupModalCloseHandlers() {
+        const overlay = document.getElementById('modalOverlay');
+        if (overlay) {
+            overlay.addEventListener('click', function (e) {
+                // Закрываем модалку авторизации
+                window.closeAuthRequiredModal();
+                // Закрываем модалки входа/регистрации
+                const loginModal = document.getElementById('loginModal');
+                const registerModal = document.getElementById('registerModal');
+                if (loginModal && loginModal.style.display === 'flex') {
+                    loginModal.style.display = 'none';
+                }
+                if (registerModal && registerModal.style.display === 'flex') {
+                    registerModal.style.display = 'none';
+                }
+                // Закрываем проектную модалку
+                const projectModal = document.querySelector('.project-modal.active');
+                if (projectModal) {
+                    window.closeModal();
+                }
+                overlay.style.display = 'none';
+            });
+        }
+
+        // Обработчик клавиши ESC
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                window.closeAuthRequiredModal();
+                const loginModal = document.getElementById('loginModal');
+                const registerModal = document.getElementById('registerModal');
+                if (loginModal && loginModal.style.display === 'flex') {
+                    loginModal.style.display = 'none';
+                }
+                if (registerModal && registerModal.style.display === 'flex') {
+                    registerModal.style.display = 'none';
+                }
+                const projectModal = document.querySelector('.project-modal.active');
+                if (projectModal) {
+                    window.closeModal();
+                }
+                const overlay = document.getElementById('modalOverlay');
+                if (overlay) overlay.style.display = 'none';
+                document.body.classList.remove('modal-open');
+            }
+        });
+    }
+
     window.openModal = async function (projectId) {
         const project = myProjects.find(p => p.id === projectId);
         if (!project) return;
-        
+
+        // Для незарегистрированных пользователей показываем модалку-заглушку
+        if (!currentUser) {
+            window.showAuthRequiredModal();
+            return;
+        }
+
+        // Остальной код для авторизованных пользователей...
         const existingModal = document.querySelector('.project-modal');
         if (existingModal) existingModal.remove();
-        
+
         document.body.classList.add('modal-open');
-        
+
         const modal = document.createElement('div');
         modal.className = 'project-modal active';
         modal.dataset.projectId = project.id;
-        
+
         const posterEmoji = project.type === 'Аниме' ? '🇯🇵' : project.type === 'Сериал' ? '📺' : project.type === 'Мультфильм' ? '🖍️' : '🎬';
         const genresHtml = project.genres?.length ? project.genres.map(g => `<span class="modal-genre-tag">${g.genre || g}</span>`).join('') : '<span class="modal-genre-tag">Жанры будут добавлены</span>';
         const description = project.description?.length > 500 ? project.description.substring(0, 500) + '...' : project.description || 'Описание будет загружено позже...';
@@ -862,15 +1032,15 @@
         const progress = window.watchProgress?.get(project.id);
         const isSeries = project.type === 'Сериал';
         const isAnimeOrCartoon = project.type === 'Аниме' || project.type === 'Мультфильм';
-        
-        const continueButton = (isSeries || isAnimeOrCartoon) && progress && !progress.completed ? 
+
+        const continueButton = (isSeries || isAnimeOrCartoon) && progress && !progress.completed ?
             `<button class="continue-watching-btn" style="background:#1a1a1a; border:1px solid #8B7355; color:#8B7355; padding:12px; border-radius:30px; width:100%; margin-bottom:10px; cursor:pointer;" onclick="window.continueWatching('${project.id}')">▶️ Продолжить с ${progress.season} сезона ${progress.episode} серии (${window.watchProgress?.formatTime(progress.timecode)})</button>` : '';
-        
+
         const cacheButtons = `<div style="display: flex; gap: 10px; margin-bottom: 15px; justify-content: flex-end;"><button class="retry-btn" style="padding: 5px 10px; font-size: 12px; background:#1a1a1a; border:1px solid #8B7355; border-radius:30px; color:#e0e0e0; cursor:pointer;" onclick="window.clearAllCache()">🗑️ Очистить весь кэш</button></div>`;
-        
-        const seasonsSection = (isSeries || isAnimeOrCartoon) ? 
+
+        const seasonsSection = (isSeries || isAnimeOrCartoon) ?
             `<div class="modal-section"><h3>📺 Сезоны и серии</h3>${cacheButtons}<div id="seasons-container-${project.id}" class="seasons-container"><div class="loading-spinner" style="text-align:center; padding:30px;"></div></div></div>` : '';
-        
+
         modal.innerHTML = `
             <div class="modal-overlay-project" onclick="window.closeModal()"></div>
             <div class="project-modal-content">
@@ -913,10 +1083,10 @@
                 </div>
             </div>
         `;
-        
+
         document.body.appendChild(modal);
         modal.style.display = 'flex';
-        
+
         if (isSeries || isAnimeOrCartoon) {
             const seasonsData = await loadSeasons(filmId);
             if (seasonsData?.items?.length > 0) {
@@ -1059,6 +1229,8 @@
         loadProjectsByMode();
         showSuccess('Каталог обновлён');
     };
+    window.showAuthRequiredModal = showAuthRequiredModal;
+    window.closeAuthRequiredModal = closeAuthRequiredModal;
     window.debugCatalog = function () {
         console.log('=== DEBUG CATALOG ===');
         console.log('currentMode:', currentMode);
@@ -1087,11 +1259,8 @@
         await loadUserGroupsForSelector();
         setupModeToggle();
         updateModeUI();
-        if (currentMode === 'personal') {
-            await loadPersonalProjects();
-        } else if (selectedGroupId) {
-            await loadGroupProjects(selectedGroupId);
-        }
+        await loadProjectsByMode();
+        setupModalCloseHandlers();
     }
     init();
 })();

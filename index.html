@@ -21,7 +21,7 @@
                 <a href="index.html" class="nav-link active">Колесо</a>
                 <a href="catalog.html" class="nav-link">Каталог</a>
                 <a href="ratings.html" class="nav-link">Оценки</a>
-                <a href="profile.html" class="nav-link">Профиль</a>
+                <a href="profile.html" class="nav-link" id="profileLink">Профиль</a>
             </nav>
 
             <div class="auth-section">
@@ -30,7 +30,7 @@
                     <button class="btn-primary" onclick="window.showRegisterModal()">Регистрация</button>
                 </div>
                 <div class="user-info" id="userInfo" style="display: none;">
-                    <span class="user-avatar">👤</span>
+                    <div class="user-avatar">👤</div>
                     <span class="user-name" id="userName"></span>
                     <span class="user-badge" id="userBadge"></span>
                     <button class="btn-outline small" onclick="window.logout()">Выйти</button>
@@ -148,50 +148,92 @@
     <!-- МОДАЛЬНЫЕ ОКНА -->
     <div class="modal-overlay" id="modalOverlay" style="display: none;"></div>
 
-    <!-- Модалка входа -->
+    <!-- Модалка входа (улучшенная) -->
     <div class="auth-modal" id="loginModal">
         <div class="auth-modal-content">
-            <h3>🔑 Вход</h3>
-            <input type="text" id="loginUsername" class="auth-input" placeholder="Логин">
-            <input type="password" id="loginPassword" class="auth-input" placeholder="Пароль">
-            <div class="auth-hint">После входа вы сможете голосовать</div>
-            <div class="auth-buttons">
+            <button class="modal-close auth-close" onclick="window.closeAuthModal()">✕</button>
+            <div class="auth-modal-header">
+                <span class="auth-modal-icon">🔑</span>
+                <h3>Вход в аккаунт</h3>
+            </div>
+            <div class="auth-modal-body">
+                <div class="auth-error" id="loginError" style="display: none;"></div>
+                <input type="text" id="loginUsername" class="auth-input" placeholder="Логин">
+                <input type="password" id="loginPassword" class="auth-input" placeholder="Пароль">
+            </div>
+            <div class="auth-modal-footer">
                 <button class="btn-outline" onclick="window.closeAuthModal()">Отмена</button>
                 <button class="btn-primary" onclick="window.submitLogin()">Войти</button>
             </div>
-            <div class="auth-link" onclick="window.showRegisterModal(); window.closeAuthModal()">Нет аккаунта? Зарегистрироваться</div>
+            <div class="auth-modal-link" onclick="window.switchToRegister()">
+                Нет аккаунта? <span>Зарегистрироваться</span>
+            </div>
         </div>
     </div>
 
-    <!-- Модалка регистрации -->
+    <!-- Модалка регистрации (улучшенная) -->
     <div class="auth-modal" id="registerModal">
         <div class="auth-modal-content">
-            <h3>📝 Регистрация</h3>
-            <input type="text" id="regUsername" class="auth-input" placeholder="Придумайте логин">
-            <input type="password" id="regPassword" class="auth-input" placeholder="Придумайте пароль">
-            <div class="auth-hint">После регистрации нужно дождаться подтверждения админом</div>
-            <div class="auth-buttons">
+            <button class="modal-close auth-close" onclick="window.closeAuthModal()">✕</button>
+            <div class="auth-modal-header">
+                <span class="auth-modal-icon">📝</span>
+                <h3>Регистрация</h3>
+            </div>
+            <div class="auth-modal-body">
+                <div class="auth-error" id="registerError" style="display: none;"></div>
+                <input type="text" id="regUsername" class="auth-input" placeholder="Придумайте логин">
+                <input type="password" id="regPassword" class="auth-input" placeholder="Придумайте пароль">
+                <div class="auth-hint">После регистрации нужно дождаться подтверждения администратором</div>
+            </div>
+            <div class="auth-modal-footer">
                 <button class="btn-outline" onclick="window.closeAuthModal()">Отмена</button>
                 <button class="btn-primary" onclick="window.submitRegistration()">Зарегистрироваться</button>
             </div>
-            <div class="auth-link" onclick="window.showLoginModal(); window.closeAuthModal()">Уже есть аккаунт? Войти</div>
+            <div class="auth-modal-link" onclick="window.switchToLogin()">
+                Уже есть аккаунт? <span>Войти</span>
+            </div>
         </div>
     </div>
 
     <!-- Модалка голосования -->
     <div class="voting-modal" id="votingModal">
         <div class="voting-modal-content">
-            <h3>🗳️ Голосование <span id="votingCategory"></span></h3>
-            <p class="voting-user" id="votingUser"></p>
-            <div class="voting-search">
-                <input type="text" id="voteSearchInput" class="auth-input" placeholder="🔍 Поиск фильма...">
+            <button class="modal-close" onclick="window.closeVotingModal()">✕</button>
+            <div class="voting-modal-header">
+                <span class="voting-modal-icon">🗳️</span>
+                <h3>Голосование <span id="votingCategory"></span></h3>
             </div>
-            <p class="auth-hint">Выберите 3 фильма, чтобы повысить их шансы</p>
-            <div class="voting-movies" id="votingMoviesList"></div>
-            <div class="selected-counter" id="selectedCounter">Выбрано: 0/3</div>
-            <div class="auth-buttons">
-                <button class="btn-outline" onclick="window.closeVotingModal()">Отмена</button>
-                <button class="btn-primary" id="submitVoteBtn" disabled>Сохранить</button>
+            <div class="voting-modal-body">
+                <p class="voting-user" id="votingUser"></p>
+                <div class="voting-search">
+                    <input type="text" id="voteSearchInput" class="auth-input" placeholder="🔍 Поиск фильма...">
+                </div>
+                <p class="voting-hint">Выберите 3 фильма, чтобы повысить их шансы</p>
+                <div class="voting-movies" id="votingMoviesList"></div>
+            </div>
+            <div class="voting-modal-footer">
+                <div class="selected-counter" id="selectedCounter">Выбрано: 0/3</div>
+                <div class="voting-buttons">
+                    <button class="btn-outline" onclick="window.closeVotingModal()">Отмена</button>
+                    <button class="btn-primary" id="submitVoteBtn" disabled>Сохранить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модалка статистики -->
+    <div class="stats-modal" id="statsModal">
+        <div class="stats-modal-content">
+            <button class="modal-close" onclick="window.closeStatsModal()">✕</button>
+            <div class="stats-modal-header">
+                <span class="stats-modal-icon">📊</span>
+                <h3>Статистика бустов <span id="statsCategory"></span></h3>
+            </div>
+            <div class="stats-modal-body">
+                <div class="stats-list" id="statsList"></div>
+            </div>
+            <div class="stats-modal-footer">
+                <button class="btn-primary" onclick="window.closeStatsModal()">Закрыть</button>
             </div>
         </div>
     </div>

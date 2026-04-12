@@ -21,6 +21,51 @@
     const ratingModal = document.getElementById('ratingModal');
     const modalContent = document.getElementById('modalContent');
 
+    // Обновление видимости ссылки на профиль
+    function updateProfileLinkVisibility() {
+        const profileLink = document.getElementById('profileLink');
+        if (!profileLink) return;
+        profileLink.style.display = currentUser ? 'inline-block' : 'none';
+    }
+
+    // Функция для получения HTML аватарки
+    function getAvatarHtml(username, avatar, size = 32) {
+        if (avatar) {
+            return `<img src="${avatar}" class="rating-user-avatar" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;flex-shrink:0;">`;
+        } else {
+            const initials = username.substring(0, 2).toUpperCase();
+            return `<div class="rating-user-avatar-placeholder" style="width:${size}px;height:${size}px;border-radius:50%;background:linear-gradient(135deg,#8B7355,#6B5B4A);display:flex;align-items:center;justify-content:center;color:white;font-size:${size/2}px;font-weight:600;flex-shrink:0;">${initials}</div>`;
+        }
+    }
+
+    // Обновление аватарки в шапке
+    function updateHeaderAvatar() {
+        const userAvatarSpan = document.querySelector('.user-avatar');
+        if (!userAvatarSpan || !currentUser) return;
+        
+        if (currentUser.avatar) {
+            userAvatarSpan.innerHTML = `<img src="${currentUser.avatar}" class="header-avatar" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">`;
+        } else {
+            const initials = currentUser.username.substring(0, 2).toUpperCase();
+            userAvatarSpan.innerHTML = `<div class="header-avatar-placeholder" style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#8B7355,#6B5B4A);display:flex;align-items:center;justify-content:center;color:white;font-size:14px;font-weight:600;">${initials}</div>`;
+        }
+    }
+
+    // Показ ошибки в модалке
+    function showModalError(modalId, message) {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            const errorDiv = modal.querySelector('.auth-error');
+            if (errorDiv) {
+                errorDiv.textContent = message;
+                errorDiv.style.display = 'block';
+                setTimeout(() => {
+                    errorDiv.style.display = 'none';
+                }, 3000);
+            }
+        }
+    }
+
     // ========== АВТОРИЗАЦИЯ ==========
     async function loadCurrentUser() {
         try {
@@ -50,31 +95,192 @@
                         userBadge.style.display = currentUser.role === 'admin' ? 'inline-block' : 'none';
                     }
                 }
-                
-                // Обновляем аватарку в шапке
                 updateHeaderAvatar();
-                
+                updateProfileLinkVisibility();
                 return true;
+            } else {
+                updateProfileLinkVisibility();
+                return false;
             }
-            return false;
         } catch (error) {
             console.error('Ошибка загрузки пользователя:', error);
+            updateProfileLinkVisibility();
             return false;
         }
     }
 
-    // Обновление аватарки в шапке
-    function updateHeaderAvatar() {
-        const userAvatarSpan = document.querySelector('.user-avatar');
-        if (!userAvatarSpan || !currentUser) return;
+    window.switchToLogin = function() {
+        const loginModal = document.getElementById('loginModal');
+        const registerModal = document.getElementById('registerModal');
+        if (loginModal) loginModal.style.display = 'flex';
+        if (registerModal) registerModal.style.display = 'none';
+    };
+
+    window.switchToRegister = function() {
+        const loginModal = document.getElementById('loginModal');
+        const registerModal = document.getElementById('registerModal');
+        if (loginModal) loginModal.style.display = 'none';
+        if (registerModal) registerModal.style.display = 'flex';
+    };
+
+    window.showLoginModal = function () {
+        const overlay = document.getElementById('modalOverlay');
+        const loginModal = document.getElementById('loginModal');
+        const registerModal = document.getElementById('registerModal');
         
-        if (currentUser.avatar) {
-            userAvatarSpan.innerHTML = `<img src="${currentUser.avatar}" class="header-avatar" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">`;
-        } else {
-            const initials = currentUser.username.substring(0, 2).toUpperCase();
-            userAvatarSpan.innerHTML = `<div class="header-avatar-placeholder" style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#8B7355,#6B5B4A);display:flex;align-items:center;justify-content:center;color:white;font-size:14px;font-weight:600;">${initials}</div>`;
+        if (overlay) overlay.style.display = 'block';
+        if (loginModal) loginModal.style.display = 'flex';
+        if (registerModal) registerModal.style.display = 'none';
+        
+        // Очищаем поля и ошибки
+        const loginUsername = document.getElementById('loginUsername');
+        const loginPassword = document.getElementById('loginPassword');
+        if (loginUsername) loginUsername.value = '';
+        if (loginPassword) loginPassword.value = '';
+        
+        const loginError = document.getElementById('loginError');
+        if (loginError) loginError.style.display = 'none';
+    };
+
+    window.showRegisterModal = function () {
+        const overlay = document.getElementById('modalOverlay');
+        const loginModal = document.getElementById('loginModal');
+        const registerModal = document.getElementById('registerModal');
+        
+        if (overlay) overlay.style.display = 'block';
+        if (registerModal) registerModal.style.display = 'flex';
+        if (loginModal) loginModal.style.display = 'none';
+        
+        // Очищаем поля и ошибки
+        const regUsername = document.getElementById('regUsername');
+        const regPassword = document.getElementById('regPassword');
+        if (regUsername) regUsername.value = '';
+        if (regPassword) regPassword.value = '';
+        
+        const registerError = document.getElementById('registerError');
+        if (registerError) registerError.style.display = 'none';
+    };
+
+    window.closeAuthModal = function () {
+        const overlay = document.getElementById('modalOverlay');
+        const loginModal = document.getElementById('loginModal');
+        const registerModal = document.getElementById('registerModal');
+        
+        if (overlay) overlay.style.display = 'none';
+        if (loginModal) loginModal.style.display = 'none';
+        if (registerModal) registerModal.style.display = 'none';
+    };
+
+    window.submitRegistration = async function () {
+        const username = document.getElementById('regUsername')?.value.trim();
+        const password = document.getElementById('regPassword')?.value;
+
+        if (!username || !password) {
+            showModalError('registerModal', 'Заполните все поля');
+            return;
         }
-    }
+
+        if (username.length < 3) {
+            showModalError('registerModal', 'Логин должен быть минимум 3 символа');
+            return;
+        }
+
+        if (password.length < 4) {
+            showModalError('registerModal', 'Пароль должен быть минимум 4 символа');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_URL}/api/auth/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                showModalError('registerModal', '✅ Заявка отправлена! Ждите подтверждения админа.');
+                setTimeout(() => {
+                    window.closeAuthModal();
+                    window.showLoginModal();
+                }, 2000);
+            } else {
+                showModalError('registerModal', data.error || 'Ошибка регистрации');
+            }
+        } catch (error) {
+            showModalError('registerModal', 'Ошибка сети. Попробуйте позже.');
+        }
+    };
+
+    window.submitLogin = async function () {
+        const username = document.getElementById('loginUsername')?.value.trim();
+        const password = document.getElementById('loginPassword')?.value;
+
+        if (!username || !password) {
+            showModalError('loginModal', 'Заполните все поля');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_URL}/api/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                localStorage.setItem('auth_token', data.token);
+                currentUser = data.user;
+                updateHeaderAvatar();
+                updateProfileLinkVisibility();
+                
+                const authButtons = document.getElementById('authButtons');
+                const userInfo = document.getElementById('userInfo');
+                const userName = document.getElementById('userName');
+                const userBadge = document.getElementById('userBadge');
+                
+                if (authButtons && userInfo) {
+                    authButtons.style.display = 'none';
+                    userInfo.style.display = 'flex';
+                    if (userName) userName.textContent = currentUser.username;
+                    if (userBadge) {
+                        userBadge.textContent = currentUser.role === 'admin' ? 'admin' : '';
+                        userBadge.style.display = currentUser.role === 'admin' ? 'inline-block' : 'none';
+                    }
+                }
+                
+                window.closeAuthModal();
+                showSuccess(`✅ Добро пожаловать, ${currentUser.username}!`);
+                await loadAllRatings();
+                await loadWatchedProjects();
+            } else {
+                showModalError('loginModal', 'Неверный логин или пароль');
+            }
+        } catch (error) {
+            showModalError('loginModal', 'Ошибка сети. Попробуйте позже.');
+        }
+    };
+
+    window.logout = async function () {
+        localStorage.removeItem('auth_token');
+        currentUser = null;
+        
+        const authButtons = document.getElementById('authButtons');
+        const userInfo = document.getElementById('userInfo');
+        
+        if (authButtons && userInfo) {
+            authButtons.style.display = 'flex';
+            userInfo.style.display = 'none';
+        }
+        
+        updateProfileLinkVisibility();
+        showSuccess('👋 До свидания!');
+        await loadAllRatings();
+        await loadWatchedProjects();
+    };
 
     // ========== ЗАГРУЗКА ОЦЕНОК ТЕКУЩЕГО ПОЛЬЗОВАТЕЛЯ ==========
     async function loadUserRatings() {
@@ -368,16 +574,6 @@
         return rating.toFixed(1);
     }
 
-    // Функция для получения HTML аватарки
-    function getAvatarHtml(username, avatar, size = 32) {
-        if (avatar) {
-            return `<img src="${avatar}" class="rating-user-avatar" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;flex-shrink:0;">`;
-        } else {
-            const initials = username.substring(0, 2).toUpperCase();
-            return `<div class="rating-user-avatar-placeholder" style="width:${size}px;height:${size}px;border-radius:50%;background:linear-gradient(135deg,#8B7355,#6B5B4A);display:flex;align-items:center;justify-content:center;color:white;font-size:${size/2}px;font-weight:600;flex-shrink:0;">${initials}</div>`;
-        }
-    }
-
     // ========== ОТКРЫТИЕ МОДАЛКИ С ОЦЕНКАМИ ==========
     window.openRatingModal = function (projectId) {
         const project = myProjects.find(p => p.id === projectId);
@@ -434,7 +630,7 @@
 
         const ratingsHtml = usersWithRatings.length > 0
             ? usersWithRatings.map(user => {
-                const avatarHtml = getAvatarHtml(user.username, user.avatar, 46);
+                const avatarHtml = getAvatarHtml(user.username, user.avatar, 36);
                 return `
                     <div class="rating-row">
                         <div class="rating-header">
@@ -473,7 +669,7 @@
                     <div class="rating-row">
                         <div class="rating-header">
                             <div class="rating-user-info" style="display:flex;align-items:center;gap:10px;">
-                                ${getAvatarHtml(currentUser.username, currentUser?.avatar, 56)}
+                                ${getAvatarHtml(currentUser.username, currentUser?.avatar, 36)}
                                 <span class="rating-name">${escapeHtml(currentUser.username)}</span>
                             </div>
                             <span class="rating-display ${getRatingClass(currentUserRating.rating)}">
@@ -554,7 +750,6 @@
             else if (project.type === 'Сериал') posterEmoji = '📺';
             else if (project.type === 'Мультфильм') posterEmoji = '🖍️';
 
-            // Получаем оценки из правильного источника
             let totalRating = 0;
             let ratingCount = 0;
             
@@ -644,6 +839,24 @@
         }
     }
 
+    // Настройка закрытия модалок
+    function setupModalCloseHandlers() {
+        const overlay = document.getElementById('modalOverlay');
+        if (overlay) {
+            overlay.addEventListener('click', function() {
+                window.closeAuthModal();
+                window.closeRatingModal();
+            });
+        }
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                window.closeAuthModal();
+                window.closeRatingModal();
+            }
+        });
+    }
+
     // ========== СЛУШАЕМ СОБЫТИЯ ==========
     window.addEventListener('ratingsUpdated', () => {
         loadAllRatings();
@@ -670,6 +883,7 @@
         await loadUserGroups();
         setupModeToggle();
         await loadWatchedProjects();
+        setupModalCloseHandlers();
 
         setInterval(async () => {
             await loadAllRatings();

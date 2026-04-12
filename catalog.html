@@ -26,7 +26,7 @@
                 <a href="index.html" class="nav-link">Колесо</a>
                 <a href="catalog.html" class="nav-link active">Каталог</a>
                 <a href="ratings.html" class="nav-link">Оценки</a>
-                <a href="profile.html" class="nav-link">Профиль</a>
+                <a href="profile.html" class="nav-link" id="profileLink">Профиль</a>
             </nav>
 
             <div class="auth-section">
@@ -35,7 +35,7 @@
                     <button class="btn-primary" onclick="window.showRegisterModal()">Регистрация</button>
                 </div>
                 <div class="user-info" id="userInfo" style="display: none;">
-                    <span class="user-avatar">👤</span>
+                    <div class="user-avatar">👤</div>
                     <span class="user-name" id="userName"></span>
                     <span class="user-badge" id="userBadge"></span>
                     <button class="btn-outline small" onclick="window.logout()">Выйти</button>
@@ -96,10 +96,6 @@
             </div>
         </div>
 
-        <!-- Сообщения -->
-        <div class="toast-message success" id="successMessage"></div>
-        <div class="toast-message error" id="errorMessage"></div>
-
         <!-- Сетка проектов -->
         <div class="projects-grid" id="projectsGrid">
             <div class="loading-state">
@@ -115,37 +111,67 @@
     <!-- Модалка входа -->
     <div class="auth-modal" id="loginModal">
         <div class="auth-modal-content">
-            <h3>🔑 Вход</h3>
-            <input type="text" id="loginUsername" class="auth-input" placeholder="Логин">
-            <input type="password" id="loginPassword" class="auth-input" placeholder="Пароль">
-            <div class="auth-hint">После входа вы сможете добавлять фильмы в каталог</div>
-            <div class="auth-buttons">
+            <button class="modal-close auth-close" onclick="window.closeAuthModal()">✕</button>
+            <div class="auth-modal-header">
+                <span class="auth-modal-icon">🔑</span>
+                <h3>Вход в аккаунт</h3>
+            </div>
+            <div class="auth-modal-body">
+                <div class="auth-error" id="loginError" style="display: none;"></div>
+                <input type="text" id="loginUsername" class="auth-input" placeholder="Логин">
+                <input type="password" id="loginPassword" class="auth-input" placeholder="Пароль">
+            </div>
+            <div class="auth-modal-footer">
                 <button class="btn-outline" onclick="window.closeAuthModal()">Отмена</button>
                 <button class="btn-primary" onclick="window.submitLogin()">Войти</button>
             </div>
-            <div class="auth-link" onclick="window.showRegisterModal(); window.closeAuthModal()">Нет аккаунта?
-                Зарегистрироваться</div>
+            <div class="auth-modal-link" onclick="window.switchToRegister()">
+                Нет аккаунта? <span>Зарегистрироваться</span>
+            </div>
         </div>
     </div>
 
     <!-- Модалка регистрации -->
     <div class="auth-modal" id="registerModal">
         <div class="auth-modal-content">
-            <h3>📝 Регистрация</h3>
-            <input type="text" id="regUsername" class="auth-input" placeholder="Придумайте логин">
-            <input type="password" id="regPassword" class="auth-input" placeholder="Придумайте пароль">
-            <div class="auth-hint">После регистрации нужно дождаться подтверждения администратором</div>
-            <div class="auth-buttons">
+            <button class="modal-close auth-close" onclick="window.closeAuthModal()">✕</button>
+            <div class="auth-modal-header">
+                <span class="auth-modal-icon">📝</span>
+                <h3>Регистрация</h3>
+            </div>
+            <div class="auth-modal-body">
+                <div class="auth-error" id="registerError" style="display: none;"></div>
+                <input type="text" id="regUsername" class="auth-input" placeholder="Придумайте логин">
+                <input type="password" id="regPassword" class="auth-input" placeholder="Придумайте пароль">
+                <div class="auth-hint">После регистрации нужно дождаться подтверждения администратором</div>
+            </div>
+            <div class="auth-modal-footer">
                 <button class="btn-outline" onclick="window.closeAuthModal()">Отмена</button>
                 <button class="btn-primary" onclick="window.submitRegistration()">Зарегистрироваться</button>
             </div>
-            <div class="auth-link" onclick="window.showLoginModal(); window.closeAuthModal()">Уже есть аккаунт? Войти
+            <div class="auth-modal-link" onclick="window.switchToLogin()">
+                Уже есть аккаунт? <span>Войти</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модалка требования авторизации (заглушка) -->
+    <div class="auth-required-modal" id="authRequiredModal">
+        <div class="auth-required-content">
+            <button class="modal-close" onclick="window.closeAuthRequiredModal()">✕</button>
+            <div class="auth-required-icon">🔐</div>
+            <h3>Требуется авторизация</h3>
+            <p>Чтобы смотреть фильмы и сериалы, необходимо войти в аккаунт или зарегистрироваться.</p>
+            <div class="auth-required-buttons">
+                <button class="btn-primary"
+                    onclick="window.closeAuthRequiredModal(); window.showLoginModal()">Войти</button>
+                <button class="btn-outline"
+                    onclick="window.closeAuthRequiredModal(); window.showRegisterModal()">Зарегистрироваться</button>
             </div>
         </div>
     </div>
 
     <!-- Модалка проекта (детальный просмотр) -->
-    <div class="modal-overlay-project" id="modalOverlayProject" style="display: none;"></div>
     <div class="project-modal" id="projectModal">
         <div class="project-modal-content">
             <button class="modal-close" onclick="window.closeModal()">✕</button>
