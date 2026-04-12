@@ -66,6 +66,47 @@
         }
     }
 
+    // Функция для закрытия всех модалок
+    function closeAllModals() {
+        // Закрываем модалки авторизации
+        const loginModal = document.getElementById('loginModal');
+        const registerModal = document.getElementById('registerModal');
+        if (loginModal) loginModal.style.display = 'none';
+        if (registerModal) registerModal.style.display = 'none';
+        
+        // Закрываем модалку оценок
+        if (ratingModal) {
+            ratingModal.classList.remove('active');
+            ratingModal.style.display = 'none';
+        }
+        
+        // Закрываем оверлей
+        const overlay = document.getElementById('modalOverlay');
+        if (overlay) overlay.style.display = 'none';
+        
+        document.body.classList.remove('modal-open');
+        currentProject = null;
+    }
+
+    // Настройка закрытия модалок
+    function setupModalCloseHandlers() {
+        const overlay = document.getElementById('modalOverlay');
+        if (overlay) {
+            overlay.addEventListener('click', function(e) {
+                // Проверяем, не кликнули ли по содержимому модалки
+                if (e.target === overlay) {
+                    closeAllModals();
+                }
+            });
+        }
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeAllModals();
+            }
+        });
+    }
+
     // ========== АВТОРИЗАЦИЯ ==========
     async function loadCurrentUser() {
         try {
@@ -112,15 +153,39 @@
     window.switchToLogin = function() {
         const loginModal = document.getElementById('loginModal');
         const registerModal = document.getElementById('registerModal');
+        const overlay = document.getElementById('modalOverlay');
+        
         if (loginModal) loginModal.style.display = 'flex';
         if (registerModal) registerModal.style.display = 'none';
+        if (overlay) overlay.style.display = 'block';
+        
+        // Очищаем поля и ошибки
+        const loginUsername = document.getElementById('loginUsername');
+        const loginPassword = document.getElementById('loginPassword');
+        if (loginUsername) loginUsername.value = '';
+        if (loginPassword) loginPassword.value = '';
+        
+        const loginError = document.getElementById('loginError');
+        if (loginError) loginError.style.display = 'none';
     };
 
     window.switchToRegister = function() {
         const loginModal = document.getElementById('loginModal');
         const registerModal = document.getElementById('registerModal');
+        const overlay = document.getElementById('modalOverlay');
+        
         if (loginModal) loginModal.style.display = 'none';
         if (registerModal) registerModal.style.display = 'flex';
+        if (overlay) overlay.style.display = 'block';
+        
+        // Очищаем поля и ошибки
+        const regUsername = document.getElementById('regUsername');
+        const regPassword = document.getElementById('regPassword');
+        if (regUsername) regUsername.value = '';
+        if (regPassword) regPassword.value = '';
+        
+        const registerError = document.getElementById('registerError');
+        if (registerError) registerError.style.display = 'none';
     };
 
     window.showLoginModal = function () {
@@ -691,13 +756,31 @@
             </div>
         `;
 
+        // Показываем модалку
         ratingModal.classList.add('active');
+        ratingModal.style.display = 'flex';
         document.body.classList.add('modal-open');
+        
+        // Показываем оверлей
+        const overlay = document.getElementById('modalOverlay');
+        if (overlay) overlay.style.display = 'block';
     };
 
     window.closeRatingModal = function () {
         ratingModal.classList.remove('active');
+        ratingModal.style.display = 'none';
         document.body.classList.remove('modal-open');
+        
+        const overlay = document.getElementById('modalOverlay');
+        if (overlay && overlay.style.display === 'block') {
+            // Проверяем, нет ли других открытых модалок
+            const loginModal = document.getElementById('loginModal');
+            const registerModal = document.getElementById('registerModal');
+            if ((!loginModal || loginModal.style.display !== 'flex') && 
+                (!registerModal || registerModal.style.display !== 'flex')) {
+                overlay.style.display = 'none';
+            }
+        }
         currentProject = null;
     };
 
@@ -837,24 +920,6 @@
                 successMessageDiv.style.display = 'none';
             }, 2000);
         }
-    }
-
-    // Настройка закрытия модалок
-    function setupModalCloseHandlers() {
-        const overlay = document.getElementById('modalOverlay');
-        if (overlay) {
-            overlay.addEventListener('click', function() {
-                window.closeAuthModal();
-                window.closeRatingModal();
-            });
-        }
-        
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                window.closeAuthModal();
-                window.closeRatingModal();
-            }
-        });
     }
 
     // ========== СЛУШАЕМ СОБЫТИЯ ==========

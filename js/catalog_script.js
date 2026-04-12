@@ -938,6 +938,51 @@
         if (seasonDiv) seasonDiv.style.display = forceOpen ? 'grid' : seasonDiv.style.display === 'none' ? 'grid' : 'none';
     };
 
+    // Функция для закрытия всех модалок (оверлей и ESC)
+    function closeAllModals() {
+        // Закрываем модалку-заглушку
+        const authRequiredModal = document.getElementById('authRequiredModal');
+        if (authRequiredModal) authRequiredModal.style.display = 'none';
+        
+        // Закрываем модалку проекта
+        const projectModal = document.querySelector('.project-modal.active');
+        if (projectModal) {
+            projectModal.classList.remove('active');
+            projectModal.style.display = 'none';
+            setTimeout(() => projectModal.remove(), 300);
+        }
+        
+        // Закрываем модалки авторизации
+        const loginModal = document.getElementById('loginModal');
+        const registerModal = document.getElementById('registerModal');
+        if (loginModal) loginModal.style.display = 'none';
+        if (registerModal) registerModal.style.display = 'none';
+        
+        // Закрываем оверлей
+        const overlay = document.getElementById('modalOverlay');
+        if (overlay) overlay.style.display = 'none';
+        
+        document.body.classList.remove('modal-open');
+    }
+
+    // Настройка закрытия модалок
+    function setupModalCloseHandlers() {
+        const overlay = document.getElementById('modalOverlay');
+        if (overlay) {
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) {
+                    closeAllModals();
+                }
+            });
+        }
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeAllModals();
+            }
+        });
+    }
+
     // Функции для работы с модалкой требования авторизации (используем существующий HTML)
     window.showAuthRequiredModal = function () {
         const modal = document.getElementById('authRequiredModal');
@@ -953,57 +998,18 @@
         const modal = document.getElementById('authRequiredModal');
         const overlay = document.getElementById('modalOverlay');
         if (modal) modal.style.display = 'none';
-        if (overlay) overlay.style.display = 'none';
+        if (overlay && overlay.style.display === 'block') {
+            // Проверяем, нет ли других открытых модалок
+            const projectModal = document.querySelector('.project-modal.active');
+            const loginModal = document.getElementById('loginModal');
+            const registerModal = document.getElementById('registerModal');
+            if (!projectModal && (!loginModal || loginModal.style.display !== 'flex') && 
+                (!registerModal || registerModal.style.display !== 'flex')) {
+                overlay.style.display = 'none';
+            }
+        }
         document.body.classList.remove('modal-open');
     };
-
-
-    function setupModalCloseHandlers() {
-        const overlay = document.getElementById('modalOverlay');
-        if (overlay) {
-            overlay.addEventListener('click', function (e) {
-                // Закрываем модалку авторизации
-                window.closeAuthRequiredModal();
-                // Закрываем модалки входа/регистрации
-                const loginModal = document.getElementById('loginModal');
-                const registerModal = document.getElementById('registerModal');
-                if (loginModal && loginModal.style.display === 'flex') {
-                    loginModal.style.display = 'none';
-                }
-                if (registerModal && registerModal.style.display === 'flex') {
-                    registerModal.style.display = 'none';
-                }
-                // Закрываем проектную модалку
-                const projectModal = document.querySelector('.project-modal.active');
-                if (projectModal) {
-                    window.closeModal();
-                }
-                overlay.style.display = 'none';
-            });
-        }
-
-        // Обработчик клавиши ESC
-        document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape') {
-                window.closeAuthRequiredModal();
-                const loginModal = document.getElementById('loginModal');
-                const registerModal = document.getElementById('registerModal');
-                if (loginModal && loginModal.style.display === 'flex') {
-                    loginModal.style.display = 'none';
-                }
-                if (registerModal && registerModal.style.display === 'flex') {
-                    registerModal.style.display = 'none';
-                }
-                const projectModal = document.querySelector('.project-modal.active');
-                if (projectModal) {
-                    window.closeModal();
-                }
-                const overlay = document.getElementById('modalOverlay');
-                if (overlay) overlay.style.display = 'none';
-                document.body.classList.remove('modal-open');
-            }
-        });
-    }
 
     window.openModal = async function (projectId) {
         const project = myProjects.find(p => p.id === projectId);
@@ -1020,6 +1026,10 @@
         if (existingModal) existingModal.remove();
 
         document.body.classList.add('modal-open');
+        
+        // Показываем оверлей
+        const overlay = document.getElementById('modalOverlay');
+        if (overlay) overlay.style.display = 'block';
 
         const modal = document.createElement('div');
         modal.className = 'project-modal active';
@@ -1117,6 +1127,17 @@
             modal.style.display = 'none';
             document.body.classList.remove('modal-open');
             setTimeout(() => modal.remove(), 300);
+        }
+        
+        // Закрываем оверлей, если нет других открытых модалок
+        const overlay = document.getElementById('modalOverlay');
+        const authRequiredModal = document.getElementById('authRequiredModal');
+        const loginModal = document.getElementById('loginModal');
+        const registerModal = document.getElementById('registerModal');
+        if (overlay && (!authRequiredModal || authRequiredModal.style.display !== 'flex') &&
+            (!loginModal || loginModal.style.display !== 'flex') &&
+            (!registerModal || registerModal.style.display !== 'flex')) {
+            overlay.style.display = 'none';
         }
     };
 
@@ -1231,6 +1252,7 @@
     };
     window.showAuthRequiredModal = showAuthRequiredModal;
     window.closeAuthRequiredModal = closeAuthRequiredModal;
+    window.closeAllModals = closeAllModals;
     window.debugCatalog = function () {
         console.log('=== DEBUG CATALOG ===');
         console.log('currentMode:', currentMode);
