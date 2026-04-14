@@ -37,21 +37,21 @@
     function handleAvatarFileSelect(event) {
         const file = event.target.files[0];
         if (!file) return;
-        
+
         if (!file.type.startsWith('image/')) {
             showError('Пожалуйста, выберите изображение');
             return;
         }
-        
+
         if (file.size > 5 * 1024 * 1024) {
             showError('Размер изображения не должен превышать 5MB');
             return;
         }
-        
+
         selectedFile = file;
-        
+
         const reader = new FileReader();
-        reader.onload = function(e) {
+        reader.onload = function (e) {
             const previewImage = document.getElementById('previewImage');
             if (previewImage) {
                 previewImage.src = e.target.result;
@@ -65,13 +65,13 @@
     async function resizeAndConvertImage(file, maxSize = 200) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = function (e) {
                 const img = new Image();
-                img.onload = function() {
+                img.onload = function () {
                     const canvas = document.createElement('canvas');
                     let width = img.width;
                     let height = img.height;
-                    
+
                     if (width > height) {
                         if (width > maxSize) {
                             height *= maxSize / width;
@@ -83,12 +83,12 @@
                             height = maxSize;
                         }
                     }
-                    
+
                     canvas.width = width;
                     canvas.height = height;
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, width, height);
-                    
+
                     const base64 = canvas.toDataURL('image/jpeg', 0.8);
                     resolve(base64);
                 };
@@ -100,18 +100,18 @@
         });
     }
 
-    window.openAvatarModal = function() {
+    window.openAvatarModal = function () {
         const modal = document.getElementById('avatarModal');
         const overlay = document.getElementById('modalOverlay');
         if (modal) modal.style.display = 'flex';
         if (overlay) overlay.style.display = 'block';
-        
+
         // Сброс выбора
         selectedFile = null;
         const previewImage = document.getElementById('previewImage');
         const avatarInput = document.getElementById('avatarInput');
         const saveBtn = document.getElementById('saveAvatarBtn');
-        
+
         if (previewImage && currentUser?.avatar) {
             previewImage.src = currentUser.avatar;
         } else if (previewImage) {
@@ -121,7 +121,7 @@
         if (saveBtn) saveBtn.disabled = true;
     };
 
-    window.closeAvatarModal = function() {
+    window.closeAvatarModal = function () {
         const modal = document.getElementById('avatarModal');
         const overlay = document.getElementById('modalOverlay');
         if (modal) modal.style.display = 'none';
@@ -129,14 +129,14 @@
         selectedFile = null;
     };
 
-    window.saveAvatar = async function() {
+    window.saveAvatar = async function () {
         if (!selectedFile) {
             showError('Выберите изображение');
             return;
         }
-        
+
         showLoading();
-        
+
         try {
             const base64 = await resizeAndConvertImage(selectedFile);
             const response = await window.authFetch(`${API_URL}/api/user/avatar`, {
@@ -144,7 +144,7 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ avatar: base64, type: selectedFile.type })
             });
-            
+
             const data = await response.json();
             if (data.success) {
                 showSuccess('Аватарка обновлена!');
@@ -162,16 +162,16 @@
         }
     };
 
-    window.deleteAvatar = async function() {
+    window.deleteAvatar = async function () {
         if (!confirm('Удалить аватарку?')) return;
-        
+
         showLoading();
-        
+
         try {
             const response = await window.authFetch(`${API_URL}/api/user/avatar`, {
                 method: 'DELETE'
             });
-            
+
             const data = await response.json();
             if (data.success) {
                 showSuccess('Аватарка удалена');
@@ -199,7 +199,7 @@
                 profileAvatar.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=8B7355&color=fff&size=120&rounded=true&bold=true&length=2`;
             }
         }
-        
+
         // Обновляем аватарку в шапке
         const userAvatarSpan = document.querySelector('.user-avatar');
         if (userAvatarSpan && currentUser) {
@@ -778,10 +778,15 @@
             }
         }
 
-        const newToggle = catalogModeToggle.cloneNode(true);
-        catalogModeToggle.parentNode.replaceChild(newToggle, catalogModeToggle);
+        // Удаляем старые обработчики, но НЕ заменяем элемент через cloneNode
+        // Вместо этого просто обновляем классы и оставляем тот же элемент
 
-        newToggle.addEventListener('click', async () => {
+        // Убираем все старые обработчики
+        const oldClickHandler = catalogModeToggle.onclick;
+        if (oldClickHandler) catalogModeToggle.onclick = null;
+
+        // Добавляем новый обработчик
+        catalogModeToggle.addEventListener('click', async () => {
             const newMode = currentMode === 'personal' ? 'group' : 'personal';
 
             if (newMode === 'group' && !selectedGroupId) {
@@ -789,9 +794,10 @@
                 return;
             }
 
-            newToggle.style.transform = 'scale(0.95)';
+            // Анимация: добавляем временный класс для плавности
+            catalogModeToggle.style.transform = 'scale(0.95)';
             setTimeout(() => {
-                newToggle.style.transform = '';
+                catalogModeToggle.style.transform = '';
             }, 150);
 
             currentMode = newMode;
@@ -1098,38 +1104,77 @@
 
         try {
             let newStatus = status;
+            let season = 1;
+            let episode = 1;
+            let timecode = 0;
+
             if (status === 'remove') {
                 newStatus = 'planned';
             }
 
-            const response = await window.authFetch(`${API_URL}/api/user/progress`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    project_id: currentProject.id,
-                    status: newStatus,
-                    season: 1,
-                    episode: 1,
-                    timecode: status === 'watched' ? 0 : null
-                })
-            });
-
-            if (response.ok) {
-                showSuccess(`Статус изменен на ${getStatusText(status)}`);
-                await loadProfileData();
-                await loadWatchedProjects();
-                renderWatchedList();
-                updateTabCounters();
-            } else {
-                const data = await response.json();
-                showError(data.error || 'Ошибка изменения статуса');
+            if (status === 'watched') {
+                timecode = 0;
             }
+
+            // Определяем правильный эндпоинт для обновления статуса
+            let response;
+
+            if (currentMode === 'group' && selectedGroupId) {
+                // Для групповых проектов
+                const project = allProjects.find(p => p.id === currentProject.id);
+                const groupProjectId = project?.group_project_id;
+
+                if (!groupProjectId) {
+                    showError('Не удалось идентифицировать групповой проект');
+                    hideLoading();
+                    return;
+                }
+
+                response = await window.authFetch(`${API_URL}/api/groups/${selectedGroupId}/projects/${groupProjectId}/status`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: newStatus })
+                });
+            } else {
+                // Для личных проектов
+                response = await window.authFetch(`${API_URL}/api/user/projects/${currentProject.id}/status`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: newStatus })
+                });
+            }
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `Ошибка: ${response.status}`);
+            }
+
+            // Обновляем локальные данные
+            const projectIndex = allProjects.findIndex(p => p.id === currentProject.id);
+            if (projectIndex !== -1) {
+                if (newStatus === 'watched') {
+                    // Удаляем из текущих проектов
+                    allProjects.splice(projectIndex, 1);
+                } else {
+                    // Обновляем статус
+                    allProjects[projectIndex].status = newStatus;
+                    allProjects[projectIndex].user_status = newStatus;
+                    allProjects[projectIndex].inProgress = newStatus === 'in_progress';
+                    allProjects[projectIndex].watched = newStatus === 'watched';
+                }
+            }
+
+            // Перезагружаем данные для синхронизации
+            await loadProfileData();
+
+            showSuccess(`Статус изменен на ${getStatusText(status)}`);
+            closeStatusModal();
+
         } catch (error) {
-            console.error('Ошибка:', error);
-            showError('Ошибка сети');
+            console.error('❌ Ошибка:', error);
+            showError(error.message || 'Ошибка изменения статуса');
         } finally {
             hideLoading();
-            closeStatusModal();
         }
     };
 

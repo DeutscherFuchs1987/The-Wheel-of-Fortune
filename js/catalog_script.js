@@ -1275,6 +1275,32 @@
         });
     }
 
+        // ========== КНОПКА "НАВЕРХ" ==========
+    function initBackToTop() {
+        const backToTopBtn = document.getElementById('backToTop');
+        if (!backToTopBtn) return;
+        
+        // Показываем/скрываем кнопку при скролле
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 300) {
+                backToTopBtn.classList.add('show');
+            } else {
+                backToTopBtn.classList.remove('show');
+            }
+        });
+        
+        // Плавная прокрутка наверх
+        backToTopBtn.addEventListener('click', () => {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        });
+    }
+    
+    // Вызываем инициализацию
+    initBackToTop();
+
     // ========== ИНИЦИАЛИЗАЦИЯ ==========
     async function init() {
         await loadCurrentUser();

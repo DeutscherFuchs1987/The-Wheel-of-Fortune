@@ -34,7 +34,7 @@
             return `<img src="${avatar}" class="rating-user-avatar" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;flex-shrink:0;">`;
         } else {
             const initials = username.substring(0, 2).toUpperCase();
-            return `<div class="rating-user-avatar-placeholder" style="width:${size}px;height:${size}px;border-radius:50%;background:linear-gradient(135deg,#8B7355,#6B5B4A);display:flex;align-items:center;justify-content:center;color:white;font-size:${size/2}px;font-weight:600;flex-shrink:0;">${initials}</div>`;
+            return `<div class="rating-user-avatar-placeholder" style="width:${size}px;height:${size}px;border-radius:50%;background:linear-gradient(135deg,#8B7355,#6B5B4A);display:flex;align-items:center;justify-content:center;color:white;font-size:${size / 2}px;font-weight:600;flex-shrink:0;">${initials}</div>`;
         }
     }
 
@@ -42,7 +42,7 @@
     function updateHeaderAvatar() {
         const userAvatarSpan = document.querySelector('.user-avatar');
         if (!userAvatarSpan || !currentUser) return;
-        
+
         if (currentUser.avatar) {
             userAvatarSpan.innerHTML = `<img src="${currentUser.avatar}" class="header-avatar" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">`;
         } else {
@@ -73,17 +73,17 @@
         const registerModal = document.getElementById('registerModal');
         if (loginModal) loginModal.style.display = 'none';
         if (registerModal) registerModal.style.display = 'none';
-        
+
         // Закрываем модалку оценок
         if (ratingModal) {
             ratingModal.classList.remove('active');
             ratingModal.style.display = 'none';
         }
-        
+
         // Закрываем оверлей
         const overlay = document.getElementById('modalOverlay');
         if (overlay) overlay.style.display = 'none';
-        
+
         document.body.classList.remove('modal-open');
         currentProject = null;
     }
@@ -92,15 +92,15 @@
     function setupModalCloseHandlers() {
         const overlay = document.getElementById('modalOverlay');
         if (overlay) {
-            overlay.addEventListener('click', function(e) {
+            overlay.addEventListener('click', function (e) {
                 // Проверяем, не кликнули ли по содержимому модалки
                 if (e.target === overlay) {
                     closeAllModals();
                 }
             });
         }
-        
-        document.addEventListener('keydown', function(e) {
+
+        document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') {
                 closeAllModals();
             }
@@ -150,40 +150,40 @@
         }
     }
 
-    window.switchToLogin = function() {
+    window.switchToLogin = function () {
         const loginModal = document.getElementById('loginModal');
         const registerModal = document.getElementById('registerModal');
         const overlay = document.getElementById('modalOverlay');
-        
+
         if (loginModal) loginModal.style.display = 'flex';
         if (registerModal) registerModal.style.display = 'none';
         if (overlay) overlay.style.display = 'block';
-        
+
         // Очищаем поля и ошибки
         const loginUsername = document.getElementById('loginUsername');
         const loginPassword = document.getElementById('loginPassword');
         if (loginUsername) loginUsername.value = '';
         if (loginPassword) loginPassword.value = '';
-        
+
         const loginError = document.getElementById('loginError');
         if (loginError) loginError.style.display = 'none';
     };
 
-    window.switchToRegister = function() {
+    window.switchToRegister = function () {
         const loginModal = document.getElementById('loginModal');
         const registerModal = document.getElementById('registerModal');
         const overlay = document.getElementById('modalOverlay');
-        
+
         if (loginModal) loginModal.style.display = 'none';
         if (registerModal) registerModal.style.display = 'flex';
         if (overlay) overlay.style.display = 'block';
-        
+
         // Очищаем поля и ошибки
         const regUsername = document.getElementById('regUsername');
         const regPassword = document.getElementById('regPassword');
         if (regUsername) regUsername.value = '';
         if (regPassword) regPassword.value = '';
-        
+
         const registerError = document.getElementById('registerError');
         if (registerError) registerError.style.display = 'none';
     };
@@ -192,17 +192,17 @@
         const overlay = document.getElementById('modalOverlay');
         const loginModal = document.getElementById('loginModal');
         const registerModal = document.getElementById('registerModal');
-        
+
         if (overlay) overlay.style.display = 'block';
         if (loginModal) loginModal.style.display = 'flex';
         if (registerModal) registerModal.style.display = 'none';
-        
+
         // Очищаем поля и ошибки
         const loginUsername = document.getElementById('loginUsername');
         const loginPassword = document.getElementById('loginPassword');
         if (loginUsername) loginUsername.value = '';
         if (loginPassword) loginPassword.value = '';
-        
+
         const loginError = document.getElementById('loginError');
         if (loginError) loginError.style.display = 'none';
     };
@@ -211,17 +211,17 @@
         const overlay = document.getElementById('modalOverlay');
         const loginModal = document.getElementById('loginModal');
         const registerModal = document.getElementById('registerModal');
-        
+
         if (overlay) overlay.style.display = 'block';
         if (registerModal) registerModal.style.display = 'flex';
         if (loginModal) loginModal.style.display = 'none';
-        
+
         // Очищаем поля и ошибки
         const regUsername = document.getElementById('regUsername');
         const regPassword = document.getElementById('regPassword');
         if (regUsername) regUsername.value = '';
         if (regPassword) regPassword.value = '';
-        
+
         const registerError = document.getElementById('registerError');
         if (registerError) registerError.style.display = 'none';
     };
@@ -230,7 +230,7 @@
         const overlay = document.getElementById('modalOverlay');
         const loginModal = document.getElementById('loginModal');
         const registerModal = document.getElementById('registerModal');
-        
+
         if (overlay) overlay.style.display = 'none';
         if (loginModal) loginModal.style.display = 'none';
         if (registerModal) registerModal.style.display = 'none';
@@ -301,12 +301,12 @@
                 currentUser = data.user;
                 updateHeaderAvatar();
                 updateProfileLinkVisibility();
-                
+
                 const authButtons = document.getElementById('authButtons');
                 const userInfo = document.getElementById('userInfo');
                 const userName = document.getElementById('userName');
                 const userBadge = document.getElementById('userBadge');
-                
+
                 if (authButtons && userInfo) {
                     authButtons.style.display = 'none';
                     userInfo.style.display = 'flex';
@@ -316,7 +316,7 @@
                         userBadge.style.display = currentUser.role === 'admin' ? 'inline-block' : 'none';
                     }
                 }
-                
+
                 window.closeAuthModal();
                 showSuccess(`✅ Добро пожаловать, ${currentUser.username}!`);
                 await loadAllRatings();
@@ -332,15 +332,15 @@
     window.logout = async function () {
         localStorage.removeItem('auth_token');
         currentUser = null;
-        
+
         const authButtons = document.getElementById('authButtons');
         const userInfo = document.getElementById('userInfo');
-        
+
         if (authButtons && userInfo) {
             authButtons.style.display = 'flex';
             userInfo.style.display = 'none';
         }
-        
+
         updateProfileLinkVisibility();
         showSuccess('👋 До свидания!');
         await loadAllRatings();
@@ -523,6 +523,7 @@
     };
 
     // ========== ПЕРЕКЛЮЧАТЕЛЬ РЕЖИМОВ ==========
+    // ========== ПЕРЕКЛЮЧАТЕЛЬ РЕЖИМОВ ==========
     function setupModeToggle() {
         const catalogModeToggle = document.getElementById('catalogModeToggle');
         const personalLabel = document.querySelector('.mode-label.personal');
@@ -537,6 +538,9 @@
         function updateModeUI() {
             console.log('🔄 Обновляем UI режима:', currentMode);
 
+            // Принудительный reflow для плавной анимации
+            void catalogModeToggle.offsetHeight;
+
             if (currentMode === 'personal') {
                 if (personalLabel) personalLabel.classList.add('active');
                 if (groupLabel) groupLabel.classList.remove('active');
@@ -550,19 +554,28 @@
             }
         }
 
+        // Убираем старые обработчики, НО НЕ заменяем элемент через cloneNode
+        // Удаляем все существующие обработчики
         const newToggle = catalogModeToggle.cloneNode(true);
         catalogModeToggle.parentNode.replaceChild(newToggle, catalogModeToggle);
 
+        // Добавляем новый обработчик на свежий элемент
         newToggle.addEventListener('click', (e) => {
             console.log('🖱️ Клик по переключателю');
-            
+
             const newMode = currentMode === 'personal' ? 'group' : 'personal';
-            
+
             if (newMode === 'group' && !selectedGroupId) {
                 showError('Сначала выберите группу из списка');
                 return;
             }
-            
+
+            // Анимация: добавляем эффект нажатия
+            newToggle.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                newToggle.style.transform = '';
+            }, 150);
+
             currentMode = newMode;
             localStorage.setItem('ratings_mode', currentMode);
             console.log('📌 Режим изменён на:', currentMode);
@@ -581,7 +594,7 @@
     // ========== УДАЛЕНИЕ ПРОЕКТА ==========
     const deleteProject = async function (projectId, event) {
         if (event) event.stopPropagation();
-        
+
         if (!confirm('Удалить проект из просмотренных? Он будет перемещён обратно в каталог.')) return;
 
         try {
@@ -656,7 +669,7 @@
 
         // Получаем оценки из правильного источника
         let ratingsSource = {};
-        
+
         if (currentMode === 'group' && selectedGroupId) {
             for (const [username, userData] of Object.entries(groupRatings)) {
                 if (userData.ratings && userData.ratings[projectId]) {
@@ -760,7 +773,7 @@
         ratingModal.classList.add('active');
         ratingModal.style.display = 'flex';
         document.body.classList.add('modal-open');
-        
+
         // Показываем оверлей
         const overlay = document.getElementById('modalOverlay');
         if (overlay) overlay.style.display = 'block';
@@ -770,13 +783,13 @@
         ratingModal.classList.remove('active');
         ratingModal.style.display = 'none';
         document.body.classList.remove('modal-open');
-        
+
         const overlay = document.getElementById('modalOverlay');
         if (overlay && overlay.style.display === 'block') {
             // Проверяем, нет ли других открытых модалок
             const loginModal = document.getElementById('loginModal');
             const registerModal = document.getElementById('registerModal');
-            if ((!loginModal || loginModal.style.display !== 'flex') && 
+            if ((!loginModal || loginModal.style.display !== 'flex') &&
                 (!registerModal || registerModal.style.display !== 'flex')) {
                 overlay.style.display = 'none';
             }
@@ -807,7 +820,7 @@
     // ========== ОТРИСОВКА КАРТОЧЕК ==========
     function renderProjects() {
         console.log('🎨 renderProjects() вызван, myProjects.length:', myProjects.length);
-        
+
         const filtered = getFilteredProjects();
         console.log('🎨 filtered.length:', filtered.length);
 
@@ -818,8 +831,8 @@
                     <p>Пока нет просмотренных фильмов</p>
                     <p style="font-size: 1rem; margin-top: 10px; color: #666;">
                         ${currentMode === 'group' && !selectedGroupId
-                            ? 'Выберите группу в переключателе режимов'
-                            : 'Отмечайте фильмы галочкой ✅ в каталоге, а затем оценивайте их в профиле'}
+                    ? 'Выберите группу в переключателе режимов'
+                    : 'Отмечайте фильмы галочкой ✅ в каталоге, а затем оценивайте их в профиле'}
                     </p>
                 </div>
             `;
@@ -835,7 +848,7 @@
 
             let totalRating = 0;
             let ratingCount = 0;
-            
+
             if (currentMode === 'group' && selectedGroupId) {
                 for (const [username, userData] of Object.entries(groupRatings)) {
                     if (userData.ratings && userData.ratings[project.id] && userData.ratings[project.id].rating) {
@@ -849,7 +862,7 @@
                     ratingCount++;
                 }
             }
-            
+
             const averageRating = ratingCount > 0 ? (totalRating / ratingCount).toFixed(1) : null;
             const userHasRated = userRatings[project.id] !== undefined;
 
@@ -969,6 +982,32 @@
             });
         });
     }
+
+    // ========== КНОПКА "НАВЕРХ" ==========
+    function initBackToTop() {
+        const backToTopBtn = document.getElementById('backToTop');
+        if (!backToTopBtn) return;
+
+        // Показываем/скрываем кнопку при скролле
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 300) {
+                backToTopBtn.classList.add('show');
+            } else {
+                backToTopBtn.classList.remove('show');
+            }
+        });
+
+        // Плавная прокрутка наверх
+        backToTopBtn.addEventListener('click', () => {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        });
+    }
+
+    // Вызываем инициализацию
+    initBackToTop();
 
     init();
 })();

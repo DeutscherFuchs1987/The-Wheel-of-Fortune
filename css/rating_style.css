@@ -225,12 +225,12 @@ body {
     position: absolute;
     top: 2px;
     left: 2px;
-    transition: transform 0.3s ease;
+    transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    will-change: transform;
 }
 
 .catalog-mode-toggle.group-mode .toggle-thumb {
     transform: translateX(24px);
-    background: #8B7355;
 }
 
 .mode-labels {
@@ -1058,5 +1058,81 @@ body {
     
     .delete-btn {
         opacity: 1;
+    }
+}
+
+/* ========== КНОПКА "НАВЕРХ" ========== */
+.back-to-top {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 50px;
+    height: 50px;
+    background: linear-gradient(135deg, #1a1a1a, #0f0f0f);
+    border: 2px solid #8B7355;
+    border-radius: 50%;
+    cursor: pointer;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.back-to-top.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.back-to-top:hover {
+    background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
+    border-color: #D4A85C;
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(139, 115, 85, 0.4);
+}
+
+.back-to-top:active {
+    transform: translateY(0);
+}
+
+.back-to-top-icon {
+    font-size: 28px;
+    font-weight: 700;
+    color: #8B7355;
+    transition: all 0.2s;
+}
+
+.back-to-top:hover .back-to-top-icon {
+    color: #D4A85C;
+    transform: translateY(-2px);
+}
+
+/* Адаптация для мобильных */
+@media (max-width: 768px) {
+    .back-to-top {
+        bottom: 20px;
+        right: 20px;
+        width: 44px;
+        height: 44px;
+    }
+    
+    .back-to-top-icon {
+        font-size: 24px;
+    }
+}
+
+@media (max-width: 480px) {
+    .back-to-top {
+        bottom: 15px;
+        right: 15px;
+        width: 40px;
+        height: 40px;
+    }
+    
+    .back-to-top-icon {
+        font-size: 22px;
     }
 }
