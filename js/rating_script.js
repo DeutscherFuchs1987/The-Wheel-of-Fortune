@@ -361,7 +361,6 @@
         }
     }
 
-    // ========== ЗАГРУЗКА ОЦЕНОК ВНУТРИ ГРУППЫ ==========
     async function loadGroupRatings() {
         if (currentMode !== 'group' || !selectedGroupId) {
             groupRatings = {};
@@ -369,18 +368,25 @@
         }
 
         try {
-            console.log(`👥 Загружаем оценки группы ${selectedGroupId}...`);
             const response = await window.authFetch(`${API_URL}/api/groups/${selectedGroupId}/ratings`);
             if (response.ok) {
                 const data = await response.json();
+
+                // Получаем ID пользователей
+                const membersResponse = await window.authFetch(`${API_URL}/api/groups/${selectedGroupId}/members`);
+                const members = await membersResponse.json();
+
+                const userIdMap = {};
+                members.forEach(member => {
+                    userIdMap[member.username] = member.user_id;
+                });
+
+                for (const [username, userData] of Object.entries(data)) {
+                    userData.user_id = userIdMap[username];
+                    // Не проверяем наличие тир-листа здесь
+                }
+
                 groupRatings = data;
-                console.log('⭐ Загружены оценки группы:', groupRatings);
-            } else if (response.status === 403) {
-                console.warn('Нет доступа к оценкам группы');
-                groupRatings = {};
-            } else {
-                console.error('Ошибка загрузки оценок группы:', response.status);
-                groupRatings = {};
             }
         } catch (error) {
             console.error('Ошибка загрузки оценок группы:', error);
@@ -706,25 +712,47 @@
 
         const currentUserRating = userRatings[projectId];
 
+        // Формируем HTML с оценками
         const ratingsHtml = usersWithRatings.length > 0
-            ? usersWithRatings.map(user => {
+            ? await Promise.all(usersWithRatings.map(async (user) => {
                 const avatarHtml = getAvatarHtml(user.username, user.avatar, 36);
+
+                // Проверяем, есть ли тир-лист у пользователя
+                let hasTierList = false;
+                try {
+                    const token = localStorage.getItem('auth_token');
+                    const checkResponse = await fetch(`${API_URL}/api/tierlist/${project.id}/user/${user.user_id}`, {
+                        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+                    });
+                    hasTierList = checkResponse.ok && checkResponse.status !== 404;
+                } catch (e) {
+                    hasTierList = false;
+                }
+
                 return `
-                    <div class="rating-row">
-                        <div class="rating-header">
-                            <div class="rating-user-info" style="display:flex;align-items:center;gap:10px;">
-                                ${avatarHtml}
-                                <span class="rating-name">${escapeHtml(user.username)} ${user.username === currentUser?.username ? '(Вы)' : ''}</span>
-                            </div>
-                            <span class="rating-display ${getRatingClass(user.rating)}">
-                                ${formatRating(user.rating)}
-                            </span>
-                        </div>
-                        ${user.notes ? `<div class="rating-notes">📝 ${escapeHtml(user.notes)}</div>` : ''}
+            <div class="rating-row" data-username="${user.username}">
+                <div class="rating-header">
+                    <div class="rating-user-info" style="display:flex; align-items:center; gap:10px;">
+                        ${avatarHtml}
+                        <span class="rating-name">${escapeHtml(user.username)} ${user.username === currentUser?.username ? '(Вы)' : ''}</span>
                     </div>
-                `;
-            }).join('')
+                    <span class="rating-display ${getRatingClass(user.rating)}">
+                        ${formatRating(user.rating)}
+                    </span>
+                </div>
+                ${user.notes ? `<div class="rating-notes">📝 ${escapeHtml(user.notes)}</div>` : ''}
+                ${hasTierList ? `
+                    <button class="tierlist-view-btn" onclick="window.openTierListViewerFromRating('${project.id}', '${escapeHtml(project.title_ru || project.title)}', ${user.user_id}, '${escapeHtml(user.username)}')">
+                        🏆 Показать тир-лист
+                    </button>
+                ` : `
+                    <div class="tierlist-empty-text">📭 Тир-лист не создан</div>
+                `}
+            </div>
+        `;
+            })).then(html => html.join(''))
             : '<div class="rating-row"><div class="rating-header"><span class="rating-name">Пока нет оценок</span></div></div>';
+
 
         modalContent.innerHTML = `
             <div class="modal-header">
@@ -778,6 +806,8 @@
         const overlay = document.getElementById('modalOverlay');
         if (overlay) overlay.style.display = 'block';
     };
+
+
 
     window.closeRatingModal = function () {
         ratingModal.classList.remove('active');
@@ -1008,6 +1038,33 @@
 
     // Вызываем инициализацию
     initBackToTop();
+
+
+    window.openTierListViewerFromRating = async function (animeId, animeTitle, userId, username) {
+        if (!currentUser) {
+            showError('Требуется авторизация');
+            return;
+        }
+
+        // Проверяем, есть ли тир-лист
+        const token = localStorage.getItem('auth_token');
+        const checkResponse = await fetch(`${API_URL}/api/tierlist/${animeId}/user/${userId}`, {
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+
+        if (checkResponse.status === 404) {
+            showError(`Пользователь ${username} ещё не создал тир-лист для этого аниме`, 'error');
+            return;
+        }
+
+        if (!checkResponse.ok) {
+            showError('Ошибка загрузки тир-листа', 'error');
+            return;
+        }
+
+        await window.openTierListViewer(animeId, animeTitle, userId, username);
+    };
+
 
     init();
 })();

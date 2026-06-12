@@ -26,6 +26,7 @@
         setupAvatarUpload();
     });
 
+
     // ========== РАБОТА С АВАТАРКАМИ ==========
     function setupAvatarUpload() {
         const avatarInput = document.getElementById('avatarInput');
@@ -1041,6 +1042,7 @@
                             `}
                         </div>
                         <button class="remove-watched-btn" onclick="event.stopPropagation(); window.removeFromWatched('${project.id}')">🗑️ Удалить</button>
+                        <button class="tierlist-btn" onclick="event.stopPropagation(); window.openTierListEditorFromProfile('${project.id}', '${escapeHtml(title)}')">🏆 Тир-лист</button>
                     </div>
                 </div>
             `;
@@ -1973,6 +1975,58 @@
             .replace(/"/g, "&quot;")
             .replace(/'/g, "&#039;");
     }
+
+
+    // ========== ТИР-ЛИСТЫ ==========
+    window.openTierListEditorFromProfile = async function (projectId, animeTitle) {
+        if (!currentUser) {
+            showError('Требуется авторизация');
+            return;
+        }
+
+        const project = allProjects.find(p => p.id === projectId);
+        if (!project) {
+            showError('Проект не найден');
+            return;
+        }
+
+        let malId = project.mal_id;
+
+        // Если MAL ID нет, пробуем найти по названию
+        if (!malId) {
+            showError('Поиск MAL ID для этого аниме...');
+
+            try {
+                // Ищем аниме по названию
+                const searchResponse = await fetch(`${API_URL}/api/anime/search?q=${encodeURIComponent(project.title_ru || project.title)}`);
+                const searchData = await searchResponse.json();
+
+                if (searchData.success && searchData.results && searchData.results.length > 0) {
+                    malId = searchData.results[0].id;
+
+                    // Сохраняем MAL ID в проект
+                    const updateResponse = await window.authFetch(`${API_URL}/api/user/projects/${projectId}/mal_id`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ mal_id: malId })
+                    });
+
+                    if (updateResponse.ok) {
+                        project.mal_id = malId;
+                        showSuccess(`Найден MAL ID: ${malId}`);
+                    }
+                } else {
+                    showError('Не удалось найти MAL ID для этого аниме');
+                    return;
+                }
+            } catch (error) {
+                showError('Ошибка поиска MAL ID');
+                return;
+            }
+        }
+
+        window.location.href = `tierlist.html?anime_id=${malId}`;
+    };
 
     function showLoading() {
         const loader = document.getElementById('profile-loader');

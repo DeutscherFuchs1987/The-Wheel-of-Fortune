@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Тир-лист | Cinema Wheel</title>
+    <link rel="stylesheet" href="css/profile_style.css">
+    <link rel="stylesheet" href="css/tierlist-page.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <div class="app tierlist-app">
+        <!-- Шапка -->
+        <header class="tierlist-header">
+            <div class="header-left">
+                <button class="back-btn" id="backBtn">← Назад</button>
+                <div class="anime-info">
+                    <span class="anime-icon">🏆</span>
+                    <h1 id="animeTitle">Загрузка...</h1>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="save-status" id="saveStatus">💾 Сохранено</div>
+                <button class="save-btn" id="saveBtn">💾 Сохранить</button>
+            </div>
+        </header>
+
+        <!-- Основной контент -->
+        <main class="tierlist-main">
+            <div class="tiers-container" id="tiersContainer">
+                <div class="loading-state">
+                    <div class="spinner"></div>
+                    <p>Загрузка персонажей...</p>
+                </div>
+            </div>
+        </main>
+
+        <!-- Панель добавления тира -->
+        <div class="add-tier-panel">
+            <button class="add-tier-btn" id="addTierBtn">+ Добавить тир</button>
+        </div>
+    </div>
+
+    <!-- Модалка добавления/редактирования тира -->
+    <div class="modal-overlay" id="modalOverlay" style="display: none;"></div>
+    <div class="tier-modal" id="tierModal" style="display: none;">
+        <div class="tier-modal-content">
+            <h3 id="tierModalTitle">➕ Добавить тир</h3>
+            <div class="form-group">
+                <label>Название тира</label>
+                <input type="text" id="tierName" placeholder="Например: GOD, MASTER, TRASH">
+            </div>
+            <div class="form-group">
+                <label>Цвет</label>
+                <input type="color" id="tierColor" class="color-input" value="#8B7355">
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-outline" id="cancelTierBtn">Отмена</button>
+                <button class="btn-primary" id="confirmTierBtn">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script src="js/tierlist-page.js"></script>
+</body>
+</html>

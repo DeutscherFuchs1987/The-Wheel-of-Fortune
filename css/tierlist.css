@@ -1,0 +1,421 @@
+/* ========== СТИЛИ ДЛЯ ТИР-ЛИСТОВ ========== */
+
+/* Модальное окно */
+.tierlist-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10001;
+    width: 90%;
+    max-width: 1200px;
+    height: 85vh;
+    background: #0a0a0a;
+    border-radius: 28px;
+    border: 1px solid #2a2a2a;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+}
+
+.tierlist-modal.small {
+    max-width: 450px;
+    height: auto;
+    max-height: 80vh;
+}
+
+.tierlist-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 24px;
+    border-bottom: 1px solid #2a2a2a;
+    background: #0f0f0f;
+    flex-shrink: 0;
+}
+
+.tierlist-modal-header h3 {
+    color: #e0e0e0;
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.modal-close {
+    width: 32px;
+    height: 32px;
+    background: #1a1a1a;
+    border: none;
+    border-radius: 50%;
+    color: #888;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-close:hover {
+    background: #C75C5C;
+    color: white;
+    transform: rotate(90deg);
+}
+
+/* Контент модалки — здесь будет скролл */
+.tierlist-modal-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    min-height: 0;
+}
+
+/* Контейнер с тирами */
+.tierlist-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 8px;
+}
+
+/* Карточка тира */
+.tier-card {
+    background: #0f0f0f;
+    border-radius: 20px;
+    border: 1px solid #2a2a2a;
+    overflow: hidden;
+    transition: all 0.2s;
+}
+
+.tier-card:hover {
+    border-color: #3a3a3a;
+}
+
+/* Заголовок тира */
+.tier-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    background: #141414;
+    border-bottom: 1px solid #2a2a2a;
+}
+
+.tier-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.tier-name {
+    font-size: 1.2rem;
+    font-weight: 700;
+    padding: 4px 14px;
+    border-radius: 30px;
+    letter-spacing: 0.5px;
+}
+
+.tier-count {
+    font-size: 0.75rem;
+    color: #666;
+    background: #1a1a1a;
+    padding: 2px 8px;
+    border-radius: 20px;
+}
+
+/* Кнопки управления тиром */
+.tier-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.tier-action-btn {
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 5px 10px;
+    color: #888;
+    cursor: pointer;
+    font-size: 0.7rem;
+    transition: all 0.2s;
+}
+
+.tier-action-btn:hover {
+    border-color: #8B7355;
+    color: #8B7355;
+}
+
+/* Контейнер для карточек персонажей */
+.tier-characters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    padding: 18px;
+    min-height: 140px;
+    background: #0c0c0c;
+    transition: background 0.2s;
+}
+
+.tier-characters.drag-over {
+    background: #161616;
+    outline: 2px dashed #8B7355;
+    outline-offset: -2px;
+}
+
+/* Карточка персонажа */
+.character-card {
+    width: 100px;
+    background: #141414;
+    border-radius: 14px;
+    overflow: hidden;
+    cursor: grab;
+    transition: all 0.2s;
+    border: 1px solid #2a2a2a;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+.character-card:active {
+    cursor: grabbing;
+}
+
+.character-card.dragging {
+    opacity: 0.4;
+}
+
+.character-card.drag-over {
+    border: 2px solid #D4A85C;
+    transform: scale(1.02);
+}
+
+.character-image {
+    width: 100%;
+    aspect-ratio: 1;
+    background-size: cover;
+    background-position: center;
+    background-color: #111;
+}
+
+.character-image.no-image {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    color: #555;
+}
+
+.character-name {
+    padding: 8px 6px;
+    font-size: 0.7rem;
+    text-align: center;
+    color: #e0e0e0;
+    background: #0f0f0f;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Плейсхолдер для пустого места */
+.placeholder-card {
+    width: 100px;
+    background: #0a0a0a;
+    border-radius: 14px;
+    border: 1px dashed #2a2a2a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: default;
+}
+
+.placeholder-icon {
+    font-size: 2rem;
+    opacity: 0.3;
+}
+
+.placeholder-text {
+    font-size: 0.6rem;
+    color: #444;
+    text-align: center;
+    padding: 0 5px 8px 5px;
+}
+
+/* Нераспределённые персонажи */
+.undistributed-section {
+    background: #0f0f0f;
+    border-radius: 20px;
+    border: 1px solid #2a2a2a;
+    margin-top: 8px;
+}
+
+.undistributed-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    background: #141414;
+    border-bottom: 1px solid #2a2a2a;
+    font-weight: 600;
+    color: #aaa;
+}
+
+.undistributed-characters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    padding: 18px;
+    min-height: 120px;
+    background: #0c0c0c;
+}
+
+.undistributed-characters.drag-over {
+    background: #161616;
+    outline: 2px dashed #8B7355;
+    outline-offset: -2px;
+}
+
+.distribute-all-btn {
+    background: none;
+    border: 1px solid #8B7355;
+    border-radius: 20px;
+    padding: 4px 12px;
+    color: #8B7355;
+    cursor: pointer;
+    font-size: 0.7rem;
+    transition: all 0.2s;
+}
+
+.distribute-all-btn:hover {
+    background: #8B7355;
+    color: white;
+}
+
+/* Панель управления внизу */
+.tierlist-controls {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid #2a2a2a;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+/* Формы внутри модалки */
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #aaa;
+    font-size: 0.85rem;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 12px 16px;
+    background: #0a0a0a;
+    border: 1px solid #2a2a2a;
+    border-radius: 12px;
+    color: #e0e0e0;
+    font-size: 0.9rem;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #8B7355;
+}
+
+.color-input {
+    width: 80px;
+    height: 45px;
+    padding: 4px;
+}
+
+.tierlist-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 16px 24px 24px;
+    border-top: 1px solid #2a2a2a;
+}
+
+/* Загрузка */
+.tierlist-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px;
+    gap: 16px;
+    color: #666;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #2a2a2a;
+    border-top-color: #8B7355;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.tierlist-error {
+    text-align: center;
+    padding: 40px;
+    color: #a0522d;
+}
+
+.tierlist-empty {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+}
+
+/* Режим только для чтения */
+.tierlist-container.readonly .character-card {
+    cursor: default;
+    opacity: 0.9;
+}
+
+/* Оверлей */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(4px);
+    z-index: 9999;
+    display: none;
+}
+
+body.modal-open {
+    overflow: hidden;
+}
+
+/* Скроллбар */
+.tierlist-modal-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.tierlist-modal-content::-webkit-scrollbar-track {
+    background: #0a0a0a;
+    border-radius: 3px;
+}
+
+.tierlist-modal-content::-webkit-scrollbar-thumb {
+    background: #2a2a2a;
+    border-radius: 3px;
+}
+
+.tierlist-modal-content::-webkit-scrollbar-thumb:hover {
+    background: #8B7355;
+}

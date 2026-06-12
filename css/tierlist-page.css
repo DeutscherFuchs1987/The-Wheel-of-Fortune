@@ -1,0 +1,496 @@
+/* ========== СТРАНИЦА ТИР-ЛИСТА ========== */
+
+.tierlist-app {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px 32px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Шапка */
+.tierlist-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 24px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid #2a2a2a;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.back-btn {
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    padding: 8px 20px;
+    border-radius: 40px;
+    color: #ccc;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.back-btn:hover {
+    border-color: #8B7355;
+    color: #fff;
+}
+
+.anime-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.anime-icon {
+    font-size: 1.5rem;
+}
+
+.anime-info h1 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #e0e0e0;
+    margin: 0;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.save-status {
+    font-size: 0.75rem;
+    color: #666;
+    padding: 6px 12px;
+    background: #1a1a1a;
+    border-radius: 30px;
+}
+
+.save-status.saving {
+    color: #D4A85C;
+}
+
+.save-status.saved {
+    color: #4CAF50;
+}
+
+.save-status.error {
+    color: #C75C5C;
+}
+
+.save-btn {
+    background: #8B7355;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 40px;
+    color: white;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.save-btn:hover {
+    background: #6B5B4A;
+    transform: translateY(-2px);
+}
+
+/* Основной контент */
+.tierlist-main {
+    flex: 1;
+}
+
+.tiers-container {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+/* Карточка тира */
+.tier-card {
+    background: #0f0f0f;
+    border-radius: 20px;
+    border: 1px solid #2a2a2a;
+    overflow: hidden;
+    transition: all 0.2s;
+}
+
+.tier-card:hover {
+    border-color: #3a3a3a;
+}
+
+.tier-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    background: #141414;
+    border-bottom: 1px solid #2a2a2a;
+}
+
+.tier-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.tier-name {
+    font-size: 1.2rem;
+    font-weight: 700;
+    padding: 4px 14px;
+    border-radius: 30px;
+    letter-spacing: 0.5px;
+}
+
+.tier-count {
+    font-size: 0.75rem;
+    color: #666;
+    background: #1a1a1a;
+    padding: 2px 8px;
+    border-radius: 20px;
+}
+
+.tier-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.tier-action-btn {
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 6px 12px;
+    color: #888;
+    cursor: pointer;
+    font-size: 0.75rem;
+    transition: all 0.2s;
+}
+
+.tier-action-btn:hover {
+    border-color: #8B7355;
+    color: #8B7355;
+}
+
+/* Контейнер для персонажей */
+.tier-characters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    padding: 20px;
+    min-height: 140px;
+    background: #0c0c0c;
+    transition: background 0.2s;
+}
+
+.tier-characters.drag-over {
+    background: #161616;
+    outline: 2px dashed #8B7355;
+    outline-offset: -2px;
+}
+
+/* Карточка персонажа */
+.character-card {
+    width: 100px;
+    background: #141414;
+    border-radius: 14px;
+    overflow: hidden;
+    cursor: grab;
+    transition: all 0.2s;
+    border: 1px solid #2a2a2a;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+.character-card:active {
+    cursor: grabbing;
+}
+
+.character-card.dragging {
+    opacity: 0.4;
+}
+
+.character-card.drag-over {
+    border: 2px solid #D4A85C;
+    transform: scale(1.02);
+}
+
+.character-image {
+    width: 100%;
+    aspect-ratio: 1;
+    background-size: cover;
+    background-position: center;
+    background-color: #111;
+}
+
+.character-image.no-image {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    color: #555;
+}
+
+.character-name {
+    padding: 8px 6px;
+    font-size: 0.7rem;
+    text-align: center;
+    color: #e0e0e0;
+    background: #0f0f0f;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Плейсхолдер */
+.placeholder-card {
+    width: 100px;
+    background: #0a0a0a;
+    border-radius: 14px;
+    border: 1px dashed #2a2a2a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: default;
+}
+
+.placeholder-icon {
+    font-size: 2rem;
+    opacity: 0.3;
+}
+
+.placeholder-text {
+    font-size: 0.6rem;
+    color: #444;
+    text-align: center;
+    padding: 0 5px 8px 5px;
+}
+
+/* Нераспределённые персонажи */
+.undistributed-section {
+    background: #0f0f0f;
+    border-radius: 20px;
+    border: 1px solid #2a2a2a;
+    margin-top: 8px;
+}
+
+.undistributed-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    background: #141414;
+    border-bottom: 1px solid #2a2a2a;
+    font-weight: 600;
+    color: #aaa;
+}
+
+.undistributed-characters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    padding: 20px;
+    min-height: 120px;
+    background: #0c0c0c;
+}
+
+.undistributed-characters.drag-over {
+    background: #161616;
+    outline: 2px dashed #8B7355;
+    outline-offset: -2px;
+}
+
+.distribute-all-btn {
+    background: none;
+    border: 1px solid #8B7355;
+    border-radius: 20px;
+    padding: 4px 12px;
+    color: #8B7355;
+    cursor: pointer;
+    font-size: 0.7rem;
+    transition: all 0.2s;
+}
+
+.distribute-all-btn:hover {
+    background: #8B7355;
+    color: white;
+}
+
+/* Панель добавления тира */
+.add-tier-panel {
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid #2a2a2a;
+    display: flex;
+    justify-content: center;
+}
+
+.add-tier-btn {
+    background: #1a1a1a;
+    border: 1px dashed #8B7355;
+    padding: 12px 32px;
+    border-radius: 40px;
+    color: #8B7355;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.add-tier-btn:hover {
+    background: #8B7355;
+    color: white;
+    border: 1px solid #8B7355;
+}
+
+/* Модалка тира */
+.tier-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10001;
+    width: 90%;
+    max-width: 450px;
+    background: #111;
+    border-radius: 24px;
+    border: 1px solid #2a2a2a;
+    display: none;
+}
+
+.tier-modal-content {
+    padding: 24px;
+}
+
+.tier-modal-content h3 {
+    color: #8B7355;
+    margin-bottom: 20px;
+    font-size: 1.2rem;
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 20px;
+}
+
+/* Загрузка */
+.loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px;
+    gap: 16px;
+    color: #666;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #2a2a2a;
+    border-top-color: #8B7355;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Сообщения */
+.toast-message {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    z-index: 1000;
+    display: none;
+    animation: slideUp 0.3s ease;
+}
+
+.toast-message.success {
+    background: rgba(30, 30, 30, 0.95);
+    color: #8B7355;
+    border-left: 3px solid #8B7355;
+}
+
+.toast-message.error {
+    background: rgba(30, 30, 30, 0.95);
+    color: #a0522d;
+    border-left: 3px solid #a0522d;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Оверлей */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(4px);
+    z-index: 9999;
+    display: none;
+}
+
+/* Адаптация */
+@media (max-width: 768px) {
+    .tierlist-app {
+        padding: 16px 20px;
+    }
+    
+    .tierlist-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .header-right {
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    .character-card {
+        width: 80px;
+    }
+    
+    .placeholder-card {
+        width: 80px;
+    }
+}
+
+@media (max-width: 480px) {
+    .character-card {
+        width: 70px;
+    }
+    
+    .placeholder-card {
+        width: 70px;
+    }
+    
+    .tier-name {
+        font-size: 1rem;
+    }
+}
