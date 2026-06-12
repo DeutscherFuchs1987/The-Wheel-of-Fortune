@@ -659,7 +659,8 @@
     }
 
     // ========== ОТКРЫТИЕ МОДАЛКИ С ОЦЕНКАМИ ==========
-    window.openRatingModal = function (projectId) {
+    // ========== ОТКРЫТИЕ МОДАЛКИ С ОЦЕНКАМИ ==========
+    window.openRatingModal = async function (projectId) {
         const project = myProjects.find(p => p.id === projectId);
         if (!project) return;
 
@@ -683,7 +684,8 @@
                         rating: userData.ratings[projectId].rating,
                         notes: userData.ratings[projectId].notes || '',
                         avatar: userData.avatar,
-                        avatar_type: userData.avatar_type
+                        avatar_type: userData.avatar_type,
+                        user_id: userData.user_id  // Убедись, что user_id есть
                     };
                 }
             }
@@ -693,7 +695,8 @@
                     rating: userRatings[projectId].rating,
                     notes: userRatings[projectId].notes || '',
                     avatar: currentUser?.avatar,
-                    avatar_type: currentUser?.avatar_type
+                    avatar_type: currentUser?.avatar_type,
+                    user_id: currentUser?.id
                 };
             }
         }
@@ -704,7 +707,9 @@
                 username: username,
                 rating: ratingData.rating,
                 notes: ratingData.notes || '',
-                avatar: ratingData.avatar
+                avatar: ratingData.avatar,
+                user_id: ratingData.user_id,
+                mal_id: project.mal_id
             });
         }
 
@@ -721,10 +726,21 @@
                 let hasTierList = false;
                 try {
                     const token = localStorage.getItem('auth_token');
-                    const checkResponse = await fetch(`${API_URL}/api/tierlist/${project.id}/user/${user.user_id}`, {
-                        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-                    });
-                    hasTierList = checkResponse.ok && checkResponse.status !== 404;
+                    if (!token) {
+                        console.warn('Нет токена авторизации');
+                    }
+
+                    // ИСПРАВЛЕНИЕ ЗДЕСЬ: используем mal_id вместо project.id
+                    const malId = project.mal_id;
+                    if (!malId) {
+                        console.warn(`Нет MAL ID для проекта ${project.id}`);
+                        hasTierList = false;
+                    } else {
+                        const checkResponse = await fetch(`${API_URL}/api/tierlist/${malId}/user/${user.user_id}`, {
+                            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+                        });
+                        hasTierList = checkResponse.ok && checkResponse.status !== 404;
+                    }
                 } catch (e) {
                     hasTierList = false;
                 }
@@ -753,49 +769,48 @@
             })).then(html => html.join(''))
             : '<div class="rating-row"><div class="rating-header"><span class="rating-name">Пока нет оценок</span></div></div>';
 
-
         modalContent.innerHTML = `
-            <div class="modal-header">
-                ${posterHtml}
-                <div class="modal-info">
-                    <div class="modal-title">${escapeHtml(project.title_ru || project.title)}</div>
-                    <div class="modal-year">${project.year || '—'}</div>
-                    <div class="modal-kp-rating">Кинопоиск: ${project.rating || '—'}</div>
-                </div>
+        <div class="modal-header">
+            ${posterHtml}
+            <div class="modal-info">
+                <div class="modal-title">${escapeHtml(project.title_ru || project.title)}</div>
+                <div class="modal-year">${project.year || '—'}</div>
+                <div class="modal-kp-rating">Кинопоиск: ${project.rating || '—'}</div>
             </div>
-            
-            <div class="ratings-container">
-                <h3>⭐ Оценки участников</h3>
-                ${ratingsHtml}
-            </div>
-            
-            ${currentUserRating ? `
-                <div class="my-rating-section">
-                    <h3>🎯 Ваша оценка</h3>
-                    <div class="rating-row">
-                        <div class="rating-header">
-                            <div class="rating-user-info" style="display:flex;align-items:center;gap:10px;">
-                                ${getAvatarHtml(currentUser.username, currentUser?.avatar, 36)}
-                                <span class="rating-name">${escapeHtml(currentUser.username)}</span>
-                            </div>
-                            <span class="rating-display ${getRatingClass(currentUserRating.rating)}">
-                                ${formatRating(currentUserRating.rating)}
-                            </span>
+        </div>
+        
+        <div class="ratings-container">
+            <h3>⭐ Оценки участников</h3>
+            ${ratingsHtml}
+        </div>
+        
+        ${currentUserRating ? `
+            <div class="my-rating-section">
+                <h3>🎯 Ваша оценка</h3>
+                <div class="rating-row">
+                    <div class="rating-header">
+                        <div class="rating-user-info" style="display:flex;align-items:center;gap:10px;">
+                            ${getAvatarHtml(currentUser.username, currentUser?.avatar, 36)}
+                            <span class="rating-name">${escapeHtml(currentUser.username)}</span>
                         </div>
-                        ${currentUserRating.notes ? `<div class="rating-notes">📝 ${escapeHtml(currentUserRating.notes)}</div>` : ''}
-                        <button class="rate-btn" onclick="window.editMyRating('${projectId}')">✏️ Изменить оценку</button>
+                        <span class="rating-display ${getRatingClass(currentUserRating.rating)}">
+                            ${formatRating(currentUserRating.rating)}
+                        </span>
                     </div>
+                    ${currentUserRating.notes ? `<div class="rating-notes">📝 ${escapeHtml(currentUserRating.notes)}</div>` : ''}
+                    <button class="rate-btn" onclick="window.editMyRating('${projectId}')">✏️ Изменить оценку</button>
                 </div>
-            ` : `
-                <div class="my-rating-section">
-                    <button class="rate-btn" onclick="window.rateThisFilm('${projectId}')">⭐ Оценить фильм</button>
-                </div>
-            `}
-            
-            <div class="modal-footer">
-                <button class="btn-outline" onclick="window.closeRatingModal()">Закрыть</button>
             </div>
-        `;
+        ` : `
+            <div class="my-rating-section">
+                <button class="rate-btn" onclick="window.rateThisFilm('${projectId}')">⭐ Оценить фильм</button>
+            </div>
+        `}
+        
+        <div class="modal-footer">
+            <button class="btn-outline" onclick="window.closeRatingModal()">Закрыть</button>
+        </div>
+    `;
 
         // Показываем модалку
         ratingModal.classList.add('active');
@@ -1040,29 +1055,24 @@
     initBackToTop();
 
 
-    window.openTierListViewerFromRating = async function (animeId, animeTitle, userId, username) {
+    // ========== ОТКРЫТИЕ СТРАНИЦЫ ТИР-ЛИСТА ИЗ ОЦЕНОК ==========
+    window.openTierListViewerFromRating = function (animeId, animeTitle, userId, username) {
         if (!currentUser) {
             showError('Требуется авторизация');
             return;
         }
 
-        // Проверяем, есть ли тир-лист
-        const token = localStorage.getItem('auth_token');
-        const checkResponse = await fetch(`${API_URL}/api/tierlist/${animeId}/user/${userId}`, {
-            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-        });
+        // Находим проект, чтобы получить mal_id
+        const project = myProjects.find(p => p.id === animeId);
+        const malId = project?.mal_id;
 
-        if (checkResponse.status === 404) {
-            showError(`Пользователь ${username} ещё не создал тир-лист для этого аниме`, 'error');
+        if (!malId) {
+            showError(`Для аниме "${animeTitle}" не найден MAL ID. Возможно, оно было добавлено до внедрения этой функции. Попробуйте переустановить тип на "Аниме" и сохранить.`, 'error');
             return;
         }
 
-        if (!checkResponse.ok) {
-            showError('Ошибка загрузки тир-листа', 'error');
-            return;
-        }
-
-        await window.openTierListViewer(animeId, animeTitle, userId, username);
+        // Открываем страницу просмотра тир-листа (режим только для чтения)
+        window.open(`tierlist.html?anime_id=${malId}&user_id=${userId}`, '_blank');
     };
 
 

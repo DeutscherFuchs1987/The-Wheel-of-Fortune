@@ -26,6 +26,9 @@ const addTierBtn = document.getElementById('addTierBtn');
 const tierModal = document.getElementById('tierModal');
 const modalOverlay = document.getElementById('modalOverlay');
 let currentEditTierId = null;
+const authorInfoDiv = document.getElementById('authorInfo');
+const authorAvatar = document.getElementById('authorAvatar');
+const authorName = document.getElementById('authorName');
 
 // ========== ИНИЦИАЛИЗАЦИЯ ==========
 
@@ -34,22 +37,59 @@ async function init() {
         showError('ID аниме не указан');
         return;
     }
-    
+
     await loadCharacters();
     await loadTierList();
-    
+
     if (isViewMode) {
+        // Режим только для просмотра
         saveBtn.style.display = 'none';
         addTierBtn.style.display = 'none';
         const addPanel = document.querySelector('.add-tier-panel');
         if (addPanel) addPanel.style.display = 'none';
         const saveStatusEl = document.querySelector('.header-right .save-status');
         if (saveStatusEl) saveStatusEl.style.display = 'none';
+
+        // Загружаем информацию об авторе
+        if (viewUserId) {
+            const author = await loadAuthorInfo(viewUserId);
+            if (author) {
+                authorInfoDiv.style.display = 'flex';
+                authorName.textContent = author.username;
+
+                if (author.avatar) {
+                    authorAvatar.innerHTML = `<img src="${author.avatar}" alt="${author.username}">`;
+                } else {
+                    const initials = author.username.substring(0, 2).toUpperCase();
+                    authorAvatar.innerHTML = `<div class="avatar-placeholder">${initials}</div>`;
+                }
+            }
+        }
     }
-    
+
     render();
     setupAutoScroll();
 }
+
+async function loadAuthorInfo(userId) {
+    if (!userId) return null;
+
+    try {
+        const token = localStorage.getItem('auth_token');
+        const response = await fetch(`${TIERLIST_API_URL}/api/user/${userId}`, {
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+
+        if (response.ok) {
+            const user = await response.json();
+            return user;
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки информации об авторе:', error);
+    }
+    return null;
+}
+
 
 async function loadCharacters() {
     try {
@@ -59,27 +99,27 @@ async function loadCharacters() {
                 <p>Загрузка персонажей...</p>
             </div>
         `;
-        
+
         const response = await fetch(`${TIERLIST_API_URL}/api/anime/${animeId}/characters`);
         const data = await response.json();
-        
+
         if (!data.success) {
             throw new Error(data.error || 'Ошибка загрузки');
         }
-        
+
         characters = data.characters.map(char => ({
             id: char.id,
             name: char.name,
-            image: char.image_url.startsWith('/') 
+            image: char.image_url.startsWith('/')
                 ? `${TIERLIST_API_URL}${char.image_url}`
                 : char.image_url
         }));
-        
+
         // Устанавливаем название аниме
         if (characters.length > 0) {
             animeTitleEl.textContent = `Аниме #${animeId}`;
         }
-        
+
         return true;
     } catch (error) {
         console.error('Ошибка загрузки персонажей:', error);
@@ -94,14 +134,14 @@ async function loadTierList() {
         if (isViewMode && viewUserId) {
             url = `${TIERLIST_API_URL}/api/tierlist/${animeId}/user/${viewUserId}`;
         }
-        
+
         const token = localStorage.getItem('auth_token');
         const response = await fetch(url, {
             headers: token ? { 'Authorization': `Bearer ${token}` } : {}
         });
-        
+
         const data = await response.json();
-        
+
         if (data.success && data.tiers) {
             if (data.tiers.S !== undefined) {
                 convertFromOldFormat(data.tiers);
@@ -128,7 +168,7 @@ function initDefaultTiers() {
         { name: 'C', color: '#8B7355' },
         { name: 'D', color: '#5C9E5C' }
     ];
-    
+
     tiers = defaultTiers.map((tier, idx) => ({
         id: generateId(),
         name: tier.name,
@@ -144,7 +184,7 @@ function convertFromOldFormat(oldTiers) {
     const colors = {
         S: '#C75C5C', A: '#D4885C', B: '#D4A85C', C: '#8B7355', D: '#5C9E5C'
     };
-    
+
     order.forEach((tierName, idx) => {
         tiers.push({
             id: generateId(),
@@ -185,7 +225,7 @@ function getDataForSave() {
         position: tier.position,
         characters: tier.characters.map(c => c.id)
     }));
-    
+
     const charactersData = {};
     for (const char of characters) {
         charactersData[char.id] = {
@@ -193,21 +233,21 @@ function getDataForSave() {
             image: char.image
         };
     }
-    
+
     return { tiers: tiersData, characters_data: charactersData };
 }
 
 async function save() {
     if (isViewMode) return false;
     if (isSaving) return false;
-    
+
     isSaving = true;
     saveStatus.textContent = '💾 Сохранение...';
     saveStatus.className = 'save-status saving';
     saveBtn.disabled = true;
-    
+
     const saveData = getDataForSave();
-    
+
     try {
         const token = localStorage.getItem('auth_token');
         const response = await fetch(`${TIERLIST_API_URL}/api/tierlist/${animeId}`, {
@@ -218,9 +258,9 @@ async function save() {
             },
             body: JSON.stringify(saveData)
         });
-        
+
         const data = await response.json();
-        
+
         if (data.success) {
             saveStatus.textContent = '✅ Сохранено';
             saveStatus.className = 'save-status saved';
@@ -323,14 +363,14 @@ function moveTierDown(tierId) {
 
 function render() {
     tiersContainer.innerHTML = '';
-    
+
     const sortedTiers = [...tiers].sort((a, b) => a.position - b.position);
-    
+
     for (const tier of sortedTiers) {
         const tierEl = createTierElement(tier);
         tiersContainer.appendChild(tierEl);
     }
-    
+
     const undistributed = getUndistributedCharacters();
     const undistributedEl = createUndistributedElement(undistributed);
     tiersContainer.appendChild(undistributedEl);
@@ -340,7 +380,7 @@ function createTierElement(tier) {
     const tierDiv = document.createElement('div');
     tierDiv.className = 'tier-card';
     tierDiv.dataset.tierId = tier.id;
-    
+
     const header = document.createElement('div');
     header.className = 'tier-header';
     header.innerHTML = `
@@ -357,38 +397,38 @@ function createTierElement(tier) {
             </div>
         ` : ''}
     `;
-    
+
     const charactersContainer = document.createElement('div');
     charactersContainer.className = 'tier-characters';
     charactersContainer.dataset.tierId = tier.id;
-    
+
     for (const char of tier.characters) {
         const card = createCharacterCard(char, tier.id);
         charactersContainer.appendChild(card);
     }
-    
+
     const placeholderCount = Math.max(0, 4 - tier.characters.length);
     for (let i = 0; i < placeholderCount; i++) {
         charactersContainer.appendChild(createPlaceholderCard());
     }
-    
+
     tierDiv.appendChild(header);
     tierDiv.appendChild(charactersContainer);
-    
+
     if (!isViewMode) {
         setupDropZone(charactersContainer, tier.id);
-        
+
         const moveUpBtn = header.querySelector('.move-up');
         const moveDownBtn = header.querySelector('.move-down');
         const editBtn = header.querySelector('.edit');
         const deleteBtn = header.querySelector('.delete');
-        
+
         if (moveUpBtn) moveUpBtn.onclick = () => moveTierUp(tier.id);
         if (moveDownBtn) moveDownBtn.onclick = () => moveTierDown(tier.id);
         if (editBtn) editBtn.onclick = () => openTierModal(tier.id);
         if (deleteBtn) deleteBtn.onclick = () => deleteTier(tier.id);
     }
-    
+
     return tierDiv;
 }
 
@@ -398,16 +438,16 @@ function createCharacterCard(character, currentTierId) {
     card.setAttribute('draggable', !isViewMode);
     card.setAttribute('data-id', character.id);
     card.setAttribute('data-tier-id', currentTierId);
-    
+
     const hasImage = character.image && !character.image.includes('undefined') && character.image !== '';
-    
+
     card.innerHTML = `
         <div class="character-image ${!hasImage ? 'no-image' : ''}" style="${hasImage ? `background-image: url('${character.image}'); background-size: cover; background-position: center;` : ''}">
             ${!hasImage ? '🎭' : ''}
         </div>
         <div class="character-name" title="${escapeHtml(character.name)}">${escapeHtml(character.name)}</div>
     `;
-    
+
     if (!isViewMode) {
         card.addEventListener('dragstart', (e) => {
             draggedItem = { character, sourceTierId: currentTierId };
@@ -415,58 +455,58 @@ function createCharacterCard(character, currentTierId) {
             e.dataTransfer.effectAllowed = 'move';
             card.classList.add('dragging');
         });
-        
+
         card.addEventListener('dragend', () => {
             draggedItem = null;
             card.classList.remove('dragging');
         });
-        
+
         card.addEventListener('dragover', (e) => {
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
         });
-        
+
         card.addEventListener('dragenter', (e) => {
             e.preventDefault();
             card.classList.add('drag-over');
         });
-        
+
         card.addEventListener('dragleave', () => {
             card.classList.remove('drag-over');
         });
-        
+
         card.addEventListener('drop', (e) => {
             e.preventDefault();
             e.stopPropagation();
             card.classList.remove('drag-over');
-            
+
             if (!draggedItem) return;
-            
+
             const { character: sourceChar, sourceTierId } = draggedItem;
             if (sourceChar.id === character.id) return;
-            
+
             const targetTier = tiers.find(t => t.id === currentTierId);
             if (!targetTier) return;
-            
+
             if (sourceTierId !== 'undistributed') {
                 const sourceTier = tiers.find(t => t.id === sourceTierId);
                 if (sourceTier) {
                     sourceTier.characters = sourceTier.characters.filter(c => c.id !== sourceChar.id);
                 }
             }
-            
+
             const targetIndex = targetTier.characters.findIndex(c => c.id === character.id);
             if (targetIndex !== -1) {
                 targetTier.characters.splice(targetIndex, 0, sourceChar);
             } else {
                 targetTier.characters.push(sourceChar);
             }
-            
+
             render();
             autoSave();
         });
     }
-    
+
     return card;
 }
 
@@ -483,35 +523,35 @@ function createPlaceholderCard() {
 function createUndistributedElement(characters) {
     const section = document.createElement('div');
     section.className = 'undistributed-section';
-    
+
     const header = document.createElement('div');
     header.className = 'undistributed-header';
     header.innerHTML = `
         <span>🎲 Нераспределённые персонажи</span>
         ${!isViewMode ? `<button class="distribute-all-btn">Распределить всех в последний тир</button>` : ''}
     `;
-    
+
     const container = document.createElement('div');
     container.className = 'undistributed-characters';
     container.dataset.tierId = 'undistributed';
-    
+
     for (const char of characters) {
         const card = createCharacterCard(char, 'undistributed');
         container.appendChild(card);
     }
-    
+
     section.appendChild(header);
     section.appendChild(container);
-    
+
     if (!isViewMode) {
         setupDropZone(container, 'undistributed');
-        
+
         const distributeBtn = header.querySelector('.distribute-all-btn');
         if (distributeBtn) {
             distributeBtn.onclick = () => distributeAllToLastTier();
         }
     }
-    
+
     return section;
 }
 
@@ -519,11 +559,11 @@ function distributeAllToLastTier() {
     if (tiers.length === 0) return;
     const lastTier = [...tiers].sort((a, b) => a.position - b.position).pop();
     const undistributed = getUndistributedCharacters();
-    
+
     for (const char of undistributed) {
         lastTier.characters.push(char);
     }
-    
+
     render();
     autoSave();
     showToast(`Персонажи перемещены в тир "${lastTier.name}"`);
@@ -539,17 +579,17 @@ let dragActiveGlobal = false;
 function setupAutoScroll() {
     const handleDragMove = (e) => {
         if (!dragActiveGlobal) return;
-        
+
         const scrollZone = 80;
         const scrollSpeed = 15;
         const windowHeight = window.innerHeight;
         const mouseY = e.clientY;
-        
+
         if (autoScrollInterval) {
             clearInterval(autoScrollInterval);
             autoScrollInterval = null;
         }
-        
+
         if (mouseY > windowHeight - scrollZone) {
             autoScrollInterval = setInterval(() => {
                 window.scrollBy(0, scrollSpeed);
@@ -560,25 +600,25 @@ function setupAutoScroll() {
             }, 16);
         }
     };
-    
+
     const stopAutoScroll = () => {
         if (autoScrollInterval) {
             clearInterval(autoScrollInterval);
             autoScrollInterval = null;
         }
     };
-    
+
     document.addEventListener('dragstart', () => {
         dragActiveGlobal = true;
     });
-    
+
     document.addEventListener('dragend', () => {
         dragActiveGlobal = false;
         stopAutoScroll();
     });
-    
+
     document.addEventListener('dragover', handleDragMove);
-    
+
     document.addEventListener('dragleave', (e) => {
         if (e.clientY <= 0 || e.clientY >= window.innerHeight) {
             stopAutoScroll();
@@ -603,33 +643,33 @@ function setupDropZone(container, tierId) {
         e.dataTransfer.dropEffect = 'move';
         container.classList.add('drag-over');
     });
-    
+
     container.addEventListener('dragleave', () => {
         container.classList.remove('drag-over');
     });
-    
+
     container.addEventListener('drop', (e) => {
         e.preventDefault();
         container.classList.remove('drag-over');
-        
+
         if (!draggedItem) return;
-        
+
         const { character, sourceTierId } = draggedItem;
-        
+
         if (sourceTierId !== 'undistributed') {
             const sourceTier = tiers.find(t => t.id === sourceTierId);
             if (sourceTier) {
                 sourceTier.characters = sourceTier.characters.filter(c => c.id !== character.id);
             }
         }
-        
+
         if (tierId !== 'undistributed') {
             const targetTier = tiers.find(t => t.id === tierId);
             if (targetTier) {
                 targetTier.characters.push(character);
             }
         }
-        
+
         render();
         autoSave();
     });
@@ -642,7 +682,7 @@ function openTierModal(tierId = null) {
     const title = document.getElementById('tierModalTitle');
     const nameInput = document.getElementById('tierName');
     const colorInput = document.getElementById('tierColor');
-    
+
     if (tierId) {
         const tier = tiers.find(t => t.id === tierId);
         if (tier) {
@@ -655,7 +695,7 @@ function openTierModal(tierId = null) {
         nameInput.value = '';
         colorInput.value = '#8B7355';
     }
-    
+
     tierModal.style.display = 'block';
     modalOverlay.style.display = 'block';
 }
@@ -669,18 +709,18 @@ function closeTierModal() {
 function confirmTier() {
     const name = document.getElementById('tierName').value.trim();
     const color = document.getElementById('tierColor').value;
-    
+
     if (!name) {
         showToast('Введите название тира', 'error');
         return;
     }
-    
+
     if (currentEditTierId) {
         editTier(currentEditTierId, name, color);
     } else {
         addTier(name, color);
     }
-    
+
     closeTierModal();
 }
 

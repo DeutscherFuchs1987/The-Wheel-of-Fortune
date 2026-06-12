@@ -494,3 +494,77 @@
         font-size: 1rem;
     }
 }
+
+
+/* Информация об авторе */
+.header-center {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+}
+
+.author-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #1a1a1a;
+    padding: 6px 16px;
+    border-radius: 40px;
+    border: 1px solid #2a2a2a;
+}
+
+.author-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #2a2a2a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.author-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.author-avatar .avatar-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #8B7355, #6B5B4A);
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.author-name {
+    font-size: 0.9rem;
+    color: #e0e0e0;
+    font-weight: 500;
+}
+
+/* Адаптация для мобильных */
+@media (max-width: 768px) {
+    .tierlist-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .header-left {
+        justify-content: space-between;
+    }
+    
+    .header-center {
+        order: 3;
+        margin-top: 10px;
+    }
+    
+    .author-info {
+        justify-content: center;
+    }
+}
